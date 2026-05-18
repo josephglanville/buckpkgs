@@ -1,0 +1,3 @@
+[tools]
+buck2 = { version = "2026-05-18", bin = "buck2" }
+"github:facebookincubator/reindeer" = "v2026.04.27.00"

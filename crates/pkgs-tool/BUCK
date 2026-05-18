@@ -1,0 +1,101 @@
+_COMMON_SRCS = [
+    "src/common.rs",
+]
+
+_BUILD_SRCS = _COMMON_SRCS + [
+    "src/build.rs",
+]
+
+_COMMON_DEPS = [
+    "//third-party/rust:clap",
+    "//third-party/rust:tempfile",
+    "//third-party/rust:thiserror",
+]
+
+rust_binary(
+    name = "pkgs_configure_make_install",
+    srcs = _BUILD_SRCS + [
+        "src/bin/pkgs_configure_make_install.rs",
+        "src/configure_make_install.rs",
+    ],
+    crate_root = "src/bin/pkgs_configure_make_install.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
+    name = "pkgs_make_install",
+    srcs = _BUILD_SRCS + [
+        "src/bin/pkgs_make_install.rs",
+        "src/make_install.rs",
+    ],
+    crate_root = "src/bin/pkgs_make_install.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
+    name = "pkgs_linux_headers_install",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_linux_headers_install.rs",
+        "src/linux_headers_install.rs",
+    ],
+    crate_root = "src/bin/pkgs_linux_headers_install.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
+    name = "pkgs_realize",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_realize.rs",
+        "src/realize.rs",
+    ],
+    crate_root = "src/bin/pkgs_realize.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
+    name = "pkgs_verify_no_refs",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_verify_no_refs.rs",
+        "src/verify_no_refs.rs",
+    ],
+    crate_root = "src/bin/pkgs_verify_no_refs.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
+    name = "pkgs_verify_elf_interpreters",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_verify_elf_interpreters.rs",
+        "src/verify_elf_interpreters.rs",
+    ],
+    crate_root = "src/bin/pkgs_verify_elf_interpreters.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
+    name = "pkgs_cc_wrapper_tree",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_cc_wrapper_tree.rs",
+        "src/cc_wrapper_tree.rs",
+    ],
+    crate_root = "src/bin/pkgs_cc_wrapper_tree.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
+    name = "pkgs_bintools_wrapper_tree",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_bintools_wrapper_tree.rs",
+        "src/bintools_wrapper_tree.rs",
+    ],
+    crate_root = "src/bin/pkgs_bintools_wrapper_tree.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)

@@ -1,0 +1,286 @@
+load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e",
+    strip_prefix = "gcc-15.2.0",
+    urls = ["https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/gcc-15.2.0.tar.xz"],
+)
+
+_STAGE0_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage0",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/archivers/gnutar:bin_stage0",
+    "//tools/text/diffutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//bootstrap/foreign_seed:gcc",
+]
+
+_STAGE1_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage0_wrapped",
+    "//development/compilers/gcc:out_stage0",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/archivers/gnutar:bin_stage0",
+    "//tools/text/diffutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+]
+
+_STAGE2_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage1_wrapped",
+    "//development/compilers/gcc:bin_stage1",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/archivers/gnutar:bin_stage0",
+    "//tools/text/diffutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+]
+
+_MATH_LIBS = [
+    "//development/libraries/gmp:out",
+    "//development/libraries/mpfr:out",
+    "//development/libraries/libmpc:out",
+]
+
+pkgs_configure_make_install_package(
+    name = "out_stage0",
+    package_name = "gcc",
+    version = "15.2.0",
+    source = ":source",
+    identity = "source-sha256-438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e-stage0-recipe-v3",
+    out_of_source = True,
+    configure_args = [
+        "--disable-bootstrap",
+        "--disable-multilib",
+        "--disable-nls",
+        "--disable-libsanitizer",
+        "--disable-libssp",
+        "--disable-libvtv",
+        "--disable-libitm",
+        "--disable-libquadmath",
+        "--disable-libgomp",
+        "--disable-libatomic",
+        "--disable-libstdcxx-pch",
+        "--without-isl",
+        "--without-included-gettext",
+        "--with-zstd=no",
+        "--enable-languages=c,c++",
+    ],
+    configure_arg_inputs = {
+        "--with-gmp={}": "//development/libraries/gmp:out",
+        "--with-mpfr={}": "//development/libraries/mpfr:out",
+        "--with-mpc={}": "//development/libraries/libmpc:out",
+    },
+    configure_env = [
+        "CC=cc",
+        "CXX=c++",
+        "AR=ar",
+        "AS=as",
+        "LD=ld",
+        "RANLIB=ranlib",
+        "CXXFLAGS=-fno-char8_t",
+    ],
+    make_args = [
+        "MAKEINFO=true",
+    ],
+    native_build_inputs = _STAGE0_NATIVE_TOOLS,
+    build_inputs = _MATH_LIBS,
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_stage0_seed_free",
+    packages = [":out_stage0"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+    ],
+)
+
+pkgs_configure_make_install_package(
+    name = "out_stage1",
+    package_name = "gcc",
+    version = "15.2.0",
+    source = ":source",
+    identity = "source-sha256-438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e-stage1-recipe-v10",
+    out_of_source = True,
+    configure_args = [
+        "--disable-bootstrap",
+        "--disable-multilib",
+        "--disable-nls",
+        "--disable-libsanitizer",
+        "--disable-libssp",
+        "--disable-libvtv",
+        "--disable-libitm",
+        "--disable-libquadmath",
+        "--disable-libgomp",
+        "--disable-libatomic",
+        "--disable-libstdcxx-pch",
+        "--disable-default-pie",
+        "--without-isl",
+        "--without-included-gettext",
+        "--with-zstd=no",
+        "--enable-languages=c,c++",
+        "--with-native-system-header-dir=/include",
+    ],
+    configure_arg_inputs = {
+        "--with-gmp={}": "//development/libraries/gmp:out",
+        "--with-mpfr={}": "//development/libraries/mpfr:out",
+        "--with-mpc={}": "//development/libraries/libmpc:out",
+        "--with-build-sysroot={}": "//development/libraries/glibc:out_stage1",
+    },
+    configure_env = [
+        "CC=gcc",
+        "CXX=g++",
+        "AR=ar",
+        "AS=as",
+        "LD=ld",
+        "RANLIB=ranlib",
+        "CXXFLAGS=-fno-char8_t",
+    ],
+    configure_env_inputs = {
+        "CPPFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
+        "CFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
+        "CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter {}/include": "//os-specific/linux/kernel-headers:out",
+        "FLAGS_FOR_TARGET=-B{}/lib": "//development/libraries/glibc:out_stage1",
+    },
+    configure_env_inputs_multi = {
+        "LDFLAGS=-Wl,-rpath,{}/lib -Wl,-rpath,{}/lib -Wl,-rpath,{}/lib": _MATH_LIBS,
+    },
+    make_args = [
+        "MAKEINFO=true",
+    ],
+    native_build_inputs = _STAGE1_NATIVE_TOOLS,
+    build_inputs = _MATH_LIBS + [
+        "//development/libraries/glibc:out_stage1",
+        "//os-specific/linux/kernel-headers:out",
+    ],
+    runtime_inputs = _MATH_LIBS + [
+        "//development/libraries/glibc:out_stage1",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_stage1_seed_free",
+    packages = [":out_stage1"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+    ],
+)
+
+pkgs_cc_wrapper_package(
+    name = "bin_stage1",
+    package_name = "gcc-wrapper",
+    version = "15.2.0",
+    identity = "stage1-wrapper-v0",
+    cc = ":out_stage1",
+    bintools = "//development/tools/misc/binutils:bin_stage0_wrapped",
+    headers = "//os-specific/linux/kernel-headers:out",
+    libc = "//development/libraries/glibc:out_stage1",
+    shell = "//shells/bash:bin_stage2",
+    visibility = ["PUBLIC"],
+)
+
+pkgs_configure_make_install_package(
+    name = "out_stage2",
+    package_name = "gcc",
+    version = "15.2.0",
+    source = ":source",
+    identity = "source-sha256-438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e-stage2-recipe-v2",
+    out_of_source = True,
+    configure_args = [
+        "--disable-bootstrap",
+        "--disable-multilib",
+        "--disable-nls",
+        "--disable-libsanitizer",
+        "--disable-libssp",
+        "--disable-libvtv",
+        "--disable-libitm",
+        "--disable-libquadmath",
+        "--disable-libgomp",
+        "--disable-libatomic",
+        # Match nixpkgs bootstrap behavior: libcc1 is a GDB plugin and otherwise
+        # keeps turnover outputs tied to the compiler that built them.
+        "--disable-libcc1",
+        "--disable-libstdcxx-pch",
+        "--disable-default-pie",
+        "--without-isl",
+        "--without-included-gettext",
+        "--with-zstd=no",
+        "--enable-languages=c,c++",
+        "--with-native-system-header-dir=/include",
+    ],
+    configure_arg_inputs = {
+        "--with-gmp={}": "//development/libraries/gmp:out",
+        "--with-mpfr={}": "//development/libraries/mpfr:out",
+        "--with-mpc={}": "//development/libraries/libmpc:out",
+        "--with-build-sysroot={}": "//development/libraries/glibc:out_stage1",
+    },
+    configure_env = [
+        "CC=gcc",
+        "CXX=g++",
+        "AR=ar",
+        "AS=as",
+        "LD=ld",
+        "RANLIB=ranlib",
+        "CXXFLAGS=-fno-char8_t",
+    ],
+    configure_env_inputs = {
+        "CPPFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
+        "CFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
+        "CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter {}/include": "//os-specific/linux/kernel-headers:out",
+        "FLAGS_FOR_TARGET=-B{}/lib": "//development/libraries/glibc:out_stage1",
+    },
+    configure_env_inputs_multi = {
+        "LDFLAGS=-Wl,-rpath,{}/lib -Wl,-rpath,{}/lib -Wl,-rpath,{}/lib": _MATH_LIBS,
+    },
+    make_args = [
+        "MAKEINFO=true",
+    ],
+    native_build_inputs = _STAGE2_NATIVE_TOOLS,
+    build_inputs = _MATH_LIBS + [
+        "//development/libraries/glibc:out_stage1",
+        "//os-specific/linux/kernel-headers:out",
+    ],
+    runtime_inputs = _MATH_LIBS + [
+        "//development/libraries/glibc:out_stage1",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_stage2_seed_free",
+    packages = [":out_stage2"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+    ],
+)
+
+pkgs_cc_wrapper_package(
+    name = "bin_stage2",
+    package_name = "gcc-wrapper",
+    version = "15.2.0",
+    identity = "stage2-wrapper-v0",
+    cc = ":out_stage2",
+    bintools = "//development/tools/misc/binutils:bin_stage1_wrapped",
+    headers = "//os-specific/linux/kernel-headers:out",
+    libc = "//development/libraries/glibc:out_stage1",
+    shell = "//shells/bash:bin_stage2",
+    visibility = ["PUBLIC"],
+)

@@ -1,0 +1,82 @@
+load("//rules:pkgs.bzl", "pkgs_elf_interpreters", "pkgs_package", "pkgs_seed_free")
+
+write_file(
+    name = "payload_file",
+    out = "payload",
+    content = ["built with a foreign input, but does not retain it"],
+)
+
+filegroup(
+    name = "payload_tree",
+    srcs = {
+        "share/payload": ":payload_file",
+    },
+    copy = True,
+)
+
+pkgs_package(
+    name = "build_only_dep",
+    package_name = "build-only-dep",
+    version = "0",
+    builder = "bootstrap-test-v0",
+    identity = "payload-v0",
+    src = ":payload_tree",
+    native_build_inputs = ["//bootstrap/foreign_seed:bash"],
+)
+
+pkgs_seed_free(
+    name = "build_only_dep_seed_free",
+    packages = [":build_only_dep"],
+    forbidden = ["//bootstrap/foreign_seed:bash"],
+)
+
+_FINAL_BASE = [
+    "//development/libraries/glibc:out_stage1",
+    "//development/tools/misc/binutils:bin_stage1",
+    "//development/compilers/gcc:out_stage2",
+    "//development/tools/build-managers/gnumake:bin",
+    "//shells/bash:bin",
+    "//tools/archivers/gnutar:bin",
+    "//tools/compression/bzip2:bin",
+    "//tools/compression/gzip:out",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/diffutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnupatch:bin",
+    "//tools/text/gnused:bin",
+]
+
+_FOREIGN_SEED = [
+    "//bootstrap/foreign_seed:bash",
+    "//bootstrap/foreign_seed:gnumake",
+    "//bootstrap/foreign_seed:gcc",
+    "//bootstrap/foreign_seed:binutils",
+    "//bootstrap/foreign_seed:coreutils",
+    "//bootstrap/foreign_seed:gnused",
+    "//bootstrap/foreign_seed:gnugrep",
+    "//bootstrap/foreign_seed:gawk",
+    "//bootstrap/foreign_seed:gnum4",
+    "//bootstrap/foreign_seed:bison",
+    "//bootstrap/foreign_seed:gettext",
+    "//bootstrap/foreign_seed:python3",
+    "//bootstrap/foreign_seed:gnutar",
+    "//bootstrap/foreign_seed:gzip",
+    "//bootstrap/foreign_seed:patch",
+    "//bootstrap/foreign_seed:diffutils",
+    "//bootstrap/foreign_seed:findutils",
+]
+
+pkgs_seed_free(
+    name = "final_base_seed_free",
+    packages = _FINAL_BASE,
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_elf_interpreters(
+    name = "final_base_pkgs_interpreters",
+    packages = _FINAL_BASE,
+    interpreter = "//development/libraries/glibc:out_stage1",
+    interpreter_relpath = "lib/ld-linux-x86-64.so.2",
+)

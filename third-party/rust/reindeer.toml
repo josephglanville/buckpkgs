@@ -1,0 +1,14 @@
+precise_srcs = true
+include_top_level = true
+include_workspace_members = true
+vendor = false
+
+[buck]
+file_name = "BUCK"
+rust_library = "cargo.rust_library"
+rust_binary = "cargo.rust_binary"
+
+buckfile_imports = """
+load("@prelude//rust:cargo_buildscript.bzl", "buildscript_run")
+load("@prelude//rust:cargo_package.bzl", "cargo")
+"""

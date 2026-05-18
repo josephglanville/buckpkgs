@@ -1,0 +1,86 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6",
+    strip_prefix = "gzip-1.14",
+    urls = ["https://ftp.gnu.org/gnu/gzip/gzip-1.14.tar.xz"],
+)
+
+_SEED = [
+    "//bootstrap/foreign_seed:bash",
+    "//bootstrap/foreign_seed:gnumake",
+    "//bootstrap/foreign_seed:gcc",
+    "//bootstrap/foreign_seed:binutils",
+    "//bootstrap/foreign_seed:coreutils",
+    "//bootstrap/foreign_seed:findutils",
+    "//bootstrap/foreign_seed:gnused",
+    "//bootstrap/foreign_seed:gnugrep",
+    "//bootstrap/foreign_seed:gawk",
+]
+
+_FINAL_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage1_wrapped",
+    "//development/compilers/gcc:bin_stage2",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+]
+
+pkgs_configure_make_install_package(
+    name = "out_stage0",
+    package_name = "gzip",
+    version = "1.14",
+    source = ":source",
+    identity = "source-sha256-01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6-recipe-v0",
+    configure_env = ["CC=cc"],
+    make_args = [
+        "SHELL=/bin/sh",
+        "GREP=grep",
+        "ZLESS_MAN=zless.1",
+        "ZLESS_PROG=zless",
+    ],
+    native_build_inputs = _SEED,
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_stage0_seed_free",
+    packages = [":out_stage0"],
+    forbidden = _SEED,
+)
+
+pkgs_configure_make_install_package(
+    name = "out_final",
+    package_name = "gzip",
+    version = "1.14",
+    source = ":source",
+    identity = "source-sha256-01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6-final-recipe-v0",
+    configure_env = ["CC=cc"],
+    make_args = [
+        "SHELL=bash",
+        "GREP=grep",
+        "ZLESS_MAN=zless.1",
+        "ZLESS_PROG=zless",
+    ],
+    native_build_inputs = _FINAL_NATIVE_TOOLS,
+    runtime_inputs = ["//development/libraries/glibc:out_stage1"],
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "out",
+    actual = ":out_final",
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_final_seed_free",
+    packages = [":out_final"],
+    forbidden = _SEED,
+)

@@ -1,0 +1,67 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "d1775e32e4628e64ef930f435b67bb63af7599acb6be2b335b9f19f16509f17f",
+    strip_prefix = "glibc-2.42",
+    urls = ["https://ftp.gnu.org/gnu/glibc/glibc-2.42.tar.xz"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage0",
+    "//development/compilers/gcc:out_stage0",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/diffutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//tools/compression/gzip:out_stage0",
+    "//bootstrap/foreign_seed:bison",
+    "//bootstrap/foreign_seed:gettext",
+    "//bootstrap/foreign_seed:python3",
+]
+
+pkgs_configure_make_install_package(
+    name = "out_stage1",
+    package_name = "glibc",
+    version = "2.42",
+    source = ":source",
+    identity = "source-sha256-d1775e32e4628e64ef930f435b67bb63af7599acb6be2b335b9f19f16509f17f-stage1-recipe-v2",
+    out_of_source = True,
+    configure_args = [
+        "--enable-add-ons",
+        "--disable-werror",
+        "--enable-kernel=3.10.0",
+    ],
+    configure_arg_inputs = {
+        "--with-headers={}/include": "//os-specific/linux/kernel-headers:out",
+    },
+    configure_env = [
+        "CC=gcc",
+        "CXX=g++",
+        "AR=ar",
+        "AS=as",
+        "LD=ld",
+        "RANLIB=ranlib",
+        "OBJCOPY=objcopy",
+        "OBJDUMP=objdump",
+    ],
+    native_build_inputs = _NATIVE_TOOLS,
+    build_inputs = [
+        "//os-specific/linux/kernel-headers:out",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_stage1_seed_free",
+    packages = [":out_stage1"],
+    forbidden = [
+        "//bootstrap/foreign_seed:bison",
+        "//bootstrap/foreign_seed:gettext",
+        "//bootstrap/foreign_seed:python3",
+    ],
+)

@@ -1,0 +1,46 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb",
+    strip_prefix = "gmp-6.3.0",
+    urls = ["https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.bz2"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage0",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//bootstrap/foreign_seed:gcc",
+    "//bootstrap/foreign_seed:gnum4",
+]
+
+pkgs_configure_make_install_package(
+    name = "out",
+    package_name = "gmp",
+    version = "6.3.0",
+    source = ":source",
+    identity = "source-sha256-ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb-recipe-v0",
+    configure_args = [
+        "--with-pic",
+        "--disable-cxx",
+        "CFLAGS=-std=c99",
+    ],
+    configure_env = ["CC=cc"],
+    native_build_inputs = _NATIVE_TOOLS,
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_seed_free",
+    packages = [":out"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:gnum4",
+    ],
+)

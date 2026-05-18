@@ -1,0 +1,48 @@
+load("//rules:pkgs.bzl", "pkgs_linux_headers_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "b726a4d15cf9ae06219b56d87820776e34d89fbc137e55fb54a9b9c3015b8f1e",
+    strip_prefix = "linux-6.18.7",
+    urls = ["https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.7.tar.xz"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage0",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//bootstrap/foreign_seed:gcc",
+]
+
+pkgs_linux_headers_package(
+    name = "out",
+    package_name = "linux-headers",
+    version = "6.18.7",
+    source = ":source",
+    identity = "source-sha256-b726a4d15cf9ae06219b56d87820776e34d89fbc137e55fb54a9b9c3015b8f1e-recipe-v0",
+    kernel_release = "6.18.7",
+    make_args = [
+        "ARCH=x86",
+        "SHELL=bash",
+        "HOSTCC=cc",
+        "HOSTCXX=c++",
+        "HOST_LFS_CFLAGS=-D_FILE_OFFSET_BITS=64",
+        "cc-version:=9999",
+        "cc-fullversion:=999999",
+    ],
+    native_build_inputs = _NATIVE_TOOLS,
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "out_seed_free",
+    packages = [":out"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+    ],
+)

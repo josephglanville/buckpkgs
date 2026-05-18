@@ -1,0 +1,107 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3",
+    strip_prefix = "make-4.4.1",
+    urls = ["https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//bootstrap/foreign_seed:gnumake",
+    "//bootstrap/foreign_seed:gcc",
+    "//bootstrap/foreign_seed:binutils",
+    "//bootstrap/foreign_seed:coreutils",
+    "//bootstrap/foreign_seed:findutils",
+    "//bootstrap/foreign_seed:gawk",
+]
+
+_FINAL_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage1_wrapped",
+    "//development/compilers/gcc:bin_stage2",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+]
+
+export_file(
+    name = "no_impure_bin_sh_patch",
+    src = "patches/0001-No-impure-bin-sh.patch",
+)
+
+export_file(
+    name = "remove_impure_dirs_patch",
+    src = "patches/0002-Remove-impure-dirs.patch",
+)
+
+pkgs_configure_make_install_package(
+    name = "bin_stage0",
+    package_name = "gnumake",
+    version = "4.4.1",
+    source = ":source",
+    identity = "source-sha256-dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3-purity-patches-v0",
+    configure_env = ["CC=cc"],
+    patches = [
+        ":no_impure_bin_sh_patch",
+        ":remove_impure_dirs_patch",
+    ],
+    native_build_inputs = _NATIVE_TOOLS,
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "bin_stage0_seed_free",
+    packages = [":bin_stage0"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gnumake",
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:binutils",
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:findutils",
+        "//bootstrap/foreign_seed:gawk",
+    ],
+)
+
+pkgs_configure_make_install_package(
+    name = "bin_final",
+    package_name = "gnumake",
+    version = "4.4.1",
+    source = ":source",
+    identity = "source-sha256-dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3-purity-patches-final-v0",
+    configure_env = ["CC=cc"],
+    patches = [
+        ":no_impure_bin_sh_patch",
+        ":remove_impure_dirs_patch",
+    ],
+    native_build_inputs = _FINAL_NATIVE_TOOLS,
+    runtime_inputs = ["//development/libraries/glibc:out_stage1"],
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "bin",
+    actual = ":bin_final",
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "bin_final_seed_free",
+    packages = [":bin_final"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gnumake",
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:binutils",
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:findutils",
+        "//bootstrap/foreign_seed:gawk",
+    ],
+)

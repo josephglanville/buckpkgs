@@ -1,0 +1,88 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25",
+    strip_prefix = "coreutils-9.10",
+    urls = ["https://ftp.gnu.org/gnu/coreutils/coreutils-9.10.tar.xz"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage0",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//bootstrap/foreign_seed:gcc",
+    "//bootstrap/foreign_seed:binutils",
+    "//bootstrap/foreign_seed:coreutils",
+]
+
+_FINAL_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage1_wrapped",
+    "//development/compilers/gcc:bin_stage2",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+]
+
+pkgs_configure_make_install_package(
+    name = "bin_stage0",
+    package_name = "coreutils",
+    version = "9.10",
+    source = ":source",
+    identity = "source-sha256-16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25-recipe-v0",
+    configure_env = [
+        "CC=cc",
+        "FORCE_UNSAFE_CONFIGURE=1",
+    ],
+    native_build_inputs = _NATIVE_TOOLS,
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "bin_stage0_seed_free",
+    packages = [":bin_stage0"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:binutils",
+        "//bootstrap/foreign_seed:coreutils",
+    ],
+)
+
+pkgs_configure_make_install_package(
+    name = "bin_final",
+    package_name = "coreutils",
+    version = "9.10",
+    source = ":source",
+    identity = "source-sha256-16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25-final-recipe-v0",
+    configure_env = [
+        "CC=cc",
+        "FORCE_UNSAFE_CONFIGURE=1",
+    ],
+    native_build_inputs = _FINAL_NATIVE_TOOLS,
+    runtime_inputs = ["//development/libraries/glibc:out_stage1"],
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "bin",
+    actual = ":bin_final",
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "bin_final_seed_free",
+    packages = [":bin_final"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:binutils",
+        "//bootstrap/foreign_seed:coreutils",
+    ],
+)

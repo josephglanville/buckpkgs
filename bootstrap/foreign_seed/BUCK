@@ -1,0 +1,112 @@
+load(":defs.bzl", "foreign_wrapped_package")
+
+foreign_wrapped_package(
+    name = "bash",
+    commands = ["bash"],
+)
+
+foreign_wrapped_package(
+    name = "gnumake",
+    commands = ["make"],
+)
+
+foreign_wrapped_package(
+    name = "gcc",
+    commands = ["c++", "cc", "g++", "gcc"],
+)
+
+foreign_wrapped_package(
+    name = "binutils",
+    commands = ["ar", "as", "ld", "nm", "ranlib"],
+)
+
+foreign_wrapped_package(
+    name = "coreutils",
+    commands = [
+        "basename",
+        "cat",
+        "chmod",
+        "cp",
+        "dirname",
+        "echo",
+        "env",
+        "expr",
+        "false",
+        "head",
+        "install",
+        "ln",
+        "ls",
+        "mkdir",
+        "mv",
+        "printf",
+        "pwd",
+        "rm",
+        "sort",
+        "touch",
+        "tr",
+        "true",
+        "uname",
+        "uniq",
+        "wc",
+    ],
+)
+
+foreign_wrapped_package(
+    name = "gnused",
+    commands = ["sed"],
+)
+
+foreign_wrapped_package(
+    name = "gnugrep",
+    commands = ["grep"],
+)
+
+foreign_wrapped_package(
+    name = "gawk",
+    commands = ["awk"],
+)
+
+foreign_wrapped_package(
+    name = "gnum4",
+    commands = ["m4"],
+)
+
+foreign_wrapped_package(
+    name = "bison",
+    commands = ["bison"],
+)
+
+foreign_wrapped_package(
+    name = "gettext",
+    commands = ["msgfmt"],
+)
+
+foreign_wrapped_package(
+    name = "python3",
+    commands = ["python3"],
+)
+
+foreign_wrapped_package(
+    name = "gnutar",
+    commands = ["tar"],
+)
+
+foreign_wrapped_package(
+    name = "gzip",
+    commands = ["gzip"],
+)
+
+foreign_wrapped_package(
+    name = "patch",
+    commands = ["patch"],
+)
+
+foreign_wrapped_package(
+    name = "diffutils",
+    commands = ["cmp", "diff", "diff3", "sdiff"],
+)
+
+foreign_wrapped_package(
+    name = "findutils",
+    commands = ["find", "xargs"],
+)

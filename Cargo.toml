@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "crates/pkgs-tool",
+]
+resolver = "2"
+
+[workspace.dependencies]
+clap = { version = "4.5.42", features = ["derive"] }
+thiserror = "2.0.16"
+tempfile = "3.23.0"

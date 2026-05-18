@@ -1,0 +1,132 @@
+load("//rules:pkgs.bzl", "pkgs_bintools_wrapper_package", "pkgs_configure_make_install_package", "pkgs_seed_free")
+
+http_archive(
+    name = "source",
+    sha256 = "d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2",
+    strip_prefix = "binutils-2.46.0",
+    urls = ["https://ftp.gnu.org/gnu/binutils/binutils-2.46.0.tar.xz"],
+)
+
+_STAGE0_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage1",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/diffutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//tools/archivers/gnutar:bin_stage0",
+    "//bootstrap/foreign_seed:gcc",
+    "//bootstrap/foreign_seed:binutils",
+]
+
+_STAGE1_NATIVE_TOOLS = [
+    "//shells/bash:bin_stage2",
+    "//development/tools/build-managers/gnumake:bin_stage0",
+    "//development/tools/misc/binutils:bin_stage0_wrapped",
+    "//development/compilers/gcc:bin_stage1",
+    "//tools/misc/coreutils:bin_stage0",
+    "//tools/misc/findutils:bin_stage0",
+    "//tools/text/diffutils:bin_stage0",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gnupatch:bin_stage0",
+    "//tools/text/gnused:bin_stage0",
+    "//tools/archivers/gnutar:bin_stage0",
+]
+
+pkgs_configure_make_install_package(
+    name = "bin_stage0",
+    package_name = "binutils",
+    version = "2.46.0",
+    source = ":source",
+    identity = "source-sha256-d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2-stage0-recipe-v0",
+    configure_args = [
+        "--disable-dependency-tracking",
+        "--enable-deterministic-archives",
+        "--disable-gprofng",
+        "--enable-new-dtags",
+        "--with-lib-path=:",
+        "--disable-werror",
+        "--disable-shared",
+        "--enable-static",
+    ],
+    configure_env = [
+        "CC=cc",
+        "AR=ar",
+        "lt_cv_sys_max_cmd_len=32768",
+    ],
+    make_args = ["MAKEINFO=true"],
+    native_build_inputs = _STAGE0_NATIVE_TOOLS,
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "bin_stage0_seed_free",
+    packages = [":bin_stage0"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:binutils",
+    ],
+)
+
+pkgs_bintools_wrapper_package(
+    name = "bin_stage0_wrapped",
+    package_name = "binutils-wrapper",
+    version = "2.46.0",
+    identity = "stage0-wrapper-v0",
+    bintools = ":bin_stage0",
+    shell = "//shells/bash:bin_stage2",
+    visibility = ["PUBLIC"],
+)
+
+pkgs_configure_make_install_package(
+    name = "bin_stage1",
+    package_name = "binutils",
+    version = "2.46.0",
+    source = ":source",
+    identity = "source-sha256-d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2-stage1-recipe-v0",
+    configure_args = [
+        "--disable-dependency-tracking",
+        "--enable-deterministic-archives",
+        "--disable-gprofng",
+        "--enable-new-dtags",
+        "--with-lib-path=:",
+        "--disable-werror",
+        "--disable-shared",
+        "--enable-static",
+    ],
+    configure_env = [
+        "CC=gcc",
+        "CPP=cpp",
+        "AR=ar",
+        "lt_cv_sys_max_cmd_len=32768",
+    ],
+    make_args = ["MAKEINFO=true"],
+    native_build_inputs = _STAGE1_NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/libraries/glibc:out_stage1",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_seed_free(
+    name = "bin_stage1_seed_free",
+    packages = [":bin_stage1"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:binutils",
+    ],
+)
+
+pkgs_bintools_wrapper_package(
+    name = "bin_stage1_wrapped",
+    package_name = "binutils-wrapper",
+    version = "2.46.0",
+    identity = "stage1-wrapper-v0",
+    bintools = ":bin_stage1",
+    shell = "//shells/bash:bin_stage2",
+    visibility = ["PUBLIC"],
+)
