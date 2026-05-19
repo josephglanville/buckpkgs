@@ -1,6 +1,16 @@
 STORE_ABI_VERSION = "pkgs-store-v0"
 LOGICAL_STORE_ROOT = "/pkgs/store"
 
+_TARGET_SYSTEM = select({
+    "//platforms:linux_arm64": "aarch64-linux",
+    "//platforms:linux_x86_64": "x86_64-linux",
+})
+
+_DYNAMIC_LINKER = select({
+    "//platforms:linux_arm64": "lib/ld-linux-aarch64.so.1",
+    "//platforms:linux_x86_64": "lib/ld-linux-x86-64.so.2",
+})
+
 PkgsPackageInfo = provider(
     fields = [
         "build_closure",
@@ -19,6 +29,71 @@ PkgsPackageInfo = provider(
     ],
 )
 
+def pkgs_source(dep, digests = []):
+    return struct(
+        dep = dep,
+        digests = digests,
+    )
+
+def pkgs_patch(dep, digests = []):
+    return struct(
+        dep = dep,
+        digests = digests,
+    )
+
+def pkgs_http_archive_source(name, sha256, strip_prefix, urls, visibility = []):
+    native.http_archive(
+        name = name,
+        sha256 = sha256,
+        strip_prefix = strip_prefix,
+        urls = urls,
+        visibility = visibility,
+    )
+    return pkgs_source(
+        dep = ":" + name,
+        digests = ["sha256:" + sha256],
+    )
+
+def pkgs_export_patch(name, src, sha256, visibility = []):
+    native.export_file(
+        name = name,
+        src = src,
+        visibility = visibility,
+    )
+    return pkgs_patch(
+        dep = ":" + name,
+        digests = ["sha256:" + sha256],
+    )
+
+def _descriptor_deps(descriptors):
+    return [descriptor.dep for descriptor in descriptors]
+
+def _descriptor_digests(descriptors):
+    digests = []
+    for descriptor in descriptors:
+        digests.extend(descriptor.digests)
+    return digests
+
+def _source_set(name, sources):
+    if len(sources) == 0:
+        fail("package {} must declare at least one source".format(name))
+
+    if len(sources) == 1:
+        return sources[0]
+
+    source_set_name = "{}__sources".format(name)
+    _pkgs_compose_sources(
+        name = source_set_name,
+        sources = _descriptor_deps(sources),
+    )
+    return pkgs_source(
+        dep = ":" + source_set_name,
+        digests = [
+            "source-layout=compose-sources-v0",
+            "source-count={}".format(len(sources)),
+        ] + _descriptor_digests(sources),
+    )
+
 def _store_name(name, version, output):
     base = "{}-{}".format(name, version)
     return base if output == "out" else "{}-{}".format(base, output)
@@ -30,6 +105,7 @@ def _package_instance_digest(ctx, deps_by_role):
         "version={}".format(ctx.attrs.version),
         "builder={}".format(ctx.attrs.builder),
         "output={}".format(ctx.attrs.output),
+        "target_system={}".format(ctx.attrs.target_system),
     ]
     parts.extend(_recipe_semantic_parts(ctx))
     _append_semantic_values(parts, "source_digest", getattr(ctx.attrs, "source_digests", []))
@@ -89,6 +165,9 @@ def _recipe_semantic_parts(ctx):
 
     if hasattr(ctx.attrs, "kernel_release"):
         parts.append("kernel_release={}".format(ctx.attrs.kernel_release))
+
+    if hasattr(ctx.attrs, "dynamic_linker"):
+        parts.append("dynamic_linker={}".format(ctx.attrs.dynamic_linker))
 
     return parts
 
@@ -251,7 +330,38 @@ def _stage_tree_package(ctx, tree):
 def _pkgs_package_impl(ctx):
     return _stage_tree_package(ctx, ctx.attrs.src[DefaultInfo].default_outputs[0])
 
-pkgs_package = rule(
+def _pkgs_compose_sources_impl(ctx):
+    output = ctx.actions.declare_output("{}.sources".format(ctx.label.name), dir = True)
+    args = cmd_args([
+        ctx.attrs._composer[RunInfo],
+        "--output",
+        output.as_output(),
+    ])
+    for source in ctx.attrs.sources:
+        args.add("--source", source[DefaultInfo].default_outputs[0])
+
+    ctx.actions.run(
+        args,
+        category = "pkgs_compose_sources",
+        identifier = ctx.label.name,
+    )
+
+    return [DefaultInfo(default_output = output)]
+
+_pkgs_compose_sources = rule(
+    impl = _pkgs_compose_sources_impl,
+    attrs = {
+        "sources": attrs.list(attrs.dep(providers = [DefaultInfo])),
+        "_composer": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_compose_sources",
+                providers = [RunInfo],
+            ),
+        ),
+    },
+)
+
+_pkgs_package = rule(
     impl = _pkgs_package_impl,
     attrs = {
         "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -260,10 +370,10 @@ pkgs_package = rule(
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
-        "patch_digests": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source_digests": attrs.list(attrs.string(), default = []),
         "src": attrs.dep(providers = [DefaultInfo]),
+        "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
         "_tree_stager": attrs.default_only(
@@ -274,6 +384,36 @@ pkgs_package = rule(
         ),
     },
 )
+
+def pkgs_package(
+        name,
+        package_name,
+        version,
+        builder,
+        src,
+        output = "out",
+        foreign = False,
+        native_build_inputs = [],
+        build_inputs = [],
+        target_inputs = [],
+        runtime_inputs = [],
+        visibility = []):
+    _pkgs_package(
+        name = name,
+        package_name = package_name,
+        version = version,
+        output = output,
+        builder = builder,
+        foreign = foreign,
+        source_digests = src.digests,
+        src = src.dep,
+        target_system = _TARGET_SYSTEM,
+        native_build_inputs = native_build_inputs,
+        build_inputs = build_inputs,
+        target_inputs = target_inputs,
+        runtime_inputs = runtime_inputs,
+        visibility = visibility,
+    )
 
 def _pkgs_seed_free_impl(ctx):
     packages = [dep[PkgsPackageInfo] for dep in ctx.attrs.packages]
@@ -420,6 +560,7 @@ _pkgs_make_install_package = rule(
         "source": attrs.dep(providers = [DefaultInfo]),
         "source_digests": attrs.list(attrs.string(), default = []),
         "symlinks": attrs.dict(attrs.string(), attrs.string(), default = {}),
+        "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
         "_builder": attrs.default_only(
@@ -484,6 +625,7 @@ _pkgs_linux_headers_package = rule(
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source": attrs.dep(providers = [DefaultInfo]),
         "source_digests": attrs.list(attrs.string(), default = []),
+        "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
         "_builder": attrs.default_only(
@@ -625,6 +767,7 @@ _pkgs_configure_make_install_package = rule(
         "source": attrs.dep(providers = [DefaultInfo]),
         "source_digests": attrs.list(attrs.string(), default = []),
         "symlinks": attrs.dict(attrs.string(), attrs.string(), default = {}),
+        "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
         "_builder": attrs.default_only(
@@ -664,7 +807,7 @@ def _pkgs_cc_wrapper_package_impl(ctx):
             "--headers",
             headers.logical_store_path,
             "--dynamic-linker",
-            "{}/lib/ld-linux-x86-64.so.2".format(libc.logical_store_path),
+            "{}/{}".format(libc.logical_store_path, ctx.attrs.dynamic_linker),
         ]),
         category = "pkgs_cc_wrapper_tree",
         identifier = ctx.label.name,
@@ -679,6 +822,7 @@ _pkgs_cc_wrapper_package = rule(
         "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "builder": attrs.string(),
         "cc": attrs.dep(providers = [PkgsPackageInfo]),
+        "dynamic_linker": attrs.string(),
         "foreign": attrs.bool(default = False),
         "headers": attrs.dep(providers = [PkgsPackageInfo]),
         "libc": attrs.dep(providers = [PkgsPackageInfo]),
@@ -687,6 +831,7 @@ _pkgs_cc_wrapper_package = rule(
         "package_name": attrs.string(),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "shell": attrs.dep(providers = [PkgsPackageInfo]),
+        "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
         "_builder": attrs.default_only(
@@ -731,6 +876,7 @@ _pkgs_bintools_wrapper_package = rule(
         "package_name": attrs.string(),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "shell": attrs.dep(providers = [PkgsPackageInfo]),
+        "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
         "_builder": attrs.default_only(
@@ -746,33 +892,33 @@ def pkgs_make_install_package(
         name,
         package_name,
         version,
-        source,
+        sources,
         make_args = [],
         install_args = [],
         patches = [],
-        patch_digests = [],
         patch_strip = 1,
         symlinks = {},
-        source_digests = [],
         output = "out",
         native_build_inputs = [],
         build_inputs = [],
         runtime_inputs = [],
         visibility = []):
+    source = _source_set(name, sources)
     _pkgs_make_install_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "make-install-v5",
-        source = source,
+        source = source.dep,
         make_args = make_args,
         install_args = install_args,
-        patches = patches,
-        patch_digests = patch_digests,
+        patches = _descriptor_deps(patches),
+        patch_digests = _descriptor_digests(patches),
         patch_strip = patch_strip,
         symlinks = symlinks,
-        source_digests = source_digests,
+        source_digests = source.digests,
+        target_system = _TARGET_SYSTEM,
         native_build_inputs = native_build_inputs,
         build_inputs = build_inputs,
         target_inputs = [],
@@ -784,7 +930,7 @@ def pkgs_configure_make_install_package(
         name,
         package_name,
         version,
-        source,
+        sources,
         configure_args = [],
         configure_arg_store_paths = [],
         configure_arg_self_store_paths = [],
@@ -796,22 +942,21 @@ def pkgs_configure_make_install_package(
         make_args = [],
         install_args = [],
         patches = [],
-        patch_digests = [],
         patch_strip = 1,
         symlinks = {},
-        source_digests = [],
         output = "out",
         native_build_inputs = [],
         build_inputs = [],
         runtime_inputs = [],
         visibility = []):
+    source = _source_set(name, sources)
     _pkgs_configure_make_install_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "configure-make-install-v5",
-        source = source,
+        source = source.dep,
         configure_args = configure_args,
         configure_arg_store_paths = configure_arg_store_paths,
         configure_arg_self_store_paths = configure_arg_self_store_paths,
@@ -822,11 +967,12 @@ def pkgs_configure_make_install_package(
         out_of_source = out_of_source,
         make_args = make_args,
         install_args = install_args,
-        patches = patches,
-        patch_digests = patch_digests,
+        patches = _descriptor_deps(patches),
+        patch_digests = _descriptor_digests(patches),
         patch_strip = patch_strip,
         symlinks = symlinks,
-        source_digests = source_digests,
+        source_digests = source.digests,
+        target_system = _TARGET_SYSTEM,
         native_build_inputs = native_build_inputs,
         build_inputs = build_inputs,
         target_inputs = [],
@@ -838,23 +984,24 @@ def pkgs_linux_headers_package(
         name,
         package_name,
         version,
-        source,
+        sources,
         kernel_release,
         make_args = [],
-        source_digests = [],
         output = "out",
         native_build_inputs = [],
         visibility = []):
+    source = _source_set(name, sources)
     _pkgs_linux_headers_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "linux-headers-install-v1",
-        source = source,
+        source = source.dep,
         kernel_release = kernel_release,
         make_args = make_args,
-        source_digests = source_digests,
+        source_digests = source.digests,
+        target_system = _TARGET_SYSTEM,
         native_build_inputs = native_build_inputs,
         visibility = visibility,
     )
@@ -878,9 +1025,11 @@ def pkgs_cc_wrapper_package(
         builder = "cc-wrapper-tree-v0",
         cc = cc,
         bintools = bintools,
+        dynamic_linker = _DYNAMIC_LINKER,
         headers = headers,
         libc = libc,
         shell = shell,
+        target_system = _TARGET_SYSTEM,
         runtime_inputs = [
             cc,
             bintools,
@@ -907,6 +1056,7 @@ def pkgs_bintools_wrapper_package(
         builder = "bintools-wrapper-tree-v0",
         bintools = bintools,
         shell = shell,
+        target_system = _TARGET_SYSTEM,
         runtime_inputs = [
             bintools,
             shell,

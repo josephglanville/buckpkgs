@@ -1,0 +1,35 @@
+config_setting(
+    name = "linux_arm64",
+    constraint_values = [
+        "prelude//cpu/constraints:arm64",
+        "prelude//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "prelude//cpu/constraints:x86_64",
+        "prelude//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "linux-arm64",
+    constraint_values = [
+        "prelude//cpu/constraints:arm64",
+        "prelude//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "linux-x86_64",
+    constraint_values = [
+        "prelude//cpu/constraints:x86_64",
+        "prelude//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)

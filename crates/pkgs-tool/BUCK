@@ -46,6 +46,17 @@ rust_binary(
 )
 
 rust_binary(
+    name = "pkgs_compose_sources",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_compose_sources.rs",
+        "src/compose_sources.rs",
+    ],
+    crate_root = "src/bin/pkgs_compose_sources.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+rust_binary(
     name = "pkgs_stage_tree",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_stage_tree.rs",

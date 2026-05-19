@@ -1,6 +1,6 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
 
-http_archive(
+_SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba",
     strip_prefix = "bash-5.3",
@@ -59,8 +59,7 @@ pkgs_configure_make_install_package(
     name = "bin_stage0",
     package_name = "bash",
     version = "5.3",
-    source = ":source",
-    source_digests = ["sha256:0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba"],
+    sources = [_SOURCE],
     configure_args = [
         "--disable-readline",
         "--without-bash-malloc",
@@ -76,8 +75,7 @@ pkgs_configure_make_install_package(
     name = "bin_stage1",
     package_name = "bash",
     version = "5.3",
-    source = ":source",
-    source_digests = ["sha256:0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba"],
+    sources = [_SOURCE],
     configure_args = [
         "--disable-readline",
         "--without-bash-malloc",
@@ -93,8 +91,7 @@ pkgs_configure_make_install_package(
     name = "bin_stage2",
     package_name = "bash",
     version = "5.3",
-    source = ":source",
-    source_digests = ["sha256:0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba"],
+    sources = [_SOURCE],
     configure_args = [
         "--disable-readline",
         "--without-bash-malloc",
@@ -110,8 +107,7 @@ pkgs_configure_make_install_package(
     name = "bin_final",
     package_name = "bash",
     version = "5.3",
-    source = ":source",
-    source_digests = ["sha256:0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba"],
+    sources = [_SOURCE],
     configure_args = [
         "--disable-readline",
         "--without-bash-malloc",

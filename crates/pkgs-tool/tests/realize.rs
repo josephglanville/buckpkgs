@@ -5,6 +5,64 @@ use std::process::Command;
 use tempfile::tempdir;
 
 #[test]
+fn composes_multiple_source_trees_without_clobbering() {
+    let temp = tempdir().unwrap();
+    let base = temp.path().join("base");
+    let extra = temp.path().join("extra");
+    fs::create_dir_all(base.join("src")).unwrap();
+    fs::create_dir_all(extra.join("vendor")).unwrap();
+    fs::write(base.join("src/main.c"), "int main(void) { return 0; }\n").unwrap();
+    fs::write(extra.join("vendor/README"), "vendored payload\n").unwrap();
+
+    let output = temp.path().join("composed");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_compose_sources"))
+        .args([
+            "--source",
+            base.to_str().unwrap(),
+            "--source",
+            extra.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(output.join("src/main.c")).unwrap(),
+        "int main(void) { return 0; }\n"
+    );
+    assert_eq!(
+        fs::read_to_string(output.join("vendor/README")).unwrap(),
+        "vendored payload\n"
+    );
+}
+
+#[test]
+fn rejects_conflicting_composed_sources() {
+    let temp = tempdir().unwrap();
+    let base = temp.path().join("base");
+    let extra = temp.path().join("extra");
+    fs::create_dir_all(&base).unwrap();
+    fs::create_dir_all(&extra).unwrap();
+    fs::write(base.join("README"), "first\n").unwrap();
+    fs::write(extra.join("README"), "second\n").unwrap();
+
+    let output = temp.path().join("composed");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_compose_sources"))
+        .args([
+            "--source",
+            base.to_str().unwrap(),
+            "--source",
+            extra.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+}
+
+#[test]
 fn stages_an_immutable_tree_once() {
     let temp = tempdir().unwrap();
     let source = temp.path().join("source");

@@ -1,15 +1,16 @@
-load("//rules:pkgs.bzl", "pkgs_make_install_package", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_make_install_package", "pkgs_seed_free")
 
-http_archive(
+_SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
     strip_prefix = "bzip2-1.0.8",
     urls = ["https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"],
 )
 
-export_file(
+_DESTDIR_AND_PATH_SHELL_PATCH = pkgs_export_patch(
     name = "destdir_and_path_shell_patch",
     src = "patches/0001-destdir-and-path-shell.patch",
+    sha256 = "a1e485cd75eb1c9471c97d4a2ca932b8cb0182869164397691ace4fcce5cfd90",
 )
 
 _FINAL_NATIVE_TOOLS = [
@@ -25,8 +26,7 @@ pkgs_make_install_package(
     name = "bin_stage0",
     package_name = "bzip2",
     version = "1.0.8",
-    source = ":source",
-    source_digests = ["sha256:ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"],
+    sources = [_SOURCE],
     make_args = [
         "CC=cc",
         "AR=ar",
@@ -34,8 +34,7 @@ pkgs_make_install_package(
         "bzip2",
         "bzip2recover",
     ],
-    patches = [":destdir_and_path_shell_patch"],
-    patch_digests = ["sha256:a1e485cd75eb1c9471c97d4a2ca932b8cb0182869164397691ace4fcce5cfd90"],
+    patches = [_DESTDIR_AND_PATH_SHELL_PATCH],
     native_build_inputs = [
         "//bootstrap/foreign_seed:gnumake",
         "//bootstrap/foreign_seed:gcc",
@@ -61,8 +60,7 @@ pkgs_make_install_package(
     name = "bin_final",
     package_name = "bzip2",
     version = "1.0.8",
-    source = ":source",
-    source_digests = ["sha256:ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"],
+    sources = [_SOURCE],
     make_args = [
         "CC=cc",
         "AR=ar",
@@ -70,8 +68,7 @@ pkgs_make_install_package(
         "bzip2",
         "bzip2recover",
     ],
-    patches = [":destdir_and_path_shell_patch"],
-    patch_digests = ["sha256:a1e485cd75eb1c9471c97d4a2ca932b8cb0182869164397691ace4fcce5cfd90"],
+    patches = [_DESTDIR_AND_PATH_SHELL_PATCH],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
     runtime_inputs = ["//development/libraries/glibc:out_stage1"],
     visibility = ["PUBLIC"],

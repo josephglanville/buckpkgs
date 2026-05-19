@@ -5,12 +5,15 @@ load(
     "pkgs_make_install_package",
     "pkgs_package",
     "pkgs_seed_free",
+    "pkgs_source",
 )
+
+_PAYLOAD_FILE_CONTENT = ["built with a foreign input, but does not retain it"]
 
 write_file(
     name = "payload_file",
     out = "payload",
-    content = ["built with a foreign input, but does not retain it"],
+    content = _PAYLOAD_FILE_CONTENT,
 )
 
 filegroup(
@@ -21,12 +24,17 @@ filegroup(
     copy = True,
 )
 
+_PAYLOAD_SOURCE = pkgs_source(
+    dep = ":payload_tree",
+    digests = ["sha256:" + sha256("\n".join(["share/payload"] + _PAYLOAD_FILE_CONTENT))],
+)
+
 pkgs_package(
     name = "build_only_dep",
     package_name = "build-only-dep",
     version = "0",
     builder = "bootstrap-test-v0",
-    src = ":payload_tree",
+    src = _PAYLOAD_SOURCE,
     native_build_inputs = ["//bootstrap/foreign_seed:bash"],
 )
 
@@ -36,16 +44,18 @@ pkgs_seed_free(
     forbidden = ["//bootstrap/foreign_seed:bash"],
 )
 
+_CLOSURE_CONSUMER_MAKEFILE_CONTENT = [
+    "all:",
+    "\t:",
+    "install:",
+    "\tmkdir -p \"$(DESTDIR)$(PREFIX)/share\"",
+    "\tprintf closure-store-output > \"$(DESTDIR)$(PREFIX)/share/payload\"",
+]
+
 write_file(
     name = "closure_consumer_makefile",
     out = "Makefile",
-    content = [
-        "all:",
-        "\t:",
-        "install:",
-        "\tmkdir -p \"$(DESTDIR)$(PREFIX)/share\"",
-        "\tprintf closure-store-output > \"$(DESTDIR)$(PREFIX)/share/payload\"",
-    ],
+    content = _CLOSURE_CONSUMER_MAKEFILE_CONTENT,
 )
 
 filegroup(
@@ -56,41 +66,110 @@ filegroup(
     copy = True,
 )
 
+_CLOSURE_CONSUMER_SOURCE = pkgs_source(
+    dep = ":closure_consumer_source",
+    digests = ["sha256:" + sha256("\n".join(["Makefile"] + _CLOSURE_CONSUMER_MAKEFILE_CONTENT))],
+)
+
 pkgs_make_install_package(
     name = "closure_consumer",
     package_name = "closure-consumer",
     version = "0",
-    source = ":closure_consumer_source",
+    sources = [_CLOSURE_CONSUMER_SOURCE],
     native_build_inputs = [
         "//bootstrap/foreign_seed:coreutils",
         "//bootstrap/foreign_seed:gnumake",
     ],
 )
 
+_MULTI_SOURCE_MAKEFILE_CONTENT = [
+    "all:",
+    "\t:",
+    "install:",
+    "\tmkdir -p \"$(DESTDIR)$(PREFIX)/share\"",
+    "\tcp vendor/payload \"$(DESTDIR)$(PREFIX)/share/payload\"",
+]
+
+write_file(
+    name = "multi_source_makefile",
+    out = "Makefile",
+    content = _MULTI_SOURCE_MAKEFILE_CONTENT,
+)
+
+filegroup(
+    name = "multi_source_base_tree",
+    srcs = {
+        "Makefile": ":multi_source_makefile",
+    },
+    copy = True,
+)
+
+_MULTI_SOURCE_PAYLOAD_CONTENT = ["payload from the extra source tree"]
+
+write_file(
+    name = "multi_source_payload",
+    out = "payload",
+    content = _MULTI_SOURCE_PAYLOAD_CONTENT,
+)
+
+filegroup(
+    name = "multi_source_extra_tree",
+    srcs = {
+        "vendor/payload": ":multi_source_payload",
+    },
+    copy = True,
+)
+
+_MULTI_SOURCE_BASE = pkgs_source(
+    dep = ":multi_source_base_tree",
+    digests = ["sha256:" + sha256("\n".join(["Makefile"] + _MULTI_SOURCE_MAKEFILE_CONTENT))],
+)
+
+_MULTI_SOURCE_EXTRA = pkgs_source(
+    dep = ":multi_source_extra_tree",
+    digests = ["sha256:" + sha256("\n".join(["vendor/payload"] + _MULTI_SOURCE_PAYLOAD_CONTENT))],
+)
+
+pkgs_make_install_package(
+    name = "multi_source_consumer",
+    package_name = "multi-source-consumer",
+    version = "0",
+    sources = [
+        _MULTI_SOURCE_BASE,
+        _MULTI_SOURCE_EXTRA,
+    ],
+    native_build_inputs = [
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:gnumake",
+    ],
+)
+
+_SELF_REF_CONFIGURE_CONTENT = [
+    "#!/bin/sh",
+    "set -eu",
+    "prefix=''",
+    "self_path=''",
+    "for arg in \"$@\"; do",
+    "  case \"$arg\" in",
+    "    --prefix=*) prefix=\"${arg#--prefix=}\" ;;",
+    "    --self-path=*) self_path=\"${arg#--self-path=}\" ;;",
+    "  esac",
+    "done",
+    "cat > Makefile <<EOF",
+    "PREFIX := $prefix",
+    "SELF_PATH := $self_path",
+    "all:",
+    "\t:",
+    "install:",
+    "\tmkdir -p \"\\$(DESTDIR)\\$(PREFIX)/share\"",
+    "\tprintf '%s' \"\\$(SELF_PATH)\" > \"\\$(DESTDIR)\\$(PREFIX)/share/self-path\"",
+    "EOF",
+]
+
 write_file(
     name = "self_ref_configure",
     out = "configure",
-    content = [
-        "#!/bin/sh",
-        "set -eu",
-        "prefix=''",
-        "self_path=''",
-        "for arg in \"$@\"; do",
-        "  case \"$arg\" in",
-        "    --prefix=*) prefix=\"${arg#--prefix=}\" ;;",
-        "    --self-path=*) self_path=\"${arg#--self-path=}\" ;;",
-        "  esac",
-        "done",
-        "cat > Makefile <<EOF",
-        "PREFIX := $prefix",
-        "SELF_PATH := $self_path",
-        "all:",
-        "\t:",
-        "install:",
-        "\tmkdir -p \"\\$(DESTDIR)\\$(PREFIX)/share\"",
-        "\tprintf '%s' \"\\$(SELF_PATH)\" > \"\\$(DESTDIR)\\$(PREFIX)/share/self-path\"",
-        "EOF",
-    ],
+    content = _SELF_REF_CONFIGURE_CONTENT,
     is_executable = True,
 )
 
@@ -102,11 +181,16 @@ filegroup(
     copy = True,
 )
 
+_SELF_REF_SOURCE = pkgs_source(
+    dep = ":self_ref_source",
+    digests = ["sha256:" + sha256("\n".join(["configure"] + _SELF_REF_CONFIGURE_CONTENT))],
+)
+
 pkgs_configure_make_install_package(
     name = "self_ref_consumer",
     package_name = "self-ref-consumer",
     version = "0",
-    source = ":self_ref_source",
+    sources = [_SELF_REF_SOURCE],
     configure_arg_self_store_paths = [
         ("--self-path=", ""),
     ],
@@ -116,15 +200,17 @@ pkgs_configure_make_install_package(
     ],
 )
 
+_FAILED_CONSUMER_MAKEFILE_CONTENT = [
+    "all:",
+    "\t:",
+    "install:",
+    "\tfalse",
+]
+
 write_file(
     name = "failed_consumer_makefile",
     out = "Makefile",
-    content = [
-        "all:",
-        "\t:",
-        "install:",
-        "\tfalse",
-    ],
+    content = _FAILED_CONSUMER_MAKEFILE_CONTENT,
 )
 
 filegroup(
@@ -135,11 +221,16 @@ filegroup(
     copy = True,
 )
 
+_FAILED_CONSUMER_SOURCE = pkgs_source(
+    dep = ":failed_consumer_source",
+    digests = ["sha256:" + sha256("\n".join(["Makefile"] + _FAILED_CONSUMER_MAKEFILE_CONTENT))],
+)
+
 pkgs_make_install_package(
     name = "failed_consumer",
     package_name = "failed-consumer",
     version = "0",
-    source = ":failed_consumer_source",
+    sources = [_FAILED_CONSUMER_SOURCE],
     native_build_inputs = [
         "//bootstrap/foreign_seed:coreutils",
         "//bootstrap/foreign_seed:gnumake",

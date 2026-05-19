@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_package")
+load("//rules:pkgs.bzl", "pkgs_package", "pkgs_source")
 
 def foreign_wrapped_package(name, commands):
     scripts = {}
@@ -22,6 +22,11 @@ def foreign_wrapped_package(name, commands):
         copy = True,
     )
 
+    source = pkgs_source(
+        dep = ":" + tree_name,
+        digests = ["sha256:" + sha256("\n".join(commands))],
+    )
+
     pkgs_package(
         name = name,
         package_name = name,
@@ -29,7 +34,6 @@ def foreign_wrapped_package(name, commands):
         output = "bin",
         builder = "foreign-seed-wrapper-v0",
         foreign = True,
-        source_digests = ["sha256:" + sha256("\n".join(commands))],
-        src = ":" + tree_name,
+        src = source,
         visibility = ["PUBLIC"],
     )

@@ -1,6 +1,6 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
 
-http_archive(
+_SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01",
     strip_prefix = "mpfr-4.2.2",
@@ -23,8 +23,7 @@ pkgs_configure_make_install_package(
     name = "out",
     package_name = "mpfr",
     version = "4.2.2",
-    source = ":source",
-    source_digests = ["sha256:b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01"],
+    sources = [_SOURCE],
     configure_arg_store_paths = [
         ("--with-gmp=", "//development/libraries/gmp:out", ""),
     ],

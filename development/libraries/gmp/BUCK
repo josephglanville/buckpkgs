@@ -1,6 +1,6 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
 
-http_archive(
+_SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb",
     strip_prefix = "gmp-6.3.0",
@@ -24,8 +24,7 @@ pkgs_configure_make_install_package(
     name = "out",
     package_name = "gmp",
     version = "6.3.0",
-    source = ":source",
-    source_digests = ["sha256:ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb"],
+    sources = [_SOURCE],
     configure_args = [
         "--with-pic",
         "--disable-cxx",

@@ -1,6 +1,6 @@
-load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
 
-http_archive(
+_SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e",
     strip_prefix = "gcc-15.2.0",
@@ -62,8 +62,7 @@ pkgs_configure_make_install_package(
     name = "out_stage0",
     package_name = "gcc",
     version = "15.2.0",
-    source = ":source",
-    source_digests = ["sha256:438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e"],
+    sources = [_SOURCE],
     out_of_source = True,
     configure_args = [
         "--disable-bootstrap",
@@ -116,8 +115,7 @@ pkgs_configure_make_install_package(
     name = "out_stage1",
     package_name = "gcc",
     version = "15.2.0",
-    source = ":source",
-    source_digests = ["sha256:438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e"],
+    sources = [_SOURCE],
     out_of_source = True,
     configure_args = [
         "--disable-bootstrap",
@@ -200,8 +198,7 @@ pkgs_configure_make_install_package(
     name = "out_stage2",
     package_name = "gcc",
     version = "15.2.0",
-    source = ":source",
-    source_digests = ["sha256:438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e"],
+    sources = [_SOURCE],
     out_of_source = True,
     configure_args = [
         "--disable-bootstrap",

@@ -1,6 +1,6 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_seed_free")
 
-http_archive(
+_SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3",
     strip_prefix = "make-4.4.1",
@@ -33,30 +33,27 @@ _FINAL_NATIVE_TOOLS = [
     "//tools/text/gnused:bin_stage0",
 ]
 
-export_file(
+_NO_IMPURE_BIN_SH_PATCH = pkgs_export_patch(
     name = "no_impure_bin_sh_patch",
     src = "patches/0001-No-impure-bin-sh.patch",
+    sha256 = "63de776e24b8189b27fbe9b411f96a16e0db2611efbcd000ce9d5daa9309c18f",
 )
 
-export_file(
+_REMOVE_IMPURE_DIRS_PATCH = pkgs_export_patch(
     name = "remove_impure_dirs_patch",
     src = "patches/0002-Remove-impure-dirs.patch",
+    sha256 = "418008d4d89b8d0d912dfccb8c039d320733a5662de3aa994aa0383c16d41f97",
 )
 
 pkgs_configure_make_install_package(
     name = "bin_stage0",
     package_name = "gnumake",
     version = "4.4.1",
-    source = ":source",
-    source_digests = ["sha256:dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3"],
+    sources = [_SOURCE],
     configure_env = ["CC=cc"],
     patches = [
-        ":no_impure_bin_sh_patch",
-        ":remove_impure_dirs_patch",
-    ],
-    patch_digests = [
-        "sha256:63de776e24b8189b27fbe9b411f96a16e0db2611efbcd000ce9d5daa9309c18f",
-        "sha256:418008d4d89b8d0d912dfccb8c039d320733a5662de3aa994aa0383c16d41f97",
+        _NO_IMPURE_BIN_SH_PATCH,
+        _REMOVE_IMPURE_DIRS_PATCH,
     ],
     native_build_inputs = _NATIVE_TOOLS,
     visibility = ["PUBLIC"],
@@ -79,16 +76,11 @@ pkgs_configure_make_install_package(
     name = "bin_final",
     package_name = "gnumake",
     version = "4.4.1",
-    source = ":source",
-    source_digests = ["sha256:dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3"],
+    sources = [_SOURCE],
     configure_env = ["CC=cc"],
     patches = [
-        ":no_impure_bin_sh_patch",
-        ":remove_impure_dirs_patch",
-    ],
-    patch_digests = [
-        "sha256:63de776e24b8189b27fbe9b411f96a16e0db2611efbcd000ce9d5daa9309c18f",
-        "sha256:418008d4d89b8d0d912dfccb8c039d320733a5662de3aa994aa0383c16d41f97",
+        _NO_IMPURE_BIN_SH_PATCH,
+        _REMOVE_IMPURE_DIRS_PATCH,
     ],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
     runtime_inputs = ["//development/libraries/glibc:out_stage1"],

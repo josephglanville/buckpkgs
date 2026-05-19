@@ -1,6 +1,6 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
 
-http_archive(
+_SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6",
     strip_prefix = "gzip-1.14",
@@ -36,8 +36,7 @@ pkgs_configure_make_install_package(
     name = "out_stage0",
     package_name = "gzip",
     version = "1.14",
-    source = ":source",
-    source_digests = ["sha256:01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6"],
+    sources = [_SOURCE],
     configure_env = ["CC=cc"],
     make_args = [
         "SHELL=/bin/sh",
@@ -59,8 +58,7 @@ pkgs_configure_make_install_package(
     name = "out_final",
     package_name = "gzip",
     version = "1.14",
-    source = ":source",
-    source_digests = ["sha256:01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6"],
+    sources = [_SOURCE],
     configure_env = ["CC=cc"],
     make_args = [
         "SHELL=bash",
