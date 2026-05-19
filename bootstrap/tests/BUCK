@@ -1,4 +1,11 @@
-load("//rules:pkgs.bzl", "pkgs_elf_interpreters", "pkgs_package", "pkgs_seed_free")
+load(
+    "//rules:pkgs.bzl",
+    "pkgs_configure_make_install_package",
+    "pkgs_elf_interpreters",
+    "pkgs_make_install_package",
+    "pkgs_package",
+    "pkgs_seed_free",
+)
 
 write_file(
     name = "payload_file",
@@ -19,7 +26,6 @@ pkgs_package(
     package_name = "build-only-dep",
     version = "0",
     builder = "bootstrap-test-v0",
-    identity = "payload-v0",
     src = ":payload_tree",
     native_build_inputs = ["//bootstrap/foreign_seed:bash"],
 )
@@ -28,6 +34,116 @@ pkgs_seed_free(
     name = "build_only_dep_seed_free",
     packages = [":build_only_dep"],
     forbidden = ["//bootstrap/foreign_seed:bash"],
+)
+
+write_file(
+    name = "closure_consumer_makefile",
+    out = "Makefile",
+    content = [
+        "all:",
+        "\t:",
+        "install:",
+        "\tmkdir -p \"$(DESTDIR)$(PREFIX)/share\"",
+        "\tprintf closure-store-output > \"$(DESTDIR)$(PREFIX)/share/payload\"",
+    ],
+)
+
+filegroup(
+    name = "closure_consumer_source",
+    srcs = {
+        "Makefile": ":closure_consumer_makefile",
+    },
+    copy = True,
+)
+
+pkgs_make_install_package(
+    name = "closure_consumer",
+    package_name = "closure-consumer",
+    version = "0",
+    source = ":closure_consumer_source",
+    native_build_inputs = [
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:gnumake",
+    ],
+)
+
+write_file(
+    name = "self_ref_configure",
+    out = "configure",
+    content = [
+        "#!/bin/sh",
+        "set -eu",
+        "prefix=''",
+        "self_path=''",
+        "for arg in \"$@\"; do",
+        "  case \"$arg\" in",
+        "    --prefix=*) prefix=\"${arg#--prefix=}\" ;;",
+        "    --self-path=*) self_path=\"${arg#--self-path=}\" ;;",
+        "  esac",
+        "done",
+        "cat > Makefile <<EOF",
+        "PREFIX := $prefix",
+        "SELF_PATH := $self_path",
+        "all:",
+        "\t:",
+        "install:",
+        "\tmkdir -p \"\\$(DESTDIR)\\$(PREFIX)/share\"",
+        "\tprintf '%s' \"\\$(SELF_PATH)\" > \"\\$(DESTDIR)\\$(PREFIX)/share/self-path\"",
+        "EOF",
+    ],
+    is_executable = True,
+)
+
+filegroup(
+    name = "self_ref_source",
+    srcs = {
+        "configure": ":self_ref_configure",
+    },
+    copy = True,
+)
+
+pkgs_configure_make_install_package(
+    name = "self_ref_consumer",
+    package_name = "self-ref-consumer",
+    version = "0",
+    source = ":self_ref_source",
+    configure_arg_self_store_paths = [
+        ("--self-path=", ""),
+    ],
+    native_build_inputs = [
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:gnumake",
+    ],
+)
+
+write_file(
+    name = "failed_consumer_makefile",
+    out = "Makefile",
+    content = [
+        "all:",
+        "\t:",
+        "install:",
+        "\tfalse",
+    ],
+)
+
+filegroup(
+    name = "failed_consumer_source",
+    srcs = {
+        "Makefile": ":failed_consumer_makefile",
+    },
+    copy = True,
+)
+
+pkgs_make_install_package(
+    name = "failed_consumer",
+    package_name = "failed-consumer",
+    version = "0",
+    source = ":failed_consumer_source",
+    native_build_inputs = [
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:gnumake",
+    ],
 )
 
 _FINAL_BASE = [

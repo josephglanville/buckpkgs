@@ -63,7 +63,7 @@ pkgs_configure_make_install_package(
     package_name = "gcc",
     version = "15.2.0",
     source = ":source",
-    identity = "source-sha256-438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e-stage0-recipe-v3",
+    source_digests = ["sha256:438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e"],
     out_of_source = True,
     configure_args = [
         "--disable-bootstrap",
@@ -82,11 +82,11 @@ pkgs_configure_make_install_package(
         "--with-zstd=no",
         "--enable-languages=c,c++",
     ],
-    configure_arg_inputs = {
-        "--with-gmp={}": "//development/libraries/gmp:out",
-        "--with-mpfr={}": "//development/libraries/mpfr:out",
-        "--with-mpc={}": "//development/libraries/libmpc:out",
-    },
+    configure_arg_store_paths = [
+        ("--with-gmp=", "//development/libraries/gmp:out", ""),
+        ("--with-mpfr=", "//development/libraries/mpfr:out", ""),
+        ("--with-mpc=", "//development/libraries/libmpc:out", ""),
+    ],
     configure_env = [
         "CC=cc",
         "CXX=c++",
@@ -117,7 +117,7 @@ pkgs_configure_make_install_package(
     package_name = "gcc",
     version = "15.2.0",
     source = ":source",
-    identity = "source-sha256-438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e-stage1-recipe-v10",
+    source_digests = ["sha256:438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e"],
     out_of_source = True,
     configure_args = [
         "--disable-bootstrap",
@@ -138,12 +138,12 @@ pkgs_configure_make_install_package(
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
     ],
-    configure_arg_inputs = {
-        "--with-gmp={}": "//development/libraries/gmp:out",
-        "--with-mpfr={}": "//development/libraries/mpfr:out",
-        "--with-mpc={}": "//development/libraries/libmpc:out",
-        "--with-build-sysroot={}": "//development/libraries/glibc:out_stage1",
-    },
+    configure_arg_store_paths = [
+        ("--with-gmp=", "//development/libraries/gmp:out", ""),
+        ("--with-mpfr=", "//development/libraries/mpfr:out", ""),
+        ("--with-mpc=", "//development/libraries/libmpc:out", ""),
+        ("--with-build-sysroot=", "//development/libraries/glibc:out_stage1", ""),
+    ],
     configure_env = [
         "CC=gcc",
         "CXX=g++",
@@ -153,15 +153,15 @@ pkgs_configure_make_install_package(
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
     ],
-    configure_env_inputs = {
-        "CPPFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
-        "CFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
-        "CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter {}/include": "//os-specific/linux/kernel-headers:out",
-        "FLAGS_FOR_TARGET=-B{}/lib": "//development/libraries/glibc:out_stage1",
-    },
-    configure_env_inputs_multi = {
-        "LDFLAGS=-Wl,-rpath,{}/lib -Wl,-rpath,{}/lib -Wl,-rpath,{}/lib": _MATH_LIBS,
-    },
+    configure_env_store_paths = [
+        ("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        ("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        ("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        ("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
+    ],
+    configure_env_store_path_joins = [
+        ("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
+    ],
     make_args = [
         "MAKEINFO=true",
     ],
@@ -188,7 +188,6 @@ pkgs_cc_wrapper_package(
     name = "bin_stage1",
     package_name = "gcc-wrapper",
     version = "15.2.0",
-    identity = "stage1-wrapper-v0",
     cc = ":out_stage1",
     bintools = "//development/tools/misc/binutils:bin_stage0_wrapped",
     headers = "//os-specific/linux/kernel-headers:out",
@@ -202,7 +201,7 @@ pkgs_configure_make_install_package(
     package_name = "gcc",
     version = "15.2.0",
     source = ":source",
-    identity = "source-sha256-438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e-stage2-recipe-v2",
+    source_digests = ["sha256:438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e"],
     out_of_source = True,
     configure_args = [
         "--disable-bootstrap",
@@ -226,12 +225,12 @@ pkgs_configure_make_install_package(
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
     ],
-    configure_arg_inputs = {
-        "--with-gmp={}": "//development/libraries/gmp:out",
-        "--with-mpfr={}": "//development/libraries/mpfr:out",
-        "--with-mpc={}": "//development/libraries/libmpc:out",
-        "--with-build-sysroot={}": "//development/libraries/glibc:out_stage1",
-    },
+    configure_arg_store_paths = [
+        ("--with-gmp=", "//development/libraries/gmp:out", ""),
+        ("--with-mpfr=", "//development/libraries/mpfr:out", ""),
+        ("--with-mpc=", "//development/libraries/libmpc:out", ""),
+        ("--with-build-sysroot=", "//development/libraries/glibc:out_stage1", ""),
+    ],
     configure_env = [
         "CC=gcc",
         "CXX=g++",
@@ -241,15 +240,15 @@ pkgs_configure_make_install_package(
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
     ],
-    configure_env_inputs = {
-        "CPPFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
-        "CFLAGS_FOR_TARGET=-idirafter {}/include": "//os-specific/linux/kernel-headers:out",
-        "CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter {}/include": "//os-specific/linux/kernel-headers:out",
-        "FLAGS_FOR_TARGET=-B{}/lib": "//development/libraries/glibc:out_stage1",
-    },
-    configure_env_inputs_multi = {
-        "LDFLAGS=-Wl,-rpath,{}/lib -Wl,-rpath,{}/lib -Wl,-rpath,{}/lib": _MATH_LIBS,
-    },
+    configure_env_store_paths = [
+        ("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        ("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        ("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        ("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
+    ],
+    configure_env_store_path_joins = [
+        ("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
+    ],
     make_args = [
         "MAKEINFO=true",
     ],
@@ -276,7 +275,6 @@ pkgs_cc_wrapper_package(
     name = "bin_stage2",
     package_name = "gcc-wrapper",
     version = "15.2.0",
-    identity = "stage2-wrapper-v0",
     cc = ":out_stage2",
     bintools = "//development/tools/misc/binutils:bin_stage1_wrapped",
     headers = "//os-specific/linux/kernel-headers:out",

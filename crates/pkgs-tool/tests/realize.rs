@@ -5,7 +5,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 #[test]
-fn realizes_an_immutable_tree_once() {
+fn stages_an_immutable_tree_once() {
     let temp = tempdir().unwrap();
     let source = temp.path().join("source");
     let bin = source.join("bin");
@@ -17,25 +17,20 @@ fn realizes_an_immutable_tree_once() {
     permissions.set_mode(0o755);
     fs::set_permissions(&bash, permissions).unwrap();
 
-    let store_root = temp.path().join("store");
-    let stamp = temp.path().join("stamp");
+    let output = temp.path().join("output");
 
-    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_realize"))
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_stage_tree"))
         .args([
             "--source",
             source.to_str().unwrap(),
-            "--store-root",
-            store_root.to_str().unwrap(),
-            "--store-path",
-            "abc-bash-5.3",
-            "--stamp",
-            stamp.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
         ])
         .status()
         .unwrap();
     assert!(status.success());
 
-    let realized = store_root.join("abc-bash-5.3/bin/bash");
+    let realized = output.join("bin/bash");
     assert_eq!(
         fs::read_to_string(&realized).unwrap(),
         "#!/bin/sh\necho bash\n"
@@ -44,22 +39,13 @@ fn realizes_an_immutable_tree_once() {
         fs::metadata(&realized).unwrap().permissions().mode() & 0o222,
         0
     );
-    assert_eq!(
-        fs::read_to_string(&stamp).unwrap(),
-        store_root.join("abc-bash-5.3").display().to_string()
-    );
-
     fs::write(&bash, "changed\n").unwrap();
-    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_realize"))
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_stage_tree"))
         .args([
             "--source",
             source.to_str().unwrap(),
-            "--store-root",
-            store_root.to_str().unwrap(),
-            "--store-path",
-            "abc-bash-5.3",
-            "--stamp",
-            stamp.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
         ])
         .status()
         .unwrap();
@@ -67,6 +53,41 @@ fn realizes_an_immutable_tree_once() {
     assert_eq!(
         fs::read_to_string(realized).unwrap(),
         "#!/bin/sh\necho bash\n"
+    );
+}
+
+#[test]
+fn stages_an_immutable_tree() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    let bin = source.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    fs::write(bin.join("tool"), "tool\n").unwrap();
+
+    let staged_output = temp.path().join("staged-output");
+
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_stage_tree"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            staged_output.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    assert_eq!(
+        fs::read_to_string(staged_output.join("bin/tool")).unwrap(),
+        "tool\n"
+    );
+    assert_eq!(
+        fs::metadata(staged_output.join("bin/tool"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o222,
+        0
     );
 }
 

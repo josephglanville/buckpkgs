@@ -42,7 +42,7 @@ pkgs_configure_make_install_package(
     package_name = "binutils",
     version = "2.46.0",
     source = ":source",
-    identity = "source-sha256-d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2-stage0-recipe-v0",
+    source_digests = ["sha256:d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2"],
     configure_args = [
         "--disable-dependency-tracking",
         "--enable-deterministic-archives",
@@ -76,7 +76,6 @@ pkgs_bintools_wrapper_package(
     name = "bin_stage0_wrapped",
     package_name = "binutils-wrapper",
     version = "2.46.0",
-    identity = "stage0-wrapper-v0",
     bintools = ":bin_stage0",
     shell = "//shells/bash:bin_stage2",
     visibility = ["PUBLIC"],
@@ -87,7 +86,7 @@ pkgs_configure_make_install_package(
     package_name = "binutils",
     version = "2.46.0",
     source = ":source",
-    identity = "source-sha256-d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2-stage1-recipe-v0",
+    source_digests = ["sha256:d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2"],
     configure_args = [
         "--disable-dependency-tracking",
         "--enable-deterministic-archives",
@@ -125,7 +124,6 @@ pkgs_bintools_wrapper_package(
     name = "bin_stage1_wrapped",
     package_name = "binutils-wrapper",
     version = "2.46.0",
-    identity = "stage1-wrapper-v0",
     bintools = ":bin_stage1",
     shell = "//shells/bash:bin_stage2",
     visibility = ["PUBLIC"],

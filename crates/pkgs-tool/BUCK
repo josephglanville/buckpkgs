@@ -46,12 +46,12 @@ rust_binary(
 )
 
 rust_binary(
-    name = "pkgs_realize",
+    name = "pkgs_stage_tree",
     srcs = _COMMON_SRCS + [
-        "src/bin/pkgs_realize.rs",
-        "src/realize.rs",
+        "src/bin/pkgs_stage_tree.rs",
+        "src/stage_tree.rs",
     ],
-    crate_root = "src/bin/pkgs_realize.rs",
+    crate_root = "src/bin/pkgs_stage_tree.rs",
     visibility = ["PUBLIC"],
     deps = _COMMON_DEPS,
 )

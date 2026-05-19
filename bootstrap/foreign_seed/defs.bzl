@@ -29,7 +29,7 @@ def foreign_wrapped_package(name, commands):
         output = "bin",
         builder = "foreign-seed-wrapper-v0",
         foreign = True,
-        identity = "wrapper-v2:" + ",".join(commands),
+        source_digests = ["sha256:" + sha256("\n".join(commands))],
         src = ":" + tree_name,
         visibility = ["PUBLIC"],
     )

@@ -2,7 +2,7 @@
 
 use std::fs::{self, File, FileTimes};
 use std::io;
-use std::os::unix::fs::symlink;
+use std::os::unix::fs::{symlink, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command as ProcessCommand, ExitStatus};
 
@@ -231,6 +231,38 @@ pub(crate) fn preserve_metadata(metadata: &fs::Metadata, destination: &Path) -> 
         })?;
 
     Ok(())
+}
+
+pub(crate) fn make_tree_read_only(path: &Path) -> Result<(), Error> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| Error::Metadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    if metadata.is_dir() {
+        let entries = fs::read_dir(path).map_err(|source| Error::ReadDir {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        for entry in entries {
+            let entry = entry.map_err(|source| Error::ReadDir {
+                path: path.to_path_buf(),
+                source,
+            })?;
+            make_tree_read_only(&entry.path())?;
+        }
+    }
+
+    let mut permissions = metadata.permissions();
+    permissions.set_mode(permissions.mode() & !0o222);
+    fs::set_permissions(path, permissions).map_err(|source| Error::SetPermissions {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 #[cfg(test)]

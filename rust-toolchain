@@ -1,0 +1,5 @@
+[toolchain]
+# Keep BuckPkgs aligned with the local Buck2 checkout so cross-repo Cargo work
+# shares the same compiler and dependency cache behavior.
+channel = "nightly-2026-02-28"
+components = ["llvm-tools-preview", "rust-src"]

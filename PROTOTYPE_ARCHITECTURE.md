@@ -38,7 +38,7 @@ Keep the complicated imperative behavior out of Starlark:
 - patch application
 - builder execution
 - fixup passes
-- optional local store realization
+- immutable tree staging for native Buck2 store-output materialization
 
 Expose that behavior as small Rust executables split by action surface, for
 example:
@@ -47,7 +47,7 @@ example:
 pkgs_configure_make_install
 pkgs_make_install
 pkgs_linux_headers_install
-pkgs_realize
+pkgs_stage_tree
 pkgs_verify_no_refs
 ```
 

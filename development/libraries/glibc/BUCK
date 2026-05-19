@@ -29,16 +29,16 @@ pkgs_configure_make_install_package(
     package_name = "glibc",
     version = "2.42",
     source = ":source",
-    identity = "source-sha256-d1775e32e4628e64ef930f435b67bb63af7599acb6be2b335b9f19f16509f17f-stage1-recipe-v2",
+    source_digests = ["sha256:d1775e32e4628e64ef930f435b67bb63af7599acb6be2b335b9f19f16509f17f"],
     out_of_source = True,
     configure_args = [
         "--enable-add-ons",
         "--disable-werror",
         "--enable-kernel=3.10.0",
     ],
-    configure_arg_inputs = {
-        "--with-headers={}/include": "//os-specific/linux/kernel-headers:out",
-    },
+    configure_arg_store_paths = [
+        ("--with-headers=", "//os-specific/linux/kernel-headers:out", "/include"),
+    ],
     configure_env = [
         "CC=gcc",
         "CXX=g++",

@@ -24,11 +24,11 @@ pkgs_configure_make_install_package(
     package_name = "libmpc",
     version = "1.4.0",
     source = ":source",
-    identity = "source-sha256-3210b3a546b1cb00c296ca360891d7740ee6ff06deb02a27a35b20cd3c0bb1a5-recipe-v0",
-    configure_arg_inputs = {
-        "--with-gmp={}": "//development/libraries/gmp:out",
-        "--with-mpfr={}": "//development/libraries/mpfr:out",
-    },
+    source_digests = ["sha256:3210b3a546b1cb00c296ca360891d7740ee6ff06deb02a27a35b20cd3c0bb1a5"],
+    configure_arg_store_paths = [
+        ("--with-gmp=", "//development/libraries/gmp:out", ""),
+        ("--with-mpfr=", "//development/libraries/mpfr:out", ""),
+    ],
     configure_env = ["CC=cc"],
     native_build_inputs = _NATIVE_TOOLS,
     build_inputs = [

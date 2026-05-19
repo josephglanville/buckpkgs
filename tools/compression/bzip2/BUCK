@@ -26,7 +26,7 @@ pkgs_make_install_package(
     package_name = "bzip2",
     version = "1.0.8",
     source = ":source",
-    identity = "source-sha256-ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269-recipe-v1",
+    source_digests = ["sha256:ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"],
     make_args = [
         "CC=cc",
         "AR=ar",
@@ -35,6 +35,7 @@ pkgs_make_install_package(
         "bzip2recover",
     ],
     patches = [":destdir_and_path_shell_patch"],
+    patch_digests = ["sha256:a1e485cd75eb1c9471c97d4a2ca932b8cb0182869164397691ace4fcce5cfd90"],
     native_build_inputs = [
         "//bootstrap/foreign_seed:gnumake",
         "//bootstrap/foreign_seed:gcc",
@@ -61,7 +62,7 @@ pkgs_make_install_package(
     package_name = "bzip2",
     version = "1.0.8",
     source = ":source",
-    identity = "source-sha256-ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269-final-recipe-v1",
+    source_digests = ["sha256:ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"],
     make_args = [
         "CC=cc",
         "AR=ar",
@@ -70,6 +71,7 @@ pkgs_make_install_package(
         "bzip2recover",
     ],
     patches = [":destdir_and_path_shell_patch"],
+    patch_digests = ["sha256:a1e485cd75eb1c9471c97d4a2ca932b8cb0182869164397691ace4fcce5cfd90"],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
     runtime_inputs = ["//development/libraries/glibc:out_stage1"],
     visibility = ["PUBLIC"],

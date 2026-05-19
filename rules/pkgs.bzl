@@ -9,10 +9,10 @@ PkgsPackageInfo = provider(
         "logical_store_path",
         "name",
         "output",
-        "realized_stamp",
         "runtime_closure",
-        "runtime_realized_stamps",
+        "runtime_store_outputs",
         "store_entry",
+        "store_output",
         "store_path_key",
         "tree",
         "version",
@@ -29,9 +29,11 @@ def _package_instance_digest(ctx, deps_by_role):
         "name={}".format(ctx.attrs.package_name),
         "version={}".format(ctx.attrs.version),
         "builder={}".format(ctx.attrs.builder),
-        "identity={}".format(ctx.attrs.identity),
         "output={}".format(ctx.attrs.output),
     ]
+    parts.extend(_recipe_semantic_parts(ctx))
+    _append_semantic_values(parts, "source_digest", getattr(ctx.attrs, "source_digests", []))
+    _append_semantic_values(parts, "patch_digest", getattr(ctx.attrs, "patch_digests", []))
 
     for role, deps in deps_by_role:
         parts.append("role={}".format(role))
@@ -39,6 +41,56 @@ def _package_instance_digest(ctx, deps_by_role):
             parts.append(dep.logical_store_path)
 
     return sha256("\n".join(parts))
+
+def _append_semantic_values(parts, key, values):
+    for value in values:
+        parts.append("{}={}".format(key, value))
+
+def _recipe_semantic_parts(ctx):
+    parts = []
+
+    _append_semantic_values(parts, "configure_arg", getattr(ctx.attrs, "configure_args", []))
+    for prefix, dep, suffix in getattr(ctx.attrs, "configure_arg_store_paths", []):
+        parts.append("configure_arg_store_path={}{}{}".format(
+            prefix,
+            dep[PkgsPackageInfo].logical_store_path,
+            suffix,
+        ))
+    for prefix, suffix in getattr(ctx.attrs, "configure_arg_self_store_paths", []):
+        parts.append("configure_arg_self_store_path={}<self>{}".format(prefix, suffix))
+
+    _append_semantic_values(parts, "configure_env", getattr(ctx.attrs, "configure_env", []))
+    for prefix, dep, suffix in getattr(ctx.attrs, "configure_env_store_paths", []):
+        parts.append("configure_env_store_path={}{}{}".format(
+            prefix,
+            dep[PkgsPackageInfo].logical_store_path,
+            suffix,
+        ))
+    for prefix, suffix in getattr(ctx.attrs, "configure_env_self_store_paths", []):
+        parts.append("configure_env_self_store_path={}<self>{}".format(prefix, suffix))
+    for prefix, deps, separator, suffix in getattr(ctx.attrs, "configure_env_store_path_joins", []):
+        parts.append("configure_env_store_path_join={}{}{}".format(
+            prefix,
+            separator.join([dep[PkgsPackageInfo].logical_store_path for dep in deps]),
+            suffix,
+        ))
+
+    if getattr(ctx.attrs, "out_of_source", False):
+        parts.append("out_of_source=true")
+
+    _append_semantic_values(parts, "make_arg", getattr(ctx.attrs, "make_args", []))
+    _append_semantic_values(parts, "install_arg", getattr(ctx.attrs, "install_args", []))
+
+    if hasattr(ctx.attrs, "patch_strip"):
+        parts.append("patch_strip={}".format(ctx.attrs.patch_strip))
+
+    for link, target in sorted(getattr(ctx.attrs, "symlinks", {}).items()):
+        parts.append("symlink={}={}".format(link, target))
+
+    if hasattr(ctx.attrs, "kernel_release"):
+        parts.append("kernel_release={}".format(ctx.attrs.kernel_release))
+
+    return parts
 
 def _store_path_parts(ctx, deps_by_role):
     store_name = _store_name(
@@ -56,7 +108,7 @@ def _store_path_parts(ctx, deps_by_role):
         ]),
     )[:32]
     store_entry = "{}-{}".format(store_path_key, store_name)
-    return (store_path_key, store_entry)
+    return (store_path_key, store_name, store_entry)
 
 def _append_unique(out, seen, entries):
     for entry in entries:
@@ -82,23 +134,23 @@ def _collect_closure(store_entry, deps):
 
     return closure
 
-def _collect_runtime_realized_stamps(store_entry, realized_stamp, deps):
+def _collect_runtime_store_outputs(store_entry, store_output, deps):
     seen = {}
     entries = []
-    stamps = []
+    outputs = []
 
     for dep in deps:
-        for entry, stamp in zip(dep.runtime_closure, dep.runtime_realized_stamps):
+        for entry, output in zip(dep.runtime_closure, dep.runtime_store_outputs):
             if entry not in seen:
                 seen[entry] = True
                 entries.append(entry)
-                stamps.append(stamp)
+                outputs.append(output)
 
     if store_entry not in seen:
         entries.append(store_entry)
-        stamps.append(realized_stamp)
+        outputs.append(store_output)
 
-    return stamps
+    return outputs
 
 def _deps_by_role(ctx):
     return [
@@ -108,12 +160,18 @@ def _deps_by_role(ctx):
         ("runtime_inputs", [dep[PkgsPackageInfo] for dep in ctx.attrs.runtime_inputs]),
     ]
 
-def _pkgs_package_impl(ctx):
-    tree = ctx.attrs.src[DefaultInfo].default_outputs[0]
+def _package_metadata(ctx):
     deps_by_role = _deps_by_role(ctx)
-    store_path_key, store_entry = _store_path_parts(ctx, deps_by_role)
+    store_path_key, store_name, store_entry = _store_path_parts(ctx, deps_by_role)
     logical_store_path = "{}/{}".format(LOGICAL_STORE_ROOT, store_entry)
-    realized_stamp = ctx.actions.declare_output("{}.realized".format(ctx.label.name))
+    store_path = ctx.actions.store_path(
+        store_path_key = store_path_key,
+        store_name = store_name,
+    )
+    store_output = ctx.actions.declare_store_output(
+        store_path = store_path,
+        dir = True,
+    )
     build_closure = _collect_closure(
         store_entry,
         [dep.build_closure for _, deps in deps_by_role for dep in deps],
@@ -124,9 +182,9 @@ def _pkgs_package_impl(ctx):
         store_entry,
         [dep.runtime_closure for dep in runtime_infos],
     )
-    runtime_realized_stamps = _collect_runtime_realized_stamps(
+    runtime_store_outputs = _collect_runtime_store_outputs(
         store_entry,
-        realized_stamp,
+        store_output,
         runtime_infos,
     )
     foreign_runtime_entries = _collect_entries(
@@ -135,49 +193,63 @@ def _pkgs_package_impl(ctx):
     if ctx.attrs.foreign:
         foreign_runtime_entries = _collect_closure(store_entry, [foreign_runtime_entries])
 
-    ctx.actions.run(
-        cmd_args(
-            [
-                ctx.attrs._realizer[RunInfo],
-                "--source",
-                tree,
-                "--store-root",
-                ctx.attrs.realization_root,
-                "--store-path",
-                store_entry,
-                "--stamp",
-                realized_stamp.as_output(),
-            ],
-            hidden = [
-                stamp
-                for dep in runtime_infos
-                for stamp in dep.runtime_realized_stamps
-            ],
-        ),
-        category = "pkgs_realize",
-        identifier = ctx.attrs.package_name,
-        local_only = True,
-        allow_cache_upload = False,
+    return struct(
+        build_closure = build_closure,
+        foreign_runtime_entries = foreign_runtime_entries,
+        logical_store_path = logical_store_path,
+        runtime_closure = runtime_closure,
+        runtime_store_outputs = runtime_store_outputs,
+        store_entry = store_entry,
+        store_output = store_output,
+        store_path_key = store_path_key,
     )
 
+def _package_result(ctx, tree, metadata, other_outputs = []):
     return [
-        DefaultInfo(default_output = realized_stamp, other_outputs = [tree]),
+        DefaultInfo(default_output = metadata.store_output, other_outputs = other_outputs),
         PkgsPackageInfo(
-            build_closure = build_closure,
-            foreign_runtime_entries = foreign_runtime_entries,
+            build_closure = metadata.build_closure,
+            foreign_runtime_entries = metadata.foreign_runtime_entries,
             is_foreign = ctx.attrs.foreign,
-            logical_store_path = logical_store_path,
+            logical_store_path = metadata.logical_store_path,
             name = ctx.attrs.package_name,
             output = ctx.attrs.output,
-            realized_stamp = realized_stamp,
-            runtime_closure = runtime_closure,
-            runtime_realized_stamps = runtime_realized_stamps,
-            store_entry = store_entry,
-            store_path_key = store_path_key,
+            runtime_closure = metadata.runtime_closure,
+            runtime_store_outputs = metadata.runtime_store_outputs,
+            store_entry = metadata.store_entry,
+            store_output = metadata.store_output,
+            store_path_key = metadata.store_path_key,
             tree = tree,
             version = ctx.attrs.version,
         ),
     ]
+
+def _stage_tree_package(ctx, tree):
+    metadata = _package_metadata(ctx)
+
+    ctx.actions.run(
+        cmd_args(
+            [
+                ctx.attrs._tree_stager[RunInfo],
+                "--source",
+                tree,
+                "--output",
+                metadata.store_output.as_output(),
+            ],
+            hidden = [
+                output
+                for dep in ctx.attrs.runtime_inputs
+                for output in dep[PkgsPackageInfo].runtime_store_outputs
+            ],
+        ),
+        category = "pkgs_stage_tree",
+        identifier = ctx.attrs.package_name,
+    )
+
+    return _package_result(ctx, metadata.store_output, metadata, other_outputs = [tree])
+
+def _pkgs_package_impl(ctx):
+    return _stage_tree_package(ctx, ctx.attrs.src[DefaultInfo].default_outputs[0])
 
 pkgs_package = rule(
     impl = _pkgs_package_impl,
@@ -185,18 +257,18 @@ pkgs_package = rule(
         "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "builder": attrs.string(),
         "foreign": attrs.bool(default = False),
-        "identity": attrs.string(),
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
-        "realization_root": attrs.string(default = read_root_config("pkgs", "realization_root", LOGICAL_STORE_ROOT)),
+        "patch_digests": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "source_digests": attrs.list(attrs.string(), default = []),
         "src": attrs.dep(providers = [DefaultInfo]),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
-        "_realizer": attrs.default_only(
+        "_tree_stager": attrs.default_only(
             attrs.exec_dep(
-                default = "//crates/pkgs-tool:pkgs_realize",
+                default = "//crates/pkgs-tool:pkgs_stage_tree",
                 providers = [RunInfo],
             ),
         ),
@@ -283,26 +355,25 @@ pkgs_elf_interpreters = rule(
     },
 )
 
-def _pkgs_make_install_tree_impl(ctx):
+def _pkgs_make_install_package_impl(ctx):
     source = ctx.attrs.source[DefaultInfo].default_outputs[0]
     native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
     build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
-    _, store_entry = _store_path_parts(ctx, _deps_by_role(ctx))
-    out = ctx.actions.declare_output(ctx.label.name, dir = True)
+    metadata = _package_metadata(ctx)
 
     args = cmd_args([
         ctx.attrs._builder[RunInfo],
         "--source",
         source,
         "--output",
-        out.as_output(),
+        metadata.store_output.as_output(),
         "--install-prefix",
-        "{}/{}".format(LOGICAL_STORE_ROOT, store_entry),
+        metadata.logical_store_path,
     ])
     for dep in native_build_inputs:
         args.add(
             "--path-entry",
-            "{}/{}/bin".format(ctx.attrs.realization_root, dep.store_entry),
+            "{}/bin".format(dep.logical_store_path),
         )
     for arg in ctx.attrs.make_args:
         args.add("--make-arg={}".format(arg))
@@ -314,39 +385,40 @@ def _pkgs_make_install_tree_impl(ctx):
     for link, target in ctx.attrs.symlinks.items():
         args.add("--symlink", "{}={}".format(link, target))
 
-    native_runtime_stamps = [
-        stamp
+    native_runtime_store_outputs = [
+        output
         for dep in native_build_inputs
-        for stamp in dep.runtime_realized_stamps
+        for output in dep.runtime_store_outputs
     ]
 
     ctx.actions.run(
         cmd_args(
             args,
-            hidden = native_runtime_stamps + [dep.realized_stamp for dep in build_inputs],
+            hidden = native_runtime_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_make_install",
         identifier = ctx.label.name,
     )
 
-    return [DefaultInfo(default_output = out)]
+    return _package_result(ctx, metadata.store_output, metadata)
 
-_pkgs_make_install_tree = rule(
-    impl = _pkgs_make_install_tree_impl,
+_pkgs_make_install_package = rule(
+    impl = _pkgs_make_install_package_impl,
     attrs = {
         "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "builder": attrs.string(),
-        "identity": attrs.string(),
+        "foreign": attrs.bool(default = False),
         "install_args": attrs.list(attrs.string(), default = []),
         "make_args": attrs.list(attrs.string(), default = []),
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
+        "patch_digests": attrs.list(attrs.string(), default = []),
         "patch_strip": attrs.int(default = 1),
         "patches": attrs.list(attrs.dep(providers = [DefaultInfo]), default = []),
-        "realization_root": attrs.string(default = read_root_config("pkgs", "realization_root", LOGICAL_STORE_ROOT)),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source": attrs.dep(providers = [DefaultInfo]),
+        "source_digests": attrs.list(attrs.string(), default = []),
         "symlinks": attrs.dict(attrs.string(), attrs.string(), default = {}),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
@@ -359,53 +431,61 @@ _pkgs_make_install_tree = rule(
     },
 )
 
-def _pkgs_linux_headers_tree_impl(ctx):
+def _pkgs_linux_headers_package_impl(ctx):
     source = ctx.attrs.source[DefaultInfo].default_outputs[0]
     native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
-    out = ctx.actions.declare_output(ctx.label.name, dir = True)
+    metadata = _package_metadata(ctx)
 
     args = cmd_args([
         ctx.attrs._builder[RunInfo],
         "--source",
         source,
         "--output",
-        out.as_output(),
+        metadata.store_output.as_output(),
         "--kernel-release",
         ctx.attrs.kernel_release,
     ])
     for dep in native_build_inputs:
         args.add(
             "--path-entry",
-            "{}/{}/bin".format(ctx.attrs.realization_root, dep.store_entry),
+            "{}/bin".format(dep.logical_store_path),
         )
     for arg in ctx.attrs.make_args:
         args.add("--make-arg={}".format(arg))
 
-    native_runtime_stamps = [
-        stamp
+    native_runtime_store_outputs = [
+        output
         for dep in native_build_inputs
-        for stamp in dep.runtime_realized_stamps
+        for output in dep.runtime_store_outputs
     ]
 
     ctx.actions.run(
         cmd_args(
             args,
-            hidden = native_runtime_stamps,
+            hidden = native_runtime_store_outputs,
         ),
         category = "pkgs_linux_headers_install",
         identifier = ctx.label.name,
     )
 
-    return [DefaultInfo(default_output = out)]
+    return _package_result(ctx, metadata.store_output, metadata)
 
-_pkgs_linux_headers_tree = rule(
-    impl = _pkgs_linux_headers_tree_impl,
+_pkgs_linux_headers_package = rule(
+    impl = _pkgs_linux_headers_package_impl,
     attrs = {
+        "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "builder": attrs.string(),
+        "foreign": attrs.bool(default = False),
         "kernel_release": attrs.string(),
         "make_args": attrs.list(attrs.string(), default = []),
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
-        "realization_root": attrs.string(default = read_root_config("pkgs", "realization_root", LOGICAL_STORE_ROOT)),
+        "output": attrs.string(default = "out"),
+        "package_name": attrs.string(),
+        "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source": attrs.dep(providers = [DefaultInfo]),
+        "source_digests": attrs.list(attrs.string(), default = []),
+        "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "version": attrs.string(),
         "_builder": attrs.default_only(
             attrs.exec_dep(
                 default = "//crates/pkgs-tool:pkgs_linux_headers_install",
@@ -415,39 +495,55 @@ _pkgs_linux_headers_tree = rule(
     },
 )
 
-def _pkgs_configure_make_install_tree_impl(ctx):
+def _pkgs_configure_make_install_package_impl(ctx):
     source = ctx.attrs.source[DefaultInfo].default_outputs[0]
     native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
     build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
-    _, store_entry = _store_path_parts(ctx, _deps_by_role(ctx))
-    out = ctx.actions.declare_output(ctx.label.name, dir = True)
+    metadata = _package_metadata(ctx)
+    self_store_path = metadata.logical_store_path
 
     args = cmd_args([
         ctx.attrs._builder[RunInfo],
         "--source",
         source,
         "--output",
-        out.as_output(),
+        metadata.store_output.as_output(),
         "--install-prefix",
-        "{}/{}".format(LOGICAL_STORE_ROOT, store_entry),
+        metadata.logical_store_path,
     ])
     for dep in native_build_inputs:
         args.add(
             "--path-entry",
-            "{}/{}/bin".format(ctx.attrs.realization_root, dep.store_entry),
+            "{}/bin".format(dep.logical_store_path),
         )
     for arg in ctx.attrs.configure_args:
         args.add("--configure-arg={}".format(arg))
     if ctx.attrs.out_of_source:
         args.add("--out-of-source")
-    for template, dep in ctx.attrs.configure_arg_inputs.items():
-        args.add("--configure-arg={}".format(template.format(dep[PkgsPackageInfo].logical_store_path)))
+    for prefix, dep, suffix in ctx.attrs.configure_arg_store_paths:
+        args.add("--configure-arg={}{}{}".format(
+            prefix,
+            dep[PkgsPackageInfo].logical_store_path,
+            suffix,
+        ))
+    for prefix, suffix in ctx.attrs.configure_arg_self_store_paths:
+        args.add("--configure-arg={}{}{}".format(prefix, self_store_path, suffix))
     for env in ctx.attrs.configure_env:
         args.add("--configure-env={}".format(env))
-    for template, dep in ctx.attrs.configure_env_inputs.items():
-        args.add("--configure-env={}".format(template.format(dep[PkgsPackageInfo].logical_store_path)))
-    for template, deps in ctx.attrs.configure_env_inputs_multi.items():
-        args.add("--configure-env={}".format(template.format(*[dep[PkgsPackageInfo].logical_store_path for dep in deps])))
+    for prefix, dep, suffix in ctx.attrs.configure_env_store_paths:
+        args.add("--configure-env={}{}{}".format(
+            prefix,
+            dep[PkgsPackageInfo].logical_store_path,
+            suffix,
+        ))
+    for prefix, suffix in ctx.attrs.configure_env_self_store_paths:
+        args.add("--configure-env={}{}{}".format(prefix, self_store_path, suffix))
+    for prefix, deps, separator, suffix in ctx.attrs.configure_env_store_path_joins:
+        args.add("--configure-env={}{}{}".format(
+            prefix,
+            separator.join([dep[PkgsPackageInfo].logical_store_path for dep in deps]),
+            suffix,
+        ))
     for arg in ctx.attrs.make_args:
         args.add("--make-arg={}".format(arg))
     for arg in ctx.attrs.install_args:
@@ -458,45 +554,76 @@ def _pkgs_configure_make_install_tree_impl(ctx):
     for link, target in ctx.attrs.symlinks.items():
         args.add("--symlink", "{}={}".format(link, target))
 
-    native_runtime_stamps = [
-        stamp
+    native_runtime_store_outputs = [
+        output
         for dep in native_build_inputs
-        for stamp in dep.runtime_realized_stamps
+        for output in dep.runtime_store_outputs
     ]
 
     ctx.actions.run(
         cmd_args(
             args,
-            hidden = native_runtime_stamps + [dep.realized_stamp for dep in build_inputs],
+            hidden = native_runtime_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_configure_make_install",
         identifier = ctx.label.name,
     )
 
-    return [DefaultInfo(default_output = out)]
+    return _package_result(ctx, metadata.store_output, metadata)
 
-_pkgs_configure_make_install_tree = rule(
-    impl = _pkgs_configure_make_install_tree_impl,
+_pkgs_configure_make_install_package = rule(
+    impl = _pkgs_configure_make_install_package_impl,
     attrs = {
         "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "builder": attrs.string(),
-        "configure_arg_inputs": attrs.dict(attrs.string(), attrs.dep(providers = [PkgsPackageInfo]), default = {}),
+        "configure_arg_store_paths": attrs.list(
+            attrs.tuple(
+                attrs.string(),
+                attrs.dep(providers = [PkgsPackageInfo]),
+                attrs.string(),
+            ),
+            default = [],
+        ),
+        "configure_arg_self_store_paths": attrs.list(
+            attrs.tuple(attrs.string(), attrs.string()),
+            default = [],
+        ),
         "configure_args": attrs.list(attrs.string(), default = []),
         "configure_env": attrs.list(attrs.string(), default = []),
-        "configure_env_inputs": attrs.dict(attrs.string(), attrs.dep(providers = [PkgsPackageInfo]), default = {}),
-        "configure_env_inputs_multi": attrs.dict(attrs.string(), attrs.list(attrs.dep(providers = [PkgsPackageInfo])), default = {}),
-        "identity": attrs.string(),
+        "configure_env_store_paths": attrs.list(
+            attrs.tuple(
+                attrs.string(),
+                attrs.dep(providers = [PkgsPackageInfo]),
+                attrs.string(),
+            ),
+            default = [],
+        ),
+        "configure_env_self_store_paths": attrs.list(
+            attrs.tuple(attrs.string(), attrs.string()),
+            default = [],
+        ),
+        "configure_env_store_path_joins": attrs.list(
+            attrs.tuple(
+                attrs.string(),
+                attrs.list(attrs.dep(providers = [PkgsPackageInfo])),
+                attrs.string(),
+                attrs.string(),
+            ),
+            default = [],
+        ),
+        "foreign": attrs.bool(default = False),
         "install_args": attrs.list(attrs.string(), default = []),
         "make_args": attrs.list(attrs.string(), default = []),
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "out_of_source": attrs.bool(default = False),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
+        "patch_digests": attrs.list(attrs.string(), default = []),
         "patch_strip": attrs.int(default = 1),
         "patches": attrs.list(attrs.dep(providers = [DefaultInfo]), default = []),
-        "realization_root": attrs.string(default = read_root_config("pkgs", "realization_root", LOGICAL_STORE_ROOT)),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source": attrs.dep(providers = [DefaultInfo]),
+        "source_digests": attrs.list(attrs.string(), default = []),
         "symlinks": attrs.dict(attrs.string(), attrs.string(), default = {}),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "version": attrs.string(),
@@ -509,19 +636,19 @@ _pkgs_configure_make_install_tree = rule(
     },
 )
 
-def _pkgs_cc_wrapper_tree_impl(ctx):
+def _pkgs_cc_wrapper_package_impl(ctx):
     cc = ctx.attrs.cc[PkgsPackageInfo]
     bintools = ctx.attrs.bintools[PkgsPackageInfo]
     headers = ctx.attrs.headers[PkgsPackageInfo]
     libc = ctx.attrs.libc[PkgsPackageInfo]
     shell = ctx.attrs.shell[PkgsPackageInfo]
-    out = ctx.actions.declare_output(ctx.label.name, dir = True)
+    metadata = _package_metadata(ctx)
 
     ctx.actions.run(
         cmd_args([
             ctx.attrs._builder[RunInfo],
             "--output",
-            out.as_output(),
+            metadata.store_output.as_output(),
             "--shell",
             "{}/bin/bash".format(shell.logical_store_path),
             "--cc",
@@ -543,16 +670,25 @@ def _pkgs_cc_wrapper_tree_impl(ctx):
         identifier = ctx.label.name,
     )
 
-    return [DefaultInfo(default_output = out)]
+    return _package_result(ctx, metadata.store_output, metadata)
 
-_pkgs_cc_wrapper_tree = rule(
-    impl = _pkgs_cc_wrapper_tree_impl,
+_pkgs_cc_wrapper_package = rule(
+    impl = _pkgs_cc_wrapper_package_impl,
     attrs = {
         "bintools": attrs.dep(providers = [PkgsPackageInfo]),
+        "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "builder": attrs.string(),
         "cc": attrs.dep(providers = [PkgsPackageInfo]),
+        "foreign": attrs.bool(default = False),
         "headers": attrs.dep(providers = [PkgsPackageInfo]),
         "libc": attrs.dep(providers = [PkgsPackageInfo]),
+        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "output": attrs.string(default = "bin"),
+        "package_name": attrs.string(),
+        "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "shell": attrs.dep(providers = [PkgsPackageInfo]),
+        "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "version": attrs.string(),
         "_builder": attrs.default_only(
             attrs.exec_dep(
                 default = "//crates/pkgs-tool:pkgs_cc_wrapper_tree",
@@ -562,16 +698,16 @@ _pkgs_cc_wrapper_tree = rule(
     },
 )
 
-def _pkgs_bintools_wrapper_tree_impl(ctx):
+def _pkgs_bintools_wrapper_package_impl(ctx):
     bintools = ctx.attrs.bintools[PkgsPackageInfo]
     shell = ctx.attrs.shell[PkgsPackageInfo]
-    out = ctx.actions.declare_output(ctx.label.name, dir = True)
+    metadata = _package_metadata(ctx)
 
     ctx.actions.run(
         cmd_args([
             ctx.attrs._builder[RunInfo],
             "--output",
-            out.as_output(),
+            metadata.store_output.as_output(),
             "--shell",
             "{}/bin/bash".format(shell.logical_store_path),
             "--binutils",
@@ -581,13 +717,22 @@ def _pkgs_bintools_wrapper_tree_impl(ctx):
         identifier = ctx.label.name,
     )
 
-    return [DefaultInfo(default_output = out)]
+    return _package_result(ctx, metadata.store_output, metadata)
 
-_pkgs_bintools_wrapper_tree = rule(
-    impl = _pkgs_bintools_wrapper_tree_impl,
+_pkgs_bintools_wrapper_package = rule(
+    impl = _pkgs_bintools_wrapper_package_impl,
     attrs = {
         "bintools": attrs.dep(providers = [PkgsPackageInfo]),
+        "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "builder": attrs.string(),
+        "foreign": attrs.bool(default = False),
+        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "output": attrs.string(default = "bin"),
+        "package_name": attrs.string(),
+        "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "shell": attrs.dep(providers = [PkgsPackageInfo]),
+        "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "version": attrs.string(),
         "_builder": attrs.default_only(
             attrs.exec_dep(
                 default = "//crates/pkgs-tool:pkgs_bintools_wrapper_tree",
@@ -602,46 +747,35 @@ def pkgs_make_install_package(
         package_name,
         version,
         source,
-        identity,
         make_args = [],
         install_args = [],
         patches = [],
+        patch_digests = [],
         patch_strip = 1,
         symlinks = {},
+        source_digests = [],
         output = "out",
         native_build_inputs = [],
         build_inputs = [],
         runtime_inputs = [],
         visibility = []):
-    tree_name = name + "__tree"
-    _pkgs_make_install_tree(
-        name = tree_name,
-        package_name = package_name,
-        version = version,
-        output = output,
-        builder = "make-install-v5",
-        identity = identity,
-        source = source,
-        make_args = make_args,
-        install_args = install_args,
-        patches = patches,
-        patch_strip = patch_strip,
-        symlinks = symlinks,
-        native_build_inputs = native_build_inputs,
-        build_inputs = build_inputs,
-        target_inputs = [],
-        runtime_inputs = runtime_inputs,
-    )
-    pkgs_package(
+    _pkgs_make_install_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "make-install-v5",
-        identity = identity,
-        src = ":" + tree_name,
+        source = source,
+        make_args = make_args,
+        install_args = install_args,
+        patches = patches,
+        patch_digests = patch_digests,
+        patch_strip = patch_strip,
+        symlinks = symlinks,
+        source_digests = source_digests,
         native_build_inputs = native_build_inputs,
         build_inputs = build_inputs,
+        target_inputs = [],
         runtime_inputs = runtime_inputs,
         visibility = visibility,
     )
@@ -651,58 +785,51 @@ def pkgs_configure_make_install_package(
         package_name,
         version,
         source,
-        identity,
         configure_args = [],
-        configure_arg_inputs = {},
+        configure_arg_store_paths = [],
+        configure_arg_self_store_paths = [],
         configure_env = [],
-        configure_env_inputs = {},
-        configure_env_inputs_multi = {},
+        configure_env_store_paths = [],
+        configure_env_self_store_paths = [],
+        configure_env_store_path_joins = [],
         out_of_source = False,
         make_args = [],
         install_args = [],
         patches = [],
+        patch_digests = [],
         patch_strip = 1,
         symlinks = {},
+        source_digests = [],
         output = "out",
         native_build_inputs = [],
         build_inputs = [],
         runtime_inputs = [],
         visibility = []):
-    tree_name = name + "__tree"
-    _pkgs_configure_make_install_tree(
-        name = tree_name,
-        package_name = package_name,
-        version = version,
-        output = output,
-        builder = "configure-make-install-v5",
-        identity = identity,
-        source = source,
-        configure_args = configure_args,
-        configure_arg_inputs = configure_arg_inputs,
-        configure_env = configure_env,
-        configure_env_inputs = configure_env_inputs,
-        configure_env_inputs_multi = configure_env_inputs_multi,
-        out_of_source = out_of_source,
-        make_args = make_args,
-        install_args = install_args,
-        patches = patches,
-        patch_strip = patch_strip,
-        symlinks = symlinks,
-        native_build_inputs = native_build_inputs,
-        build_inputs = build_inputs,
-        target_inputs = [],
-        runtime_inputs = runtime_inputs,
-    )
-    pkgs_package(
+    _pkgs_configure_make_install_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "configure-make-install-v5",
-        identity = identity,
-        src = ":" + tree_name,
+        source = source,
+        configure_args = configure_args,
+        configure_arg_store_paths = configure_arg_store_paths,
+        configure_arg_self_store_paths = configure_arg_self_store_paths,
+        configure_env = configure_env,
+        configure_env_store_paths = configure_env_store_paths,
+        configure_env_self_store_paths = configure_env_self_store_paths,
+        configure_env_store_path_joins = configure_env_store_path_joins,
+        out_of_source = out_of_source,
+        make_args = make_args,
+        install_args = install_args,
+        patches = patches,
+        patch_digests = patch_digests,
+        patch_strip = patch_strip,
+        symlinks = symlinks,
+        source_digests = source_digests,
         native_build_inputs = native_build_inputs,
         build_inputs = build_inputs,
+        target_inputs = [],
         runtime_inputs = runtime_inputs,
         visibility = visibility,
     )
@@ -712,28 +839,22 @@ def pkgs_linux_headers_package(
         package_name,
         version,
         source,
-        identity,
         kernel_release,
         make_args = [],
+        source_digests = [],
         output = "out",
         native_build_inputs = [],
         visibility = []):
-    tree_name = name + "__tree"
-    _pkgs_linux_headers_tree(
-        name = tree_name,
-        source = source,
-        kernel_release = kernel_release,
-        make_args = make_args,
-        native_build_inputs = native_build_inputs,
-    )
-    pkgs_package(
+    _pkgs_linux_headers_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "linux-headers-install-v1",
-        identity = identity,
-        src = ":" + tree_name,
+        source = source,
+        kernel_release = kernel_release,
+        make_args = make_args,
+        source_digests = source_digests,
         native_build_inputs = native_build_inputs,
         visibility = visibility,
     )
@@ -742,7 +863,6 @@ def pkgs_cc_wrapper_package(
         name,
         package_name,
         version,
-        identity,
         cc,
         bintools,
         headers,
@@ -750,23 +870,17 @@ def pkgs_cc_wrapper_package(
         shell,
         output = "bin",
         visibility = []):
-    tree_name = name + "__tree"
-    _pkgs_cc_wrapper_tree(
-        name = tree_name,
-        cc = cc,
-        bintools = bintools,
-        headers = headers,
-        libc = libc,
-        shell = shell,
-    )
-    pkgs_package(
+    _pkgs_cc_wrapper_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "cc-wrapper-tree-v0",
-        identity = identity,
-        src = ":" + tree_name,
+        cc = cc,
+        bintools = bintools,
+        headers = headers,
+        libc = libc,
+        shell = shell,
         runtime_inputs = [
             cc,
             bintools,
@@ -781,25 +895,18 @@ def pkgs_bintools_wrapper_package(
         name,
         package_name,
         version,
-        identity,
         bintools,
         shell,
         output = "bin",
         visibility = []):
-    tree_name = name + "__tree"
-    _pkgs_bintools_wrapper_tree(
-        name = tree_name,
-        bintools = bintools,
-        shell = shell,
-    )
-    pkgs_package(
+    _pkgs_bintools_wrapper_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
         builder = "bintools-wrapper-tree-v0",
-        identity = identity,
-        src = ":" + tree_name,
+        bintools = bintools,
+        shell = shell,
         runtime_inputs = [
             bintools,
             shell,

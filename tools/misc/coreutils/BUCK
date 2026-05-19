@@ -37,7 +37,7 @@ pkgs_configure_make_install_package(
     package_name = "coreutils",
     version = "9.10",
     source = ":source",
-    identity = "source-sha256-16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25-recipe-v0",
+    source_digests = ["sha256:16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25"],
     configure_env = [
         "CC=cc",
         "FORCE_UNSAFE_CONFIGURE=1",
@@ -61,7 +61,7 @@ pkgs_configure_make_install_package(
     package_name = "coreutils",
     version = "9.10",
     source = ":source",
-    identity = "source-sha256-16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25-final-recipe-v0",
+    source_digests = ["sha256:16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25"],
     configure_env = [
         "CC=cc",
         "FORCE_UNSAFE_CONFIGURE=1",
