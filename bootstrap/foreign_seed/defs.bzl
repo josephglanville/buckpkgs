@@ -34,6 +34,6 @@ def foreign_wrapped_package(name, commands):
         output = "bin",
         builder = "foreign-seed-wrapper-v0",
         foreign = True,
-        src = source,
+        sources = [source],
         visibility = ["PUBLIC"],
     )

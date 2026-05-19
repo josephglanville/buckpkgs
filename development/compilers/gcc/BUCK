@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free", "pkgs_store_path", "pkgs_store_path_join")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -80,11 +80,9 @@ pkgs_configure_make_install_package(
         "--without-included-gettext",
         "--with-zstd=no",
         "--enable-languages=c,c++",
-    ],
-    configure_arg_store_paths = [
-        ("--with-gmp=", "//development/libraries/gmp:out", ""),
-        ("--with-mpfr=", "//development/libraries/mpfr:out", ""),
-        ("--with-mpc=", "//development/libraries/libmpc:out", ""),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out"),
     ],
     configure_env = [
         "CC=cc",
@@ -135,12 +133,10 @@ pkgs_configure_make_install_package(
         "--with-zstd=no",
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
-    ],
-    configure_arg_store_paths = [
-        ("--with-gmp=", "//development/libraries/gmp:out", ""),
-        ("--with-mpfr=", "//development/libraries/mpfr:out", ""),
-        ("--with-mpc=", "//development/libraries/libmpc:out", ""),
-        ("--with-build-sysroot=", "//development/libraries/glibc:out_stage1", ""),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out"),
+        pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:out_stage1"),
     ],
     configure_env = [
         "CC=gcc",
@@ -150,15 +146,11 @@ pkgs_configure_make_install_package(
         "LD=ld",
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
-    ],
-    configure_env_store_paths = [
-        ("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        ("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        ("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        ("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
-    ],
-    configure_env_store_path_joins = [
-        ("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
+        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
+        pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
     ],
     make_args = [
         "MAKEINFO=true",
@@ -221,12 +213,10 @@ pkgs_configure_make_install_package(
         "--with-zstd=no",
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
-    ],
-    configure_arg_store_paths = [
-        ("--with-gmp=", "//development/libraries/gmp:out", ""),
-        ("--with-mpfr=", "//development/libraries/mpfr:out", ""),
-        ("--with-mpc=", "//development/libraries/libmpc:out", ""),
-        ("--with-build-sysroot=", "//development/libraries/glibc:out_stage1", ""),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out"),
+        pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:out_stage1"),
     ],
     configure_env = [
         "CC=gcc",
@@ -236,15 +226,11 @@ pkgs_configure_make_install_package(
         "LD=ld",
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
-    ],
-    configure_env_store_paths = [
-        ("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        ("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        ("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        ("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
-    ],
-    configure_env_store_path_joins = [
-        ("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
+        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
+        pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
     ],
     make_args = [
         "MAKEINFO=true",

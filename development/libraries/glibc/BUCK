@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free", "pkgs_store_path")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -34,9 +34,7 @@ pkgs_configure_make_install_package(
         "--enable-add-ons",
         "--disable-werror",
         "--enable-kernel=3.10.0",
-    ],
-    configure_arg_store_paths = [
-        ("--with-headers=", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("--with-headers=", "//os-specific/linux/kernel-headers:out", "/include"),
     ],
     configure_env = [
         "CC=gcc",

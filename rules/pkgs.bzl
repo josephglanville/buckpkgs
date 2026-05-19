@@ -1,3 +1,5 @@
+load("@prelude//utils:selects.bzl", "selects")
+
 STORE_ABI_VERSION = "pkgs-store-v0"
 LOGICAL_STORE_ROOT = "/pkgs/store"
 
@@ -65,6 +67,30 @@ def pkgs_export_patch(name, src, sha256, visibility = []):
         digests = ["sha256:" + sha256],
     )
 
+def pkgs_store_path(prefix, dep, suffix = ""):
+    return struct(
+        _pkgs_configure_value_kind = "store_path",
+        dep = dep,
+        prefix = prefix,
+        suffix = suffix,
+    )
+
+def pkgs_self_store_path(prefix, suffix = ""):
+    return struct(
+        _pkgs_configure_value_kind = "self_store_path",
+        prefix = prefix,
+        suffix = suffix,
+    )
+
+def pkgs_store_path_join(prefix, deps, separator, suffix = ""):
+    return struct(
+        _pkgs_configure_value_kind = "store_path_join",
+        deps = deps,
+        prefix = prefix,
+        separator = separator,
+        suffix = suffix,
+    )
+
 def _descriptor_deps(descriptors):
     return [descriptor.dep for descriptor in descriptors]
 
@@ -74,24 +100,62 @@ def _descriptor_digests(descriptors):
         digests.extend(descriptor.digests)
     return digests
 
+def _select_aware(value, transform):
+    return selects.apply(value, transform) if selects.is_select(value) else transform(value)
+
+def _composed_source_digests(sources):
+    return [
+        "source-layout=compose-sources-v0",
+        "source-count={}".format(len(sources)),
+    ] + _descriptor_digests(sources)
+
+def _compose_source_set(name, sources):
+    source_set_name = "{}__sources".format(name)
+    _pkgs_compose_sources(
+        name = source_set_name,
+        sources = _select_aware(sources, _descriptor_deps),
+    )
+    return pkgs_source(
+        dep = ":" + source_set_name,
+        digests = _select_aware(sources, _composed_source_digests),
+    )
+
 def _source_set(name, sources):
+    if selects.is_select(sources):
+        return _compose_source_set(name, sources)
+
     if len(sources) == 0:
         fail("package {} must declare at least one source".format(name))
 
     if len(sources) == 1:
         return sources[0]
 
-    source_set_name = "{}__sources".format(name)
-    _pkgs_compose_sources(
-        name = source_set_name,
-        sources = _descriptor_deps(sources),
-    )
-    return pkgs_source(
-        dep = ":" + source_set_name,
-        digests = [
-            "source-layout=compose-sources-v0",
-            "source-count={}".format(len(sources)),
-        ] + _descriptor_digests(sources),
+    return _compose_source_set(name, sources)
+
+def _lower_configure_values(values):
+    strings = []
+    store_paths = []
+    self_store_paths = []
+    store_path_joins = []
+
+    for value in values:
+        kind = getattr(value, "_pkgs_configure_value_kind", None)
+        if kind == None:
+            strings.append(value)
+        elif kind == "store_path":
+            store_paths.append((value.prefix, value.dep, value.suffix))
+        elif kind == "self_store_path":
+            self_store_paths.append((value.prefix, value.suffix))
+        elif kind == "store_path_join":
+            store_path_joins.append((value.prefix, value.deps, value.separator, value.suffix))
+        else:
+            fail("unsupported package configure value kind: {}".format(kind))
+
+    return struct(
+        self_store_paths = self_store_paths,
+        store_path_joins = store_path_joins,
+        store_paths = store_paths,
+        strings = strings,
     )
 
 def _store_name(name, version, output):
@@ -134,6 +198,12 @@ def _recipe_semantic_parts(ctx):
         ))
     for prefix, suffix in getattr(ctx.attrs, "configure_arg_self_store_paths", []):
         parts.append("configure_arg_self_store_path={}<self>{}".format(prefix, suffix))
+    for prefix, deps, separator, suffix in getattr(ctx.attrs, "configure_arg_store_path_joins", []):
+        parts.append("configure_arg_store_path_join={}{}{}".format(
+            prefix,
+            separator.join([dep[PkgsPackageInfo].logical_store_path for dep in deps]),
+            suffix,
+        ))
 
     _append_semantic_values(parts, "configure_env", getattr(ctx.attrs, "configure_env", []))
     for prefix, dep, suffix in getattr(ctx.attrs, "configure_env_store_paths", []):
@@ -390,7 +460,7 @@ def pkgs_package(
         package_name,
         version,
         builder,
-        src,
+        sources,
         output = "out",
         foreign = False,
         native_build_inputs = [],
@@ -398,6 +468,7 @@ def pkgs_package(
         target_inputs = [],
         runtime_inputs = [],
         visibility = []):
+    source = _source_set(name, sources)
     _pkgs_package(
         name = name,
         package_name = package_name,
@@ -405,8 +476,8 @@ def pkgs_package(
         output = output,
         builder = builder,
         foreign = foreign,
-        source_digests = src.digests,
-        src = src.dep,
+        source_digests = source.digests,
+        src = source.dep,
         target_system = _TARGET_SYSTEM,
         native_build_inputs = native_build_inputs,
         build_inputs = build_inputs,
@@ -670,6 +741,12 @@ def _pkgs_configure_make_install_package_impl(ctx):
         ))
     for prefix, suffix in ctx.attrs.configure_arg_self_store_paths:
         args.add("--configure-arg={}{}{}".format(prefix, self_store_path, suffix))
+    for prefix, deps, separator, suffix in ctx.attrs.configure_arg_store_path_joins:
+        args.add("--configure-arg={}{}{}".format(
+            prefix,
+            separator.join([dep[PkgsPackageInfo].logical_store_path for dep in deps]),
+            suffix,
+        ))
     for env in ctx.attrs.configure_env:
         args.add("--configure-env={}".format(env))
     for prefix, dep, suffix in ctx.attrs.configure_env_store_paths:
@@ -728,6 +805,15 @@ _pkgs_configure_make_install_package = rule(
         ),
         "configure_arg_self_store_paths": attrs.list(
             attrs.tuple(attrs.string(), attrs.string()),
+            default = [],
+        ),
+        "configure_arg_store_path_joins": attrs.list(
+            attrs.tuple(
+                attrs.string(),
+                attrs.list(attrs.dep(providers = [PkgsPackageInfo])),
+                attrs.string(),
+                attrs.string(),
+            ),
             default = [],
         ),
         "configure_args": attrs.list(attrs.string(), default = []),
@@ -913,8 +999,8 @@ def pkgs_make_install_package(
         source = source.dep,
         make_args = make_args,
         install_args = install_args,
-        patches = _descriptor_deps(patches),
-        patch_digests = _descriptor_digests(patches),
+        patches = _select_aware(patches, _descriptor_deps),
+        patch_digests = _select_aware(patches, _descriptor_digests),
         patch_strip = patch_strip,
         symlinks = symlinks,
         source_digests = source.digests,
@@ -932,12 +1018,7 @@ def pkgs_configure_make_install_package(
         version,
         sources,
         configure_args = [],
-        configure_arg_store_paths = [],
-        configure_arg_self_store_paths = [],
         configure_env = [],
-        configure_env_store_paths = [],
-        configure_env_self_store_paths = [],
-        configure_env_store_path_joins = [],
         out_of_source = False,
         make_args = [],
         install_args = [],
@@ -950,6 +1031,8 @@ def pkgs_configure_make_install_package(
         runtime_inputs = [],
         visibility = []):
     source = _source_set(name, sources)
+    lowered_configure_args = _lower_configure_values(configure_args)
+    lowered_configure_env = _lower_configure_values(configure_env)
     _pkgs_configure_make_install_package(
         name = name,
         package_name = package_name,
@@ -957,18 +1040,19 @@ def pkgs_configure_make_install_package(
         output = output,
         builder = "configure-make-install-v5",
         source = source.dep,
-        configure_args = configure_args,
-        configure_arg_store_paths = configure_arg_store_paths,
-        configure_arg_self_store_paths = configure_arg_self_store_paths,
-        configure_env = configure_env,
-        configure_env_store_paths = configure_env_store_paths,
-        configure_env_self_store_paths = configure_env_self_store_paths,
-        configure_env_store_path_joins = configure_env_store_path_joins,
+        configure_args = lowered_configure_args.strings,
+        configure_arg_store_paths = lowered_configure_args.store_paths,
+        configure_arg_self_store_paths = lowered_configure_args.self_store_paths,
+        configure_arg_store_path_joins = lowered_configure_args.store_path_joins,
+        configure_env = lowered_configure_env.strings,
+        configure_env_store_paths = lowered_configure_env.store_paths,
+        configure_env_self_store_paths = lowered_configure_env.self_store_paths,
+        configure_env_store_path_joins = lowered_configure_env.store_path_joins,
         out_of_source = out_of_source,
         make_args = make_args,
         install_args = install_args,
-        patches = _descriptor_deps(patches),
-        patch_digests = _descriptor_digests(patches),
+        patches = _select_aware(patches, _descriptor_deps),
+        patch_digests = _select_aware(patches, _descriptor_digests),
         patch_strip = patch_strip,
         symlinks = symlinks,
         source_digests = source.digests,

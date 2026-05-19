@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free", "pkgs_store_path")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -24,8 +24,8 @@ pkgs_configure_make_install_package(
     package_name = "mpfr",
     version = "4.2.2",
     sources = [_SOURCE],
-    configure_arg_store_paths = [
-        ("--with-gmp=", "//development/libraries/gmp:out", ""),
+    configure_args = [
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
     ],
     configure_env = ["CC=cc"],
     native_build_inputs = _NATIVE_TOOLS,

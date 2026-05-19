@@ -2,9 +2,11 @@ load(
     "//rules:pkgs.bzl",
     "pkgs_configure_make_install_package",
     "pkgs_elf_interpreters",
+    "pkgs_export_patch",
     "pkgs_make_install_package",
     "pkgs_package",
     "pkgs_seed_free",
+    "pkgs_self_store_path",
     "pkgs_source",
 )
 
@@ -34,7 +36,7 @@ pkgs_package(
     package_name = "build-only-dep",
     version = "0",
     builder = "bootstrap-test-v0",
-    src = _PAYLOAD_SOURCE,
+    sources = [_PAYLOAD_SOURCE],
     native_build_inputs = ["//bootstrap/foreign_seed:bash"],
 )
 
@@ -144,6 +146,65 @@ pkgs_make_install_package(
     ],
 )
 
+_PLATFORM_PATCH_MAKEFILE_CONTENT = [
+    "PAYLOAD := unpatched",
+    "all:",
+    "\t:",
+    "install:",
+    "\tmkdir -p \"$(DESTDIR)$(PREFIX)/share\"",
+    "\tprintf '%s' \"$(PAYLOAD)\" > \"$(DESTDIR)$(PREFIX)/share/payload\"",
+]
+
+write_file(
+    name = "platform_patch_makefile",
+    out = "Makefile",
+    content = _PLATFORM_PATCH_MAKEFILE_CONTENT,
+)
+
+filegroup(
+    name = "platform_patch_source",
+    srcs = {
+        "Makefile": ":platform_patch_makefile",
+    },
+    copy = True,
+)
+
+_PLATFORM_PATCH_SOURCE = pkgs_source(
+    dep = ":platform_patch_source",
+    digests = ["sha256:" + sha256("\n".join(["Makefile"] + _PLATFORM_PATCH_MAKEFILE_CONTENT))],
+)
+
+_PLATFORM_PATCH_X86_64 = pkgs_export_patch(
+    name = "platform_payload_x86_64_patch",
+    src = "patches/0001-platform-payload-x86_64.patch",
+    sha256 = "3a387eedca306bfd36c5a0214b7a131d8decb48e45036834b893ee678dfc3440",
+)
+
+_PLATFORM_PATCH_ARM64 = pkgs_export_patch(
+    name = "platform_payload_arm64_patch",
+    src = "patches/0001-platform-payload-arm64.patch",
+    sha256 = "04c2183de025a09144c3d02dd82ec75591a7fd67af1b7230ed6cd7b07ab89f8f",
+)
+
+pkgs_make_install_package(
+    name = "platform_patch_consumer",
+    package_name = "platform-patch-consumer",
+    version = "0",
+    sources = select({
+        "//platforms:linux_arm64": [_PLATFORM_PATCH_SOURCE],
+        "//platforms:linux_x86_64": [_PLATFORM_PATCH_SOURCE],
+    }),
+    patches = select({
+        "//platforms:linux_arm64": [_PLATFORM_PATCH_ARM64],
+        "//platforms:linux_x86_64": [_PLATFORM_PATCH_X86_64],
+    }),
+    native_build_inputs = [
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:gnumake",
+        "//bootstrap/foreign_seed:patch",
+    ],
+)
+
 _SELF_REF_CONFIGURE_CONTENT = [
     "#!/bin/sh",
     "set -eu",
@@ -191,8 +252,8 @@ pkgs_configure_make_install_package(
     package_name = "self-ref-consumer",
     version = "0",
     sources = [_SELF_REF_SOURCE],
-    configure_arg_self_store_paths = [
-        ("--self-path=", ""),
+    configure_args = [
+        pkgs_self_store_path("--self-path="),
     ],
     native_build_inputs = [
         "//bootstrap/foreign_seed:coreutils",
