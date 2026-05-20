@@ -58,15 +58,7 @@ fn scan_forbidden_refs(path: &Path, forbidden: &[String]) -> Result<(), Error> {
     }
 
     if metadata.is_dir() {
-        let entries = fs::read_dir(path).map_err(|source| common::Error::ReadDir {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        for entry in entries {
-            let entry = entry.map_err(|source| common::Error::ReadDir {
-                path: path.to_path_buf(),
-                source,
-            })?;
+        for entry in common::sorted_dir_entries(path)? {
             scan_forbidden_refs(&entry.path(), forbidden)?;
         }
         return Ok(());

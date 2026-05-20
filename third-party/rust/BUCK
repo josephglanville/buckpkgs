@@ -416,6 +416,12 @@ http_archive(
     visibility = [],
 )
 
+alias(
+    name = "libc",
+    actual = ":libc-0.2",
+    visibility = ["PUBLIC"],
+)
+
 cargo.rust_library(
     name = "libc-0.2",
     srcs = [":libc-0.2.186.crate"],
@@ -938,6 +944,7 @@ cargo.rust_library(
     visibility = ["PUBLIC"],
     deps = [
         ":clap-4",
+        ":libc-0.2",
         ":tempfile-3",
         ":thiserror-2",
     ],

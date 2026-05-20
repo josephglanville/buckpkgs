@@ -4,7 +4,7 @@ _SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "3210b3a546b1cb00c296ca360891d7740ee6ff06deb02a27a35b20cd3c0bb1a5",
     strip_prefix = "mpc-1.4.0",
-    urls = ["https://ftp.gnu.org/gnu/mpc/mpc-1.4.0.tar.xz"],
+    urls = ["https://ftp.nluug.nl/pub/gnu/mpc/mpc-1.4.0.tar.xz"],
 )
 
 _NATIVE_TOOLS = [

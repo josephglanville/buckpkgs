@@ -4,7 +4,7 @@ _SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25",
     strip_prefix = "coreutils-9.10",
-    urls = ["https://ftp.gnu.org/gnu/coreutils/coreutils-9.10.tar.xz"],
+    urls = ["https://ftp.nluug.nl/pub/gnu/coreutils/coreutils-9.10.tar.xz"],
 )
 
 _NATIVE_TOOLS = [

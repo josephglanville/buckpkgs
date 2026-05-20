@@ -1,0 +1,26 @@
+diff --git a/configure b/configure
+index 3ca37d1..fba4ec7 100755
+--- a/configure
++++ b/configure
+@@ -10649,7 +10649,7 @@ if test "${with_debug_prefix_map+set}" = set; then :
+      done
+    fi
+ else
+-  DEBUG_PREFIX_CFLAGS_FOR_TARGET=
++  DEBUG_PREFIX_CFLAGS_FOR_TARGET=${DEBUG_PREFIX_CFLAGS_FOR_TARGET-}
+ fi
+ 
+ 
+diff --git a/configure.ac b/configure.ac
+index 9b8b3b4..83aa4d4 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -2883,7 +2883,7 @@ AC_ARG_WITH([debug-prefix-map],
+        DEBUG_PREFIX_CFLAGS_FOR_TARGET="$DEBUG_PREFIX_CFLAGS_FOR_TARGET -fdebug-prefix-map=$debug_map"
+      done
+    fi],
+-  [DEBUG_PREFIX_CFLAGS_FOR_TARGET=])
++  [DEBUG_PREFIX_CFLAGS_FOR_TARGET=${DEBUG_PREFIX_CFLAGS_FOR_TARGET-}])
+ AC_SUBST(DEBUG_PREFIX_CFLAGS_FOR_TARGET)
+ 
+ # During gcc bootstrap, if we use some random cc for stage1 then CFLAGS

@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 clap = { version = "4.5.42", features = ["derive"] }
+libc = "0.2.186"
 tempfile = "3.23.0"
 thiserror = "2.0.16"
 

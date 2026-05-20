@@ -1,0 +1,12 @@
+diff --git a/examples/loadables/Makefile.inc.in b/examples/loadables/Makefile.inc.in
+index 8318ca2..3839bb1 100644
+--- a/examples/loadables/Makefile.inc.in
++++ b/examples/loadables/Makefile.inc.in
+@@ -38,7 +38,7 @@ loadablesdir = @loadablesdir@
+ headersdir = @headersdir@
+ 
+ topdir = @top_srcdir@
+-BUILD_DIR = @BUILD_DIR@
++BUILD_DIR = $(topdir)
+ srcdir = @srcdir@
+ VPATH = @srcdir@

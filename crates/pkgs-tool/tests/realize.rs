@@ -281,6 +281,358 @@ EOF
 }
 
 #[test]
+fn uses_a_stable_configure_work_dir_under_buck_scratch_path() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+cat > Makefile <<EOF
+all:
+	printf '%s\n' "$PWD" > artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let scratch = temp.path().join("buck-scratch");
+    let first_output = temp.path().join("first-out");
+    let second_output = temp.path().join("second-out");
+
+    for output in [&first_output, &second_output] {
+        let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+            .env("BUCK_SCRATCH_PATH", &scratch)
+            .args([
+                "--source",
+                source.to_str().unwrap(),
+                "--output",
+                output.to_str().unwrap(),
+                "--install-prefix",
+                "/pkgs/store/example-package",
+                "--path-entry",
+                "/usr/bin",
+            ])
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    assert_eq!(
+        fs::read_to_string(first_output.join("bin/artifact")).unwrap(),
+        fs::read_to_string(second_output.join("bin/artifact")).unwrap()
+    );
+    assert_eq!(
+        fs::read_to_string(first_output.join("bin/artifact")).unwrap(),
+        format!("{}/pkgs-configure-make-install/source\n", scratch.display())
+    );
+}
+
+#[test]
+fn configures_with_a_reproducible_environment() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+cat > Makefile <<EOF
+all:
+	printf '%s:%s:%s:%s:%s:%s\n' "$LC_ALL" "$LANG" "$TZ" "$SOURCE_DATE_EPOCH" "$PYTHONHASHSEED" "$PERL_HASH_SEED" > artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .env("LC_ALL", "fr_FR.UTF-8")
+        .env("LANG", "fr_FR.UTF-8")
+        .env("TZ", "America/Los_Angeles")
+        .env("SOURCE_DATE_EPOCH", "999999999")
+        .env("PYTHONHASHSEED", "999")
+        .env("PERL_HASH_SEED", "999")
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(output.join("bin/artifact")).unwrap(),
+        "C:C:UTC:1:0:0\n"
+    );
+}
+
+#[test]
+fn configures_with_an_explicit_make_job_count() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+cat > Makefile <<EOF
+all:
+	printf '%s\n' "\$(MAKEFLAGS)" > artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+            "--make-jobs",
+            "7",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let makeflags = fs::read_to_string(output.join("bin/artifact")).unwrap();
+    assert!(
+        makeflags.contains("-j7"),
+        "MAKEFLAGS did not carry the declared job count: {makeflags:?}",
+    );
+}
+
+#[test]
+fn does_not_inherit_ambient_host_environment() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+printf '%s\n' "${HOST_POLLUTION-unset}" > artifact
+cat > Makefile <<EOF
+all:
+	:
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .env("HOST_POLLUTION", "should-not-leak")
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(output.join("bin/artifact")).unwrap(),
+        "unset\n"
+    );
+}
+
+#[test]
+fn remaps_absolute_build_paths_in_compiled_outputs() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("artifact.c"),
+        r#"#include <stdio.h>
+int main(void) {
+    puts(__FILE__);
+    return 0;
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+source_path=$PWD
+cat > Makefile <<EOF
+all:
+	cc \$(CFLAGS) "$source_path/artifact.c" -o artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let scratch = temp.path().join("buck-scratch");
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .env("BUCK_SCRATCH_PATH", &scratch)
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let binary = fs::read(output.join("bin/artifact")).unwrap();
+    let leaked = format!(
+        "{}/pkgs-configure-make-install/source/artifact.c",
+        scratch.display()
+    );
+    assert!(!binary
+        .windows(leaked.len())
+        .any(|window| window == leaked.as_bytes()));
+    assert!(binary
+        .windows("./source/artifact.c".len())
+        .any(|window| window == b"./source/artifact.c"));
+}
+
+#[test]
+fn does_not_install_prefix_map_flags_as_package_metadata() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+cat > Makefile <<EOF
+all:
+	printf '%s\n' "\$\$CFLAGS" > artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/share"
+	cp artifact "\$(DESTDIR)$prefix/share/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let scratch = temp.path().join("buck-scratch");
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .env("BUCK_SCRATCH_PATH", &scratch)
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(output.join("share/artifact")).unwrap(),
+        "\n"
+    );
+}
+
+#[test]
 fn reuses_an_explicit_configure_work_dir_only_when_requested() {
     let temp = tempdir().unwrap();
     let source = temp.path().join("source");

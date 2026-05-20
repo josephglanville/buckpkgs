@@ -1,10 +1,10 @@
-load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free", "pkgs_store_path", "pkgs_store_path_join")
+load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_seed_free", "pkgs_store_path", "pkgs_store_path_join")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e",
     strip_prefix = "gcc-15.2.0",
-    urls = ["https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/gcc-15.2.0.tar.xz"],
+    urls = ["https://ftp.nluug.nl/pub/gnu/gcc/gcc-15.2.0/gcc-15.2.0.tar.xz"],
 )
 
 _STAGE0_NATIVE_TOOLS = [
@@ -58,6 +58,12 @@ _MATH_LIBS = [
     "//development/libraries/libmpc:out",
 ]
 
+_DEBUG_PREFIX_MAP_ENV_PATCH = pkgs_export_patch(
+    name = "debug_prefix_map_env_patch",
+    src = "patches/0001-debug-prefix-map-from-env.patch",
+    sha256 = "a9b93550bf0b10e366c8a4ee6e6defcb8f84521c08bd0c03e6587ad781818d57",
+)
+
 pkgs_configure_make_install_package(
     name = "out_stage0",
     package_name = "gcc",
@@ -92,10 +98,12 @@ pkgs_configure_make_install_package(
         "LD=ld",
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
+        "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
     ],
     make_args = [
         "MAKEINFO=true",
     ],
+    patches = [_DEBUG_PREFIX_MAP_ENV_PATCH],
     native_build_inputs = _STAGE0_NATIVE_TOOLS,
     build_inputs = _MATH_LIBS,
     visibility = ["PUBLIC"],
@@ -146,6 +154,7 @@ pkgs_configure_make_install_package(
         "LD=ld",
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
+        "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
         pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
         pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
         pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
@@ -155,6 +164,7 @@ pkgs_configure_make_install_package(
     make_args = [
         "MAKEINFO=true",
     ],
+    patches = [_DEBUG_PREFIX_MAP_ENV_PATCH],
     native_build_inputs = _STAGE1_NATIVE_TOOLS,
     build_inputs = _MATH_LIBS + [
         "//development/libraries/glibc:out_stage1",
@@ -226,6 +236,7 @@ pkgs_configure_make_install_package(
         "LD=ld",
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
+        "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
         pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
         pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
         pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
@@ -235,6 +246,7 @@ pkgs_configure_make_install_package(
     make_args = [
         "MAKEINFO=true",
     ],
+    patches = [_DEBUG_PREFIX_MAP_ENV_PATCH],
     native_build_inputs = _STAGE2_NATIVE_TOOLS,
     build_inputs = _MATH_LIBS + [
         "//development/libraries/glibc:out_stage1",

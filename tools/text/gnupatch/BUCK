@@ -4,7 +4,7 @@ _SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "f87cee69eec2b4fcbf60a396b030ad6aa3415f192aa5f7ee84cad5e11f7f5ae3",
     strip_prefix = "patch-2.8",
-    urls = ["https://ftp.gnu.org/gnu/patch/patch-2.8.tar.xz"],
+    urls = ["https://ftp.nluug.nl/pub/gnu/patch/patch-2.8.tar.xz"],
 )
 
 _NATIVE_TOOLS = [

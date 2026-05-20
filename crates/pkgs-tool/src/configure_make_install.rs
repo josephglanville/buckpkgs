@@ -1,11 +1,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command as ProcessCommand;
 
 use clap::Parser;
 use thiserror::Error;
 
 use crate::{build, common};
+
+const WORK_DIR_PLACEHOLDER: &str = "@PKGS_WORK_DIR@";
 
 #[derive(Debug, Parser)]
 #[command(name = "pkgs-configure-make-install")]
@@ -30,6 +31,9 @@ pub(crate) struct Args {
 
     #[arg(long = "make-arg")]
     make_args: Vec<String>,
+
+    #[arg(long, default_value_t = common::DEFAULT_MAKE_JOBS)]
+    make_jobs: usize,
 
     #[arg(long = "install-arg")]
     install_args: Vec<String>,
@@ -115,8 +119,11 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
 
     let path = std::env::join_paths(&args.path_entries)
         .map_err(|source| common::Error::JoinPath { source })?;
-    let env = build::parse_env_assignments(&args.configure_env)?;
-    let makeflags = format!("-j{}", common::available_jobs());
+    let path = common::compiler_wrapped_path(&path, work.path())?;
+    let configure_args = expand_work_dir_placeholders(&args.configure_args, work.path());
+    let configure_env = expand_work_dir_placeholders(&args.configure_env, work.path());
+    let env = build::parse_env_assignments(&configure_env)?;
+    let makeflags = common::makeflags(args.make_jobs)?;
     let prefix_arg = format!("--prefix={}", args.install_prefix.display());
     let configure_program =
         configure_program(&args.configure_program, &source_dir, args.out_of_source);
@@ -126,17 +133,17 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     }
 
     common::run_command(
-        ProcessCommand::new(&configure_program)
+        common::reproducible_command(&configure_program)
             .current_dir(&build_dir)
             .env("PATH", &path)
             .envs(env.iter().map(|(key, value)| (key, value)))
             .arg(prefix_arg)
-            .args(&args.configure_args),
+            .args(&configure_args),
         &configure_program.display().to_string(),
     )?;
 
     common::run_command(
-        ProcessCommand::new(&args.make_program)
+        common::reproducible_command(&args.make_program)
             .current_dir(&build_dir)
             .env("PATH", &path)
             .env("MAKEFLAGS", &makeflags)
@@ -146,7 +153,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     )?;
 
     common::run_command(
-        ProcessCommand::new(&args.make_program)
+        common::reproducible_command(&args.make_program)
             .current_dir(&build_dir)
             .env("PATH", &path)
             .env("MAKEFLAGS", &makeflags)
@@ -158,18 +165,32 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     )?;
 
     build::copy_staged_prefix(&install_root, &args.install_prefix, &args.output)?;
+    build::sanitize_libtool_archives(&args.output, work.path())?;
     let output = common::canonicalize(&args.output)?;
     build::create_symlinks(&output, &args.symlinks)?;
+    common::normalize_tree_mtimes(&output)?;
     Ok(())
 }
 
 fn configure_program(program: &str, source_dir: &Path, out_of_source: bool) -> PathBuf {
     let program = Path::new(program);
     if out_of_source && !program.is_absolute() {
+        if let Some(source_dir_name) = source_dir.file_name() {
+            return PathBuf::from("..").join(source_dir_name).join(program);
+        }
+
         return source_dir.join(program);
     }
 
     program.to_path_buf()
+}
+
+fn expand_work_dir_placeholders(values: &[String], work_dir: &Path) -> Vec<String> {
+    let work_dir = work_dir.display().to_string();
+    values
+        .iter()
+        .map(|value| value.replace(WORK_DIR_PLACEHOLDER, &work_dir))
+        .collect()
 }
 
 enum WorkDir {
@@ -180,11 +201,22 @@ enum WorkDir {
 impl WorkDir {
     fn new(args: &Args) -> Result<Self, Error> {
         match (&args.work_dir, args.reuse_work_dir) {
-            (None, false) => tempfile::Builder::new()
-                .prefix("pkgs-configure-make-install-")
-                .tempdir()
-                .map(WorkDir::Temp)
-                .map_err(|source| common::Error::CreateTempDir { source }.into()),
+            (None, false) => {
+                if let Some(path) =
+                    common::deterministic_scratch_dir("pkgs-configure-make-install")?
+                {
+                    return Ok(WorkDir::Persistent {
+                        path,
+                        reused: false,
+                    });
+                }
+
+                tempfile::Builder::new()
+                    .prefix("pkgs-configure-make-install-")
+                    .tempdir()
+                    .map(WorkDir::Temp)
+                    .map_err(|source| common::Error::CreateTempDir { source }.into())
+            }
             (None, true) => Err(Error::ReuseWorkDirWithoutWorkDir),
             (Some(path), reuse) => {
                 if path.exists() {
@@ -228,4 +260,34 @@ fn require_existing_dir(path: &Path) -> Result<(), Error> {
     }
 
     Err(Error::MissingWorkDirPath(path.to_path_buf()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn out_of_source_configure_program_stays_relative() {
+        assert_eq!(
+            configure_program("./configure", Path::new("/tmp/work/source"), true),
+            PathBuf::from("../source/./configure"),
+        );
+    }
+
+    #[test]
+    fn work_dir_placeholders_expand_in_order() {
+        assert_eq!(
+            expand_work_dir_placeholders(
+                &[
+                    "--with-debug-prefix-map=@PKGS_WORK_DIR@=.".to_owned(),
+                    "CC=@PKGS_WORK_DIR@/bin/cc".to_owned(),
+                ],
+                Path::new("/tmp/work"),
+            ),
+            vec![
+                "--with-debug-prefix-map=/tmp/work=.".to_owned(),
+                "CC=/tmp/work/bin/cc".to_owned(),
+            ],
+        );
+    }
 }

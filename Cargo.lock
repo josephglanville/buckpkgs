@@ -255,6 +255,7 @@ name = "pkgs-tool"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "libc",
  "tempfile",
  "thiserror",
 ]

@@ -42,6 +42,7 @@ foreign_wrapped_package(
         "pwd",
         "rm",
         "sort",
+        "test",
         "touch",
         "tr",
         "true",

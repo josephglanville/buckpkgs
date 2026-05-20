@@ -68,15 +68,7 @@ fn verify_tree(path: &Path, expected_interpreter: &str) -> Result<(), Error> {
     }
 
     if metadata.is_dir() {
-        let entries = fs::read_dir(path).map_err(|source| common::Error::ReadDir {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        for entry in entries {
-            let entry = entry.map_err(|source| common::Error::ReadDir {
-                path: path.to_path_buf(),
-                source,
-            })?;
+        for entry in common::sorted_dir_entries(path)? {
             verify_tree(&entry.path(), expected_interpreter)?;
         }
         return Ok(());

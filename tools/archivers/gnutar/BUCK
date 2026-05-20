@@ -4,7 +4,7 @@ _SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "4d62ff37342ec7aed748535323930c7cf94acf71c3591882b26a7ea50f3edc16",
     strip_prefix = "tar-1.35",
-    urls = ["https://ftp.gnu.org/gnu/tar/tar-1.35.tar.xz"],
+    urls = ["https://ftp.nluug.nl/pub/gnu/tar/tar-1.35.tar.xz"],
 )
 
 _NATIVE_TOOLS = [

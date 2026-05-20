@@ -6,5 +6,6 @@ resolver = "2"
 
 [workspace.dependencies]
 clap = { version = "4.5.42", features = ["derive"] }
+libc = "0.2.186"
 thiserror = "2.0.16"
 tempfile = "3.23.0"

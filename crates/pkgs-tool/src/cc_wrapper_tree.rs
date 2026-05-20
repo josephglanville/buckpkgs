@@ -93,7 +93,10 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &args.shell,
         &args.cpp,
         [&sysroot, &bintools, &crt, &headers_flag, &headers_dir],
-    )
+    )?;
+
+    common::normalize_tree_mtimes(&args.output)?;
+    Ok(())
 }
 
 fn write_wrapper<'a>(

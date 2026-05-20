@@ -68,7 +68,10 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &bin_dir.join("ld"),
         &args.shell,
         &args.binutils.join("bin/ld"),
-    )
+    )?;
+
+    common::normalize_tree_mtimes(&args.output)?;
+    Ok(())
 }
 
 fn write_ld_wrapper(path: &Path, shell: &Path, target: &Path) -> Result<(), Error> {

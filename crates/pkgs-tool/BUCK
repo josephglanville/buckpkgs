@@ -8,6 +8,7 @@ _BUILD_SRCS = _COMMON_SRCS + [
 
 _COMMON_DEPS = [
     "//third-party/rust:clap",
+    "//third-party/rust:libc",
     "//third-party/rust:tempfile",
     "//third-party/rust:thiserror",
 ]

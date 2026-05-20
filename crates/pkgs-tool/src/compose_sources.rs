@@ -38,13 +38,6 @@ pub(crate) enum Error {
         source: io::Error,
     },
 
-    #[error("failed to read composed source directory {path}")]
-    ReadDir {
-        path: PathBuf,
-        #[source]
-        source: io::Error,
-    },
-
     #[error("source composition conflict at {0}")]
     Conflict(PathBuf),
 }
@@ -109,15 +102,7 @@ fn merge_tree(source: &Path, destination: &Path) -> Result<(), Error> {
         }
     }
 
-    let entries = fs::read_dir(source).map_err(|source_err| Error::ReadDir {
-        path: source.to_path_buf(),
-        source: source_err,
-    })?;
-    for entry in entries {
-        let entry = entry.map_err(|source_err| Error::ReadDir {
-            path: source.to_path_buf(),
-            source: source_err,
-        })?;
+    for entry in common::sorted_dir_entries(source)? {
         merge_tree(&entry.path(), &destination.join(entry.file_name()))?;
     }
 

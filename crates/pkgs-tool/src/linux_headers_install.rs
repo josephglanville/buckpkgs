@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command as ProcessCommand;
 
 use clap::Parser;
 
@@ -21,6 +20,9 @@ pub(crate) struct Args {
     #[arg(long = "make-arg")]
     make_args: Vec<String>,
 
+    #[arg(long, default_value_t = common::DEFAULT_MAKE_JOBS)]
+    make_jobs: usize,
+
     #[arg(long)]
     kernel_release: String,
 
@@ -29,11 +31,17 @@ pub(crate) struct Args {
 }
 
 pub(crate) fn run(args: &Args) -> Result<(), common::Error> {
-    let work = tempfile::Builder::new()
-        .prefix("pkgs-linux-headers-install-")
-        .tempdir()
-        .map_err(|source| common::Error::CreateTempDir { source })?;
-    let source_dir = work.path().join("source");
+    let (work_path, _temp_work) =
+        if let Some(path) = common::deterministic_scratch_dir("pkgs-linux-headers-install")? {
+            (path, None)
+        } else {
+            let temp_work = tempfile::Builder::new()
+                .prefix("pkgs-linux-headers-install-")
+                .tempdir()
+                .map_err(|source| common::Error::CreateTempDir { source })?;
+            (temp_work.path().to_path_buf(), Some(temp_work))
+        };
+    let source_dir = work_path.join("source");
     common::copy_tree(&args.source, &source_dir)?;
 
     fs::create_dir_all(&args.output).map_err(|source| common::Error::CreateDir {
@@ -43,11 +51,12 @@ pub(crate) fn run(args: &Args) -> Result<(), common::Error> {
     let output = common::canonicalize(&args.output)?;
     let path = std::env::join_paths(&args.path_entries)
         .map_err(|source| common::Error::JoinPath { source })?;
-    let makeflags = format!("-j{}", common::available_jobs());
+    let path = common::compiler_wrapped_path(&path, &work_path)?;
+    let makeflags = common::makeflags(args.make_jobs)?;
 
     for target in ["mrproper", "headers"] {
         common::run_command(
-            ProcessCommand::new(&args.make_program)
+            common::reproducible_command(&args.make_program)
                 .current_dir(&source_dir)
                 .env("PATH", &path)
                 .env("MAKEFLAGS", &makeflags)
@@ -75,7 +84,9 @@ pub(crate) fn run(args: &Args) -> Result<(), common::Error> {
     .map_err(|source| common::Error::WriteFile {
         path: kernel_release,
         source,
-    })
+    })?;
+
+    common::normalize_tree_mtimes(&output)
 }
 
 fn remove_non_headers(path: &std::path::Path) -> Result<(), common::Error> {
@@ -85,15 +96,7 @@ fn remove_non_headers(path: &std::path::Path) -> Result<(), common::Error> {
     })?;
 
     if metadata.is_dir() {
-        let entries = fs::read_dir(path).map_err(|source| common::Error::ReadDir {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        for entry in entries {
-            let entry = entry.map_err(|source| common::Error::ReadDir {
-                path: path.to_path_buf(),
-                source,
-            })?;
+        for entry in common::sorted_dir_entries(path)? {
             remove_non_headers(&entry.path())?;
         }
         return Ok(());

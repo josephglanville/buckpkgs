@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command as ProcessCommand;
 
 use clap::Parser;
 use thiserror::Error;
@@ -24,6 +23,9 @@ pub(crate) struct Args {
 
     #[arg(long = "make-arg")]
     make_args: Vec<String>,
+
+    #[arg(long, default_value_t = common::DEFAULT_MAKE_JOBS)]
+    make_jobs: usize,
 
     #[arg(long = "install-arg")]
     install_args: Vec<String>,
@@ -54,14 +56,20 @@ pub(crate) enum Error {
 }
 
 pub(crate) fn run(args: &Args) -> Result<(), Error> {
-    let work = tempfile::Builder::new()
-        .prefix("pkgs-make-install-")
-        .tempdir()
-        .map_err(|source| common::Error::CreateTempDir { source })?;
-    let source_dir = work.path().join("source");
+    let (work_path, _temp_work) =
+        if let Some(path) = common::deterministic_scratch_dir("pkgs-make-install")? {
+            (path, None)
+        } else {
+            let temp_work = tempfile::Builder::new()
+                .prefix("pkgs-make-install-")
+                .tempdir()
+                .map_err(|source| common::Error::CreateTempDir { source })?;
+            (temp_work.path().to_path_buf(), Some(temp_work))
+        };
+    let source_dir = work_path.join("source");
     common::copy_tree(&args.source, &source_dir)?;
 
-    let install_root = work.path().join("install-root");
+    let install_root = work_path.join("install-root");
     fs::create_dir(&install_root).map_err(|source| common::Error::CreateDir {
         path: install_root.clone(),
         source,
@@ -69,12 +77,13 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
 
     let path = std::env::join_paths(&args.path_entries)
         .map_err(|source| common::Error::JoinPath { source })?;
-    let makeflags = format!("-j{}", common::available_jobs());
+    let path = common::compiler_wrapped_path(&path, &work_path)?;
+    let makeflags = common::makeflags(args.make_jobs)?;
 
     build::apply_patches(&source_dir, &path, &args.patches, args.patch_strip)?;
 
     common::run_command(
-        ProcessCommand::new(&args.make_program)
+        common::reproducible_command(&args.make_program)
             .current_dir(&source_dir)
             .env("PATH", &path)
             .env("MAKEFLAGS", &makeflags)
@@ -84,7 +93,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
 
     let prefix_arg = format!("{}={}", args.prefix_var, args.install_prefix.display());
     common::run_command(
-        ProcessCommand::new(&args.make_program)
+        common::reproducible_command(&args.make_program)
             .current_dir(&source_dir)
             .env("PATH", &path)
             .env("MAKEFLAGS", &makeflags)
@@ -96,7 +105,9 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     )?;
 
     build::copy_staged_prefix(&install_root, &args.install_prefix, &args.output)?;
+    build::sanitize_libtool_archives(&args.output, &work_path)?;
     let output = common::canonicalize(&args.output)?;
     build::create_symlinks(&output, &args.symlinks)?;
+    common::normalize_tree_mtimes(&output)?;
     Ok(())
 }

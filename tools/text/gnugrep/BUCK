@@ -4,7 +4,7 @@ _SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "2649b27c0e90e632eadcd757be06c6e9a4f48d941de51e7c0f83ff76408a07b9",
     strip_prefix = "grep-3.12",
-    urls = ["https://ftp.gnu.org/gnu/grep/grep-3.12.tar.xz"],
+    urls = ["https://ftp.nluug.nl/pub/gnu/grep/grep-3.12.tar.xz"],
 )
 
 _SEED = [

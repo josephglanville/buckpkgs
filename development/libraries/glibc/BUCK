@@ -4,7 +4,7 @@ _SOURCE = pkgs_http_archive_source(
     name = "source",
     sha256 = "d1775e32e4628e64ef930f435b67bb63af7599acb6be2b335b9f19f16509f17f",
     strip_prefix = "glibc-2.42",
-    urls = ["https://ftp.gnu.org/gnu/glibc/glibc-2.42.tar.xz"],
+    urls = ["https://ftp.nluug.nl/pub/gnu/glibc/glibc-2.42.tar.xz"],
 )
 
 _NATIVE_TOOLS = [
@@ -34,6 +34,7 @@ pkgs_configure_make_install_package(
         "--enable-add-ons",
         "--disable-werror",
         "--enable-kernel=3.10.0",
+        "--without-selinux",
         pkgs_store_path("--with-headers=", "//os-specific/linux/kernel-headers:out", "/include"),
     ],
     configure_env = [

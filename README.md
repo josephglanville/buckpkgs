@@ -53,6 +53,8 @@ should not grow into another programmable package language.
   BuckPkgs should decompose it.
 - [ENGINEERING.md](./ENGINEERING.md): implementation, dependency, testing, and
   performance ground rules for the project.
+- [REPRODUCIBILITY.md](./REPRODUCIBILITY.md): the current determinism contract,
+  known failure modes, and artifact-level verification expectations.
 
 ## Current Position
 

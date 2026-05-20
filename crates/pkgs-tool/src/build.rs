@@ -3,7 +3,6 @@
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
-use std::process::Command as ProcessCommand;
 
 use thiserror::Error;
 
@@ -77,7 +76,7 @@ pub(crate) fn apply_patches(
     for patch in patches {
         let patch = common::canonicalize(patch)?;
         common::run_command(
-            ProcessCommand::new("patch")
+            common::reproducible_command("patch")
                 .current_dir(source_dir)
                 .env("PATH", path)
                 .arg(format!("-p{patch_strip}"))
@@ -101,6 +100,95 @@ pub(crate) fn copy_staged_prefix(
     let staged_prefix = install_root.join(relative_prefix);
     common::copy_tree(&staged_prefix, output)?;
     Ok(())
+}
+
+pub(crate) fn sanitize_libtool_archives(output: &Path, work_dir: &Path) -> Result<(), Error> {
+    sanitize_libtool_archives_in_tree(output, work_dir)
+}
+
+fn sanitize_libtool_archives_in_tree(path: &Path, work_dir: &Path) -> Result<(), Error> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| common::Error::Metadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    if metadata.is_dir() {
+        for entry in common::sorted_dir_entries(path)? {
+            sanitize_libtool_archives_in_tree(&entry.path(), work_dir)?;
+        }
+        return Ok(());
+    }
+
+    if path.extension().and_then(|extension| extension.to_str()) != Some("la") {
+        return Ok(());
+    }
+
+    let contents = fs::read_to_string(path).map_err(|source| common::Error::ReadFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let Some(rewritten) = rewrite_libtool_archive(&contents, work_dir) else {
+        return Ok(());
+    };
+
+    fs::write(path, rewritten).map_err(|source| common::Error::WriteFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    common::preserve_metadata(&metadata, path)?;
+    Ok(())
+}
+
+fn rewrite_libtool_archive(contents: &str, work_dir: &Path) -> Option<String> {
+    let mut changed = false;
+    let mut rewritten = String::with_capacity(contents.len());
+
+    for line in contents.split_inclusive('\n') {
+        let (body, newline) = line
+            .strip_suffix('\n')
+            .map(|body| (body, "\n"))
+            .unwrap_or((line, ""));
+        if let Some(updated) = rewrite_dependency_libs_line(body, work_dir) {
+            changed = true;
+            rewritten.push_str(&updated);
+        } else {
+            rewritten.push_str(body);
+        }
+        rewritten.push_str(newline);
+    }
+
+    changed.then_some(rewritten)
+}
+
+fn rewrite_dependency_libs_line(line: &str, work_dir: &Path) -> Option<String> {
+    let dependencies = line
+        .strip_prefix("dependency_libs='")
+        .and_then(|line| line.strip_suffix('\''))?;
+    let work_dir = work_dir.to_string_lossy();
+    let filtered: Vec<_> = dependencies
+        .split_whitespace()
+        .filter(|token| !is_transient_lib_search_path(token, &work_dir))
+        .collect();
+    let original: Vec<_> = dependencies.split_whitespace().collect();
+    if filtered == original {
+        return None;
+    }
+
+    if filtered.is_empty() {
+        return Some("dependency_libs=''".to_owned());
+    }
+
+    Some(format!("dependency_libs=' {}'", filtered.join(" ")))
+}
+
+fn is_transient_lib_search_path(token: &str, work_dir: &str) -> bool {
+    token
+        .strip_prefix("-L")
+        .is_some_and(|path| Path::new(path).starts_with(work_dir))
 }
 
 fn validate_relative_path(path: &Path) -> Result<(), Error> {
@@ -136,5 +224,32 @@ mod tests {
         assert!(validate_relative_path(Path::new("bin/sh")).is_ok());
         assert!(validate_relative_path(Path::new("/bin/sh")).is_err());
         assert!(validate_relative_path(Path::new("../bin/sh")).is_err());
+    }
+
+    #[test]
+    fn strips_transient_build_search_paths_from_libtool_archives() {
+        let temp = tempfile::tempdir().unwrap();
+        let output = temp.path().join("output");
+        let libdir = output.join("lib");
+        let work_dir = temp.path().join("work");
+        fs::create_dir_all(&libdir).unwrap();
+        fs::create_dir_all(&work_dir).unwrap();
+
+        let archive = libdir.join("libbfd.la");
+        fs::write(
+            &archive,
+            format!(
+                "dependency_libs=' -L{}/source/zlib -lz /pkgs/store/example/lib/libgmp.la'\n",
+                work_dir.display()
+            ),
+        )
+        .unwrap();
+
+        sanitize_libtool_archives(&output, &work_dir).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&archive).unwrap(),
+            "dependency_libs=' -lz /pkgs/store/example/lib/libgmp.la'\n",
+        );
     }
 }

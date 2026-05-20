@@ -2,6 +2,7 @@ load("@prelude//utils:selects.bzl", "selects")
 
 STORE_ABI_VERSION = "pkgs-store-v0"
 LOGICAL_STORE_ROOT = "/pkgs/store"
+DEFAULT_MAKE_JOBS = 16
 
 _TARGET_SYSTEM = select({
     "//platforms:linux_arm64": "aarch64-linux",
@@ -225,6 +226,8 @@ def _recipe_semantic_parts(ctx):
         parts.append("out_of_source=true")
 
     _append_semantic_values(parts, "make_arg", getattr(ctx.attrs, "make_args", []))
+    if hasattr(ctx.attrs, "make_jobs"):
+        parts.append("make_jobs={}".format(ctx.attrs.make_jobs))
     _append_semantic_values(parts, "install_arg", getattr(ctx.attrs, "install_args", []))
 
     if hasattr(ctx.attrs, "patch_strip"):
@@ -580,6 +583,8 @@ def _pkgs_make_install_package_impl(ctx):
         metadata.store_output.as_output(),
         "--install-prefix",
         metadata.logical_store_path,
+        "--make-jobs",
+        str(ctx.attrs.make_jobs),
     ])
     for dep in native_build_inputs:
         args.add(
@@ -593,7 +598,7 @@ def _pkgs_make_install_package_impl(ctx):
     for patch in ctx.attrs.patches:
         args.add("--patch", patch[DefaultInfo].default_outputs[0])
     args.add("--patch-strip", str(ctx.attrs.patch_strip))
-    for link, target in ctx.attrs.symlinks.items():
+    for link, target in sorted(ctx.attrs.symlinks.items()):
         args.add("--symlink", "{}={}".format(link, target))
 
     native_runtime_store_outputs = [
@@ -621,6 +626,7 @@ _pkgs_make_install_package = rule(
         "foreign": attrs.bool(default = False),
         "install_args": attrs.list(attrs.string(), default = []),
         "make_args": attrs.list(attrs.string(), default = []),
+        "make_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
@@ -656,6 +662,8 @@ def _pkgs_linux_headers_package_impl(ctx):
         metadata.store_output.as_output(),
         "--kernel-release",
         ctx.attrs.kernel_release,
+        "--make-jobs",
+        str(ctx.attrs.make_jobs),
     ])
     for dep in native_build_inputs:
         args.add(
@@ -690,6 +698,7 @@ _pkgs_linux_headers_package = rule(
         "foreign": attrs.bool(default = False),
         "kernel_release": attrs.string(),
         "make_args": attrs.list(attrs.string(), default = []),
+        "make_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
@@ -723,6 +732,8 @@ def _pkgs_configure_make_install_package_impl(ctx):
         metadata.store_output.as_output(),
         "--install-prefix",
         metadata.logical_store_path,
+        "--make-jobs",
+        str(ctx.attrs.make_jobs),
     ])
     for dep in native_build_inputs:
         args.add(
@@ -770,7 +781,7 @@ def _pkgs_configure_make_install_package_impl(ctx):
     for patch in ctx.attrs.patches:
         args.add("--patch", patch[DefaultInfo].default_outputs[0])
     args.add("--patch-strip", str(ctx.attrs.patch_strip))
-    for link, target in ctx.attrs.symlinks.items():
+    for link, target in sorted(ctx.attrs.symlinks.items()):
         args.add("--symlink", "{}={}".format(link, target))
 
     native_runtime_store_outputs = [
@@ -842,6 +853,7 @@ _pkgs_configure_make_install_package = rule(
         "foreign": attrs.bool(default = False),
         "install_args": attrs.list(attrs.string(), default = []),
         "make_args": attrs.list(attrs.string(), default = []),
+        "make_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
         "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "out_of_source": attrs.bool(default = False),
         "output": attrs.string(default = "out"),
@@ -974,12 +986,17 @@ _pkgs_bintools_wrapper_package = rule(
     },
 )
 
+def _validate_make_jobs(name, make_jobs):
+    if make_jobs < 1:
+        fail("package {} must request at least one make job".format(name))
+
 def pkgs_make_install_package(
         name,
         package_name,
         version,
         sources,
         make_args = [],
+        make_jobs = DEFAULT_MAKE_JOBS,
         install_args = [],
         patches = [],
         patch_strip = 1,
@@ -989,15 +1006,17 @@ def pkgs_make_install_package(
         build_inputs = [],
         runtime_inputs = [],
         visibility = []):
+    _validate_make_jobs(name, make_jobs)
     source = _source_set(name, sources)
     _pkgs_make_install_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
-        builder = "make-install-v5",
+        builder = "make-install-v6",
         source = source.dep,
         make_args = make_args,
+        make_jobs = make_jobs,
         install_args = install_args,
         patches = _select_aware(patches, _descriptor_deps),
         patch_digests = _select_aware(patches, _descriptor_digests),
@@ -1021,6 +1040,7 @@ def pkgs_configure_make_install_package(
         configure_env = [],
         out_of_source = False,
         make_args = [],
+        make_jobs = DEFAULT_MAKE_JOBS,
         install_args = [],
         patches = [],
         patch_strip = 1,
@@ -1030,6 +1050,7 @@ def pkgs_configure_make_install_package(
         build_inputs = [],
         runtime_inputs = [],
         visibility = []):
+    _validate_make_jobs(name, make_jobs)
     source = _source_set(name, sources)
     lowered_configure_args = _lower_configure_values(configure_args)
     lowered_configure_env = _lower_configure_values(configure_env)
@@ -1038,7 +1059,7 @@ def pkgs_configure_make_install_package(
         package_name = package_name,
         version = version,
         output = output,
-        builder = "configure-make-install-v5",
+        builder = "configure-make-install-v6",
         source = source.dep,
         configure_args = lowered_configure_args.strings,
         configure_arg_store_paths = lowered_configure_args.store_paths,
@@ -1050,6 +1071,7 @@ def pkgs_configure_make_install_package(
         configure_env_store_path_joins = lowered_configure_env.store_path_joins,
         out_of_source = out_of_source,
         make_args = make_args,
+        make_jobs = make_jobs,
         install_args = install_args,
         patches = _select_aware(patches, _descriptor_deps),
         patch_digests = _select_aware(patches, _descriptor_digests),
@@ -1071,19 +1093,22 @@ def pkgs_linux_headers_package(
         sources,
         kernel_release,
         make_args = [],
+        make_jobs = DEFAULT_MAKE_JOBS,
         output = "out",
         native_build_inputs = [],
         visibility = []):
+    _validate_make_jobs(name, make_jobs)
     source = _source_set(name, sources)
     _pkgs_linux_headers_package(
         name = name,
         package_name = package_name,
         version = version,
         output = output,
-        builder = "linux-headers-install-v1",
+        builder = "linux-headers-install-v2",
         source = source.dep,
         kernel_release = kernel_release,
         make_args = make_args,
+        make_jobs = make_jobs,
         source_digests = source.digests,
         target_system = _TARGET_SYSTEM,
         native_build_inputs = native_build_inputs,
