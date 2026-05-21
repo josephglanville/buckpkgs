@@ -490,9 +490,12 @@ integration requirement is that BuckPkgs package inputs and outputs upload clean
 to RE CAS and participate in the existing action cache exactly like ordinary
 Buck2 actions.
 
-If BuckPkgs later needs standalone binary distribution, it can export/import package
-instances by logical digest, but that is not required for the first buildable
-system.
+Standalone binary distribution should import/export immutable store objects by
+their BuckPkgs logical identity while keeping archive transport hashes and output
+tree digests distinct. The concrete bootstrap-oriented design is documented in
+[STORE_SUBSTITUTES.md](./STORE_SUBSTITUTES.md), and the graph boundary that keeps
+those imports from collapsing back into live bootstrap rebuilds is documented in
+[BOOTSTRAP_ISLAND.md](./BOOTSTRAP_ISLAND.md).
 
 ## 9. Buck2 Integration
 

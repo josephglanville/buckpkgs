@@ -1,0 +1,20 @@
+cxx_library(
+    name = "math",
+    _cxx_toolchain = "toolchains//:cxx_pkgs",
+    srcs = ["math.c"],
+    exported_headers = ["math.h"],
+    preferred_linkage = "static",
+)
+
+cxx_binary(
+    name = "gcc_smoke",
+    _cxx_toolchain = "toolchains//:cxx_pkgs",
+    srcs = ["main.cc"],
+    deps = [":math"],
+)
+
+cxx_binary(
+    name = "hello_world_c",
+    _cxx_toolchain = "toolchains//:cxx_pkgs",
+    srcs = ["hello.c"],
+)

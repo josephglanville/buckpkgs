@@ -12,7 +12,7 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use thiserror::Error;
 
-pub(crate) const DEFAULT_MAKE_JOBS: usize = 16;
+pub(crate) const DEFAULT_MAKE_JOBS: usize = 64;
 
 #[derive(Debug, Error)]
 pub(crate) enum Error {
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn formats_explicit_make_job_counts() {
-        assert_eq!(makeflags(DEFAULT_MAKE_JOBS).unwrap(), "-j16");
+        assert_eq!(makeflags(DEFAULT_MAKE_JOBS).unwrap(), "-j64");
         assert!(makeflags(0).is_err());
     }
 

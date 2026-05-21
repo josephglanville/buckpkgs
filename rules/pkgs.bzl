@@ -2,7 +2,7 @@ load("@prelude//utils:selects.bzl", "selects")
 
 STORE_ABI_VERSION = "pkgs-store-v0"
 LOGICAL_STORE_ROOT = "/pkgs/store"
-DEFAULT_MAKE_JOBS = 16
+DEFAULT_MAKE_JOBS = 64
 
 _TARGET_SYSTEM = select({
     "//platforms:linux_arm64": "aarch64-linux",
@@ -356,9 +356,51 @@ def _package_metadata(ctx):
         store_path_key = store_path_key,
     )
 
-def _package_result(ctx, tree, metadata, other_outputs = []):
+def _declare_reproducibility_stamp(ctx, metadata, replay_tree):
+    stamp = ctx.actions.declare_output("{}.reproducible".format(ctx.label.name))
+    ctx.actions.run(
+        cmd_args([
+            ctx.attrs._reproducibility_verifier[RunInfo],
+            "--expected",
+            metadata.store_output,
+            "--actual",
+            replay_tree,
+            "--stamp",
+            stamp.as_output(),
+        ]),
+        category = "pkgs_verify_reproducible_tree",
+        identifier = ctx.label.name,
+    )
+    return stamp
+
+def _declare_archive_metadata_stamp(ctx, metadata):
+    stamp = ctx.actions.declare_output("{}.archive_metadata".format(ctx.label.name))
+    ctx.actions.run(
+        cmd_args([
+            ctx.attrs._archive_metadata_verifier[RunInfo],
+            "--input",
+            metadata.store_output,
+            "--stamp",
+            stamp.as_output(),
+        ]),
+        category = "pkgs_verify_archive_metadata",
+        identifier = ctx.label.name,
+    )
+    return stamp
+
+def _package_sub_targets(reproducibility_stamp, archive_metadata_stamp):
+    return {
+        "archive_metadata": [DefaultInfo(default_output = archive_metadata_stamp)],
+        "reproducible": [DefaultInfo(default_output = reproducibility_stamp)],
+    }
+
+def _package_result(ctx, tree, metadata, reproducibility_stamp, archive_metadata_stamp, other_outputs = []):
     return [
-        DefaultInfo(default_output = metadata.store_output, other_outputs = other_outputs),
+        DefaultInfo(
+            default_output = metadata.store_output,
+            other_outputs = other_outputs,
+            sub_targets = _package_sub_targets(reproducibility_stamp, archive_metadata_stamp),
+        ),
         PkgsPackageInfo(
             build_closure = metadata.build_closure,
             foreign_runtime_entries = metadata.foreign_runtime_entries,
@@ -398,7 +440,29 @@ def _stage_tree_package(ctx, tree):
         identifier = ctx.attrs.package_name,
     )
 
-    return _package_result(ctx, metadata.store_output, metadata, other_outputs = [tree])
+    replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    ctx.actions.run(
+        cmd_args([
+            ctx.attrs._tree_stager[RunInfo],
+            "--source",
+            tree,
+            "--output",
+            replay_tree.as_output(),
+        ]),
+        category = "pkgs_replay_stage_tree",
+        identifier = ctx.attrs.package_name,
+    )
+    reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
+    archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+
+    return _package_result(
+        ctx,
+        metadata.store_output,
+        metadata,
+        reproducibility_stamp,
+        archive_metadata_stamp,
+        other_outputs = [tree],
+    )
 
 def _pkgs_package_impl(ctx):
     return _stage_tree_package(ctx, ctx.attrs.src[DefaultInfo].default_outputs[0])
@@ -452,6 +516,18 @@ _pkgs_package = rule(
         "_tree_stager": attrs.default_only(
             attrs.exec_dep(
                 default = "//crates/pkgs-tool:pkgs_stage_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_reproducibility_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_reproducible_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_archive_metadata_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_archive_metadata",
                 providers = [RunInfo],
             ),
         ),
@@ -569,18 +645,13 @@ pkgs_elf_interpreters = rule(
     },
 )
 
-def _pkgs_make_install_package_impl(ctx):
-    source = ctx.attrs.source[DefaultInfo].default_outputs[0]
-    native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
-    build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
-    metadata = _package_metadata(ctx)
-
+def _make_install_args(ctx, source, output, metadata, native_build_inputs):
     args = cmd_args([
         ctx.attrs._builder[RunInfo],
         "--source",
         source,
         "--output",
-        metadata.store_output.as_output(),
+        output,
         "--install-prefix",
         metadata.logical_store_path,
         "--make-jobs",
@@ -600,6 +671,13 @@ def _pkgs_make_install_package_impl(ctx):
     args.add("--patch-strip", str(ctx.attrs.patch_strip))
     for link, target in sorted(ctx.attrs.symlinks.items()):
         args.add("--symlink", "{}={}".format(link, target))
+    return args
+
+def _pkgs_make_install_package_impl(ctx):
+    source = ctx.attrs.source[DefaultInfo].default_outputs[0]
+    native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
+    build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
+    metadata = _package_metadata(ctx)
 
     native_runtime_store_outputs = [
         output
@@ -609,14 +687,44 @@ def _pkgs_make_install_package_impl(ctx):
 
     ctx.actions.run(
         cmd_args(
-            args,
+            _make_install_args(
+                ctx,
+                source,
+                metadata.store_output.as_output(),
+                metadata,
+                native_build_inputs,
+            ),
             hidden = native_runtime_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_make_install",
         identifier = ctx.label.name,
     )
 
-    return _package_result(ctx, metadata.store_output, metadata)
+    replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    ctx.actions.run(
+        cmd_args(
+            _make_install_args(
+                ctx,
+                source,
+                replay_tree.as_output(),
+                metadata,
+                native_build_inputs,
+            ),
+            hidden = native_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+        ),
+        category = "pkgs_replay_make_install",
+        identifier = ctx.label.name,
+    )
+    reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
+    archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+
+    return _package_result(
+        ctx,
+        metadata.store_output,
+        metadata,
+        reproducibility_stamp,
+        archive_metadata_stamp,
+    )
 
 _pkgs_make_install_package = rule(
     impl = _pkgs_make_install_package_impl,
@@ -646,20 +754,28 @@ _pkgs_make_install_package = rule(
                 providers = [RunInfo],
             ),
         ),
+        "_reproducibility_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_reproducible_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_archive_metadata_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_archive_metadata",
+                providers = [RunInfo],
+            ),
+        ),
     },
 )
 
-def _pkgs_linux_headers_package_impl(ctx):
-    source = ctx.attrs.source[DefaultInfo].default_outputs[0]
-    native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
-    metadata = _package_metadata(ctx)
-
+def _linux_headers_args(ctx, source, output, native_build_inputs):
     args = cmd_args([
         ctx.attrs._builder[RunInfo],
         "--source",
         source,
         "--output",
-        metadata.store_output.as_output(),
+        output,
         "--kernel-release",
         ctx.attrs.kernel_release,
         "--make-jobs",
@@ -672,6 +788,12 @@ def _pkgs_linux_headers_package_impl(ctx):
         )
     for arg in ctx.attrs.make_args:
         args.add("--make-arg={}".format(arg))
+    return args
+
+def _pkgs_linux_headers_package_impl(ctx):
+    source = ctx.attrs.source[DefaultInfo].default_outputs[0]
+    native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
+    metadata = _package_metadata(ctx)
 
     native_runtime_store_outputs = [
         output
@@ -681,14 +803,37 @@ def _pkgs_linux_headers_package_impl(ctx):
 
     ctx.actions.run(
         cmd_args(
-            args,
+            _linux_headers_args(
+                ctx,
+                source,
+                metadata.store_output.as_output(),
+                native_build_inputs,
+            ),
             hidden = native_runtime_store_outputs,
         ),
         category = "pkgs_linux_headers_install",
         identifier = ctx.label.name,
     )
 
-    return _package_result(ctx, metadata.store_output, metadata)
+    replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    ctx.actions.run(
+        cmd_args(
+            _linux_headers_args(ctx, source, replay_tree.as_output(), native_build_inputs),
+            hidden = native_runtime_store_outputs,
+        ),
+        category = "pkgs_replay_linux_headers_install",
+        identifier = ctx.label.name,
+    )
+    reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
+    archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+
+    return _package_result(
+        ctx,
+        metadata.store_output,
+        metadata,
+        reproducibility_stamp,
+        archive_metadata_stamp,
+    )
 
 _pkgs_linux_headers_package = rule(
     impl = _pkgs_linux_headers_package_impl,
@@ -714,14 +859,22 @@ _pkgs_linux_headers_package = rule(
                 providers = [RunInfo],
             ),
         ),
+        "_reproducibility_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_reproducible_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_archive_metadata_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_archive_metadata",
+                providers = [RunInfo],
+            ),
+        ),
     },
 )
 
-def _pkgs_configure_make_install_package_impl(ctx):
-    source = ctx.attrs.source[DefaultInfo].default_outputs[0]
-    native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
-    build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
-    metadata = _package_metadata(ctx)
+def _configure_make_install_args(ctx, source, output, metadata, native_build_inputs):
     self_store_path = metadata.logical_store_path
 
     args = cmd_args([
@@ -729,7 +882,7 @@ def _pkgs_configure_make_install_package_impl(ctx):
         "--source",
         source,
         "--output",
-        metadata.store_output.as_output(),
+        output,
         "--install-prefix",
         metadata.logical_store_path,
         "--make-jobs",
@@ -783,6 +936,13 @@ def _pkgs_configure_make_install_package_impl(ctx):
     args.add("--patch-strip", str(ctx.attrs.patch_strip))
     for link, target in sorted(ctx.attrs.symlinks.items()):
         args.add("--symlink", "{}={}".format(link, target))
+    return args
+
+def _pkgs_configure_make_install_package_impl(ctx):
+    source = ctx.attrs.source[DefaultInfo].default_outputs[0]
+    native_build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]
+    build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
+    metadata = _package_metadata(ctx)
 
     native_runtime_store_outputs = [
         output
@@ -792,14 +952,44 @@ def _pkgs_configure_make_install_package_impl(ctx):
 
     ctx.actions.run(
         cmd_args(
-            args,
+            _configure_make_install_args(
+                ctx,
+                source,
+                metadata.store_output.as_output(),
+                metadata,
+                native_build_inputs,
+            ),
             hidden = native_runtime_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_configure_make_install",
         identifier = ctx.label.name,
     )
 
-    return _package_result(ctx, metadata.store_output, metadata)
+    replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    ctx.actions.run(
+        cmd_args(
+            _configure_make_install_args(
+                ctx,
+                source,
+                replay_tree.as_output(),
+                metadata,
+                native_build_inputs,
+            ),
+            hidden = native_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+        ),
+        category = "pkgs_replay_configure_make_install",
+        identifier = ctx.label.name,
+    )
+    reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
+    archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+
+    return _package_result(
+        ctx,
+        metadata.store_output,
+        metadata,
+        reproducibility_stamp,
+        archive_metadata_stamp,
+    )
 
 _pkgs_configure_make_install_package = rule(
     impl = _pkgs_configure_make_install_package_impl,
@@ -874,8 +1064,45 @@ _pkgs_configure_make_install_package = rule(
                 providers = [RunInfo],
             ),
         ),
+        "_reproducibility_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_reproducible_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_archive_metadata_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_archive_metadata",
+                providers = [RunInfo],
+            ),
+        ),
     },
 )
+
+def _cc_wrapper_args(ctx, output, cc, bintools, headers, libc, shell):
+    return cmd_args([
+        ctx.attrs._builder[RunInfo],
+        "--output",
+        output,
+        "--shell",
+        "{}/bin/bash".format(shell.logical_store_path),
+        "--cc",
+        "{}/bin/gcc".format(cc.logical_store_path),
+        "--cxx",
+        "{}/bin/g++".format(cc.logical_store_path),
+        "--cpp",
+        "{}/bin/cpp".format(cc.logical_store_path),
+        "--compiler-root",
+        cc.logical_store_path,
+        "--libc",
+        libc.logical_store_path,
+        "--bintools",
+        bintools.logical_store_path,
+        "--headers",
+        headers.logical_store_path,
+        "--dynamic-linker",
+        "{}/{}".format(libc.logical_store_path, ctx.attrs.dynamic_linker),
+    ])
 
 def _pkgs_cc_wrapper_package_impl(ctx):
     cc = ctx.attrs.cc[PkgsPackageInfo]
@@ -886,32 +1113,35 @@ def _pkgs_cc_wrapper_package_impl(ctx):
     metadata = _package_metadata(ctx)
 
     ctx.actions.run(
-        cmd_args([
-            ctx.attrs._builder[RunInfo],
-            "--output",
+        _cc_wrapper_args(
+            ctx,
             metadata.store_output.as_output(),
-            "--shell",
-            "{}/bin/bash".format(shell.logical_store_path),
-            "--cc",
-            "{}/bin/gcc".format(cc.logical_store_path),
-            "--cxx",
-            "{}/bin/g++".format(cc.logical_store_path),
-            "--cpp",
-            "{}/bin/cpp".format(cc.logical_store_path),
-            "--libc",
-            libc.logical_store_path,
-            "--bintools",
-            bintools.logical_store_path,
-            "--headers",
-            headers.logical_store_path,
-            "--dynamic-linker",
-            "{}/{}".format(libc.logical_store_path, ctx.attrs.dynamic_linker),
-        ]),
+            cc,
+            bintools,
+            headers,
+            libc,
+            shell,
+        ),
         category = "pkgs_cc_wrapper_tree",
         identifier = ctx.label.name,
     )
 
-    return _package_result(ctx, metadata.store_output, metadata)
+    replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    ctx.actions.run(
+        _cc_wrapper_args(ctx, replay_tree.as_output(), cc, bintools, headers, libc, shell),
+        category = "pkgs_replay_cc_wrapper_tree",
+        identifier = ctx.label.name,
+    )
+    reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
+    archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+
+    return _package_result(
+        ctx,
+        metadata.store_output,
+        metadata,
+        reproducibility_stamp,
+        archive_metadata_stamp,
+    )
 
 _pkgs_cc_wrapper_package = rule(
     impl = _pkgs_cc_wrapper_package_impl,
@@ -938,8 +1168,31 @@ _pkgs_cc_wrapper_package = rule(
                 providers = [RunInfo],
             ),
         ),
+        "_reproducibility_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_reproducible_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_archive_metadata_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_archive_metadata",
+                providers = [RunInfo],
+            ),
+        ),
     },
 )
+
+def _bintools_wrapper_args(ctx, output, bintools, shell):
+    return cmd_args([
+        ctx.attrs._builder[RunInfo],
+        "--output",
+        output,
+        "--shell",
+        "{}/bin/bash".format(shell.logical_store_path),
+        "--binutils",
+        bintools.logical_store_path,
+    ])
 
 def _pkgs_bintools_wrapper_package_impl(ctx):
     bintools = ctx.attrs.bintools[PkgsPackageInfo]
@@ -947,20 +1200,27 @@ def _pkgs_bintools_wrapper_package_impl(ctx):
     metadata = _package_metadata(ctx)
 
     ctx.actions.run(
-        cmd_args([
-            ctx.attrs._builder[RunInfo],
-            "--output",
-            metadata.store_output.as_output(),
-            "--shell",
-            "{}/bin/bash".format(shell.logical_store_path),
-            "--binutils",
-            bintools.logical_store_path,
-        ]),
+        _bintools_wrapper_args(ctx, metadata.store_output.as_output(), bintools, shell),
         category = "pkgs_bintools_wrapper_tree",
         identifier = ctx.label.name,
     )
 
-    return _package_result(ctx, metadata.store_output, metadata)
+    replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    ctx.actions.run(
+        _bintools_wrapper_args(ctx, replay_tree.as_output(), bintools, shell),
+        category = "pkgs_replay_bintools_wrapper_tree",
+        identifier = ctx.label.name,
+    )
+    reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
+    archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+
+    return _package_result(
+        ctx,
+        metadata.store_output,
+        metadata,
+        reproducibility_stamp,
+        archive_metadata_stamp,
+    )
 
 _pkgs_bintools_wrapper_package = rule(
     impl = _pkgs_bintools_wrapper_package_impl,
@@ -980,6 +1240,18 @@ _pkgs_bintools_wrapper_package = rule(
         "_builder": attrs.default_only(
             attrs.exec_dep(
                 default = "//crates/pkgs-tool:pkgs_bintools_wrapper_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_reproducibility_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_reproducible_tree",
+                providers = [RunInfo],
+            ),
+        ),
+        "_archive_metadata_verifier": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_verify_archive_metadata",
                 providers = [RunInfo],
             ),
         ),
@@ -1131,7 +1403,7 @@ def pkgs_cc_wrapper_package(
         package_name = package_name,
         version = version,
         output = output,
-        builder = "cc-wrapper-tree-v0",
+        builder = "cc-wrapper-tree-v1",
         cc = cc,
         bintools = bintools,
         dynamic_linker = _DYNAMIC_LINKER,

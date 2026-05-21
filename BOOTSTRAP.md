@@ -16,6 +16,10 @@ closures no longer reference it; it does **not** mean the seed nodes disappear.
 
 BuckPkgs is not trying to minimize the trust root with a Mes/TinyCC chain.
 
+The bootstrap turnover graph is intentionally expensive infrastructure, not an
+ambient dependency of ordinary builds. The boundary and import model for keeping
+that graph isolated are described in [BOOTSTRAP_ISLAND.md](./BOOTSTRAP_ISLAND.md).
+
 ## Why A Foreign Buck2 Seed
 
 The first tools do not need to arrive as opaque prebuilt tarballs. We can build
@@ -163,6 +167,11 @@ information.
 
 The graph remains static. Promotion to "final" is a naming and verification
 choice, not a dynamic graph mutation.
+
+Once a final closure is promoted, ordinary builds should consume imported
+finalized store objects rather than walking back into the live turnover graph.
+The archive/import design for that path is described in
+[STORE_SUBSTITUTES.md](./STORE_SUBSTITUTES.md).
 
 ## Lessons From nixpkgs
 

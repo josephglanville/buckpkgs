@@ -1,3 +1,5 @@
+load("//rules:toolchains.bzl", "pkgs_bootstrap_rust_binary")
+
 _COMMON_SRCS = [
     "src/common.rs",
 ]
@@ -13,7 +15,7 @@ _COMMON_DEPS = [
     "//third-party/rust:thiserror",
 ]
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_configure_make_install",
     srcs = _BUILD_SRCS + [
         "src/bin/pkgs_configure_make_install.rs",
@@ -24,7 +26,7 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_make_install",
     srcs = _BUILD_SRCS + [
         "src/bin/pkgs_make_install.rs",
@@ -35,7 +37,7 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_linux_headers_install",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_linux_headers_install.rs",
@@ -46,7 +48,7 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_compose_sources",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_compose_sources.rs",
@@ -57,7 +59,7 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_stage_tree",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_stage_tree.rs",
@@ -68,7 +70,7 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_verify_no_refs",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_verify_no_refs.rs",
@@ -79,7 +81,7 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_verify_elf_interpreters",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_verify_elf_interpreters.rs",
@@ -90,7 +92,29 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_verify_reproducible_tree",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_verify_reproducible_tree.rs",
+        "src/verify_reproducible_tree.rs",
+    ],
+    crate_root = "src/bin/pkgs_verify_reproducible_tree.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_verify_archive_metadata",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_verify_archive_metadata.rs",
+        "src/verify_archive_metadata.rs",
+    ],
+    crate_root = "src/bin/pkgs_verify_archive_metadata.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
     name = "pkgs_cc_wrapper_tree",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_cc_wrapper_tree.rs",
@@ -101,7 +125,7 @@ rust_binary(
     deps = _COMMON_DEPS,
 )
 
-rust_binary(
+pkgs_bootstrap_rust_binary(
     name = "pkgs_bintools_wrapper_tree",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_bintools_wrapper_tree.rs",

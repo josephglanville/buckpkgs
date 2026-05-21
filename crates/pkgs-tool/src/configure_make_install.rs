@@ -166,6 +166,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
 
     build::copy_staged_prefix(&install_root, &args.install_prefix, &args.output)?;
     build::sanitize_libtool_archives(&args.output, work.path())?;
+    build::sanitize_self_referential_linker_scripts(&args.output, &args.install_prefix)?;
     let output = common::canonicalize(&args.output)?;
     build::create_symlinks(&output, &args.symlinks)?;
     common::normalize_tree_mtimes(&output)?;

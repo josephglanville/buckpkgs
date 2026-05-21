@@ -106,6 +106,13 @@ pub(crate) fn sanitize_libtool_archives(output: &Path, work_dir: &Path) -> Resul
     sanitize_libtool_archives_in_tree(output, work_dir)
 }
 
+pub(crate) fn sanitize_self_referential_linker_scripts(
+    output: &Path,
+    install_prefix: &Path,
+) -> Result<(), Error> {
+    sanitize_self_referential_linker_scripts_in_tree(output, output, install_prefix)
+}
+
 fn sanitize_libtool_archives_in_tree(path: &Path, work_dir: &Path) -> Result<(), Error> {
     let metadata = fs::symlink_metadata(path).map_err(|source| common::Error::Metadata {
         path: path.to_path_buf(),
@@ -132,6 +139,56 @@ fn sanitize_libtool_archives_in_tree(path: &Path, work_dir: &Path) -> Result<(),
         source,
     })?;
     let Some(rewritten) = rewrite_libtool_archive(&contents, work_dir) else {
+        return Ok(());
+    };
+
+    fs::write(path, rewritten).map_err(|source| common::Error::WriteFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    common::preserve_metadata(&metadata, path)?;
+    Ok(())
+}
+
+fn sanitize_self_referential_linker_scripts_in_tree(
+    path: &Path,
+    output: &Path,
+    install_prefix: &Path,
+) -> Result<(), Error> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| common::Error::Metadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    if metadata.is_dir() {
+        for entry in common::sorted_dir_entries(path)? {
+            sanitize_self_referential_linker_scripts_in_tree(
+                &entry.path(),
+                output,
+                install_prefix,
+            )?;
+        }
+        return Ok(());
+    }
+
+    if !is_linker_script_candidate(path) {
+        return Ok(());
+    }
+
+    let bytes = fs::read(path).map_err(|source| common::Error::ReadFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let Ok(contents) = String::from_utf8(bytes) else {
+        return Ok(());
+    };
+    let Some(rewritten) =
+        rewrite_self_referential_linker_script(&contents, path, output, install_prefix)
+    else {
         return Ok(());
     };
 
@@ -189,6 +246,36 @@ fn is_transient_lib_search_path(token: &str, work_dir: &str) -> bool {
     token
         .strip_prefix("-L")
         .is_some_and(|path| Path::new(path).starts_with(work_dir))
+}
+
+fn is_linker_script_candidate(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|extension| extension.to_str()),
+        Some("a" | "so")
+    )
+}
+
+fn rewrite_self_referential_linker_script(
+    contents: &str,
+    script_path: &Path,
+    output: &Path,
+    install_prefix: &Path,
+) -> Option<String> {
+    if !contents.trim_start().starts_with("/* GNU ld script") {
+        return None;
+    }
+
+    let script_dir = script_path.parent()?;
+    let relative_script_dir = script_dir.strip_prefix(output).ok()?;
+    let install_dir = install_prefix.join(relative_script_dir);
+    let install_dir = install_dir.to_string_lossy();
+    // Implicit linker scripts resolve bare filenames from the script directory,
+    // which works both inside a sysroot and during non-sysroot bootstrap links.
+    let sibling_prefix = format!("{install_dir}/");
+
+    contents
+        .contains(&sibling_prefix)
+        .then(|| contents.replace(&sibling_prefix, ""))
 }
 
 fn validate_relative_path(path: &Path) -> Result<(), Error> {
@@ -250,6 +337,50 @@ mod tests {
         assert_eq!(
             fs::read_to_string(&archive).unwrap(),
             "dependency_libs=' -lz /pkgs/store/example/lib/libgmp.la'\n",
+        );
+    }
+
+    #[test]
+    fn strips_same_directory_store_prefixes_from_linker_scripts() {
+        let temp = tempfile::tempdir().unwrap();
+        let output = temp.path().join("output");
+        let libdir = output.join("lib");
+        fs::create_dir_all(&libdir).unwrap();
+
+        let libc = libdir.join("libc.so");
+        fs::write(
+            &libc,
+            "/* GNU ld script */\nGROUP ( /pkgs/store/glibc/lib/libc.so.6 /pkgs/store/glibc/lib/libc_nonshared.a )\n",
+        )
+        .unwrap();
+
+        let libm = libdir.join("libm.so");
+        fs::write(
+            &libm,
+            "/* GNU ld script */\nGROUP ( /pkgs/store/glibc/lib/libm.so.6 AS_NEEDED ( /pkgs/store/glibc/lib/libmvec.so.1 ) )\n",
+        )
+        .unwrap();
+
+        let libm_archive = libdir.join("libm.a");
+        fs::write(
+            &libm_archive,
+            "/* GNU ld script */\nGROUP ( /pkgs/store/glibc/lib/libm-2.42.a /pkgs/store/glibc/lib/libmvec.a )\n",
+        )
+        .unwrap();
+
+        sanitize_self_referential_linker_scripts(&output, Path::new("/pkgs/store/glibc")).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&libc).unwrap(),
+            "/* GNU ld script */\nGROUP ( libc.so.6 libc_nonshared.a )\n",
+        );
+        assert_eq!(
+            fs::read_to_string(&libm).unwrap(),
+            "/* GNU ld script */\nGROUP ( libm.so.6 AS_NEEDED ( libmvec.so.1 ) )\n",
+        );
+        assert_eq!(
+            fs::read_to_string(&libm_archive).unwrap(),
+            "/* GNU ld script */\nGROUP ( libm-2.42.a libmvec.a )\n",
         );
     }
 }

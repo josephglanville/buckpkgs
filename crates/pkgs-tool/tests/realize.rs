@@ -1,6 +1,7 @@
-use std::fs;
+use std::fs::{self, File, FileTimes};
 use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
+use std::time::{Duration, UNIX_EPOCH};
 
 use tempfile::tempdir;
 
@@ -174,6 +175,111 @@ fn rejects_forbidden_references() {
         .unwrap();
     assert!(!status.success());
     assert!(!stamp.exists());
+}
+
+#[test]
+fn verifies_replayed_trees_byte_for_byte() {
+    let temp = tempdir().unwrap();
+    let expected = temp.path().join("expected");
+    let actual = temp.path().join("actual");
+    fs::create_dir_all(expected.join("share")).unwrap();
+    fs::create_dir_all(actual.join("share")).unwrap();
+    fs::write(expected.join("share/payload"), b"reproducible\n").unwrap();
+    fs::write(actual.join("share/payload"), b"reproducible\n").unwrap();
+    for path in [
+        expected.clone(),
+        expected.join("share"),
+        expected.join("share/payload"),
+        actual.clone(),
+        actual.join("share"),
+        actual.join("share/payload"),
+    ] {
+        File::open(path)
+            .unwrap()
+            .set_times(FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1)))
+            .unwrap();
+    }
+
+    let ok_stamp = temp.path().join("ok-stamp");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_verify_reproducible_tree"))
+        .args([
+            "--expected",
+            expected.to_str().unwrap(),
+            "--actual",
+            actual.to_str().unwrap(),
+            "--stamp",
+            ok_stamp.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(ok_stamp.exists());
+
+    fs::write(actual.join("share/payload"), b"drifted\n").unwrap();
+    let bad_stamp = temp.path().join("bad-stamp");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_verify_reproducible_tree"))
+        .args([
+            "--expected",
+            expected.to_str().unwrap(),
+            "--actual",
+            actual.to_str().unwrap(),
+            "--stamp",
+            bad_stamp.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+    assert!(!bad_stamp.exists());
+}
+
+#[test]
+fn verifies_archive_metadata_headers() {
+    let temp = tempdir().unwrap();
+    let tree = temp.path().join("tree");
+    fs::create_dir_all(tree.join("lib")).unwrap();
+    fs::create_dir_all(tree.join("share")).unwrap();
+
+    let deterministic_archive = format!(
+        "!<arch>\n{:<16}{:<12}{:<6}{:<6}{:<8}{:<10}`\nobj\n",
+        "payload.o/", "0", "0", "0", "100644", 4,
+    );
+    fs::write(tree.join("lib/libexample.a"), deterministic_archive).unwrap();
+    fs::write(
+        tree.join("share/manual.gz"),
+        [0x1f, 0x8b, 0x08, 0, 0, 0, 0, 0, 0, 0],
+    )
+    .unwrap();
+
+    let ok_stamp = temp.path().join("ok-archive-metadata");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_verify_archive_metadata"))
+        .args([
+            "--input",
+            tree.to_str().unwrap(),
+            "--stamp",
+            ok_stamp.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(ok_stamp.exists());
+
+    fs::write(
+        tree.join("share/manual.gz"),
+        [0x1f, 0x8b, 0x08, 0, 1, 0, 0, 0, 0, 0],
+    )
+    .unwrap();
+    let bad_stamp = temp.path().join("bad-archive-metadata");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_verify_archive_metadata"))
+        .args([
+            "--input",
+            tree.to_str().unwrap(),
+            "--stamp",
+            bad_stamp.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+    assert!(!bad_stamp.exists());
 }
 
 #[test]

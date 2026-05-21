@@ -45,8 +45,12 @@ the declared package graph is unchanged.
 ### Parallelism is declared input, not host discovery
 
 Package-local `make` parallelism is expressed as `make_jobs`, defaults to a
-fixed value of `16`, is passed to build tools as `MAKEFLAGS=-jN`, and participates
+fixed value of `64`, is passed to build tools as `MAKEFLAGS=-jN`, and participates
 in package identity.
+
+When a future change already forces a bootstrap-tree rebuild, batch any intended
+declared-parallelism retuning into that same rebuild rather than paying a
+standalone invalidation cost for it.
 
 Do not derive build parallelism from live host CPU count. Host capacity is an
 execution concern; package identity must remain graph-declared. If an upstream
@@ -129,6 +133,156 @@ scan pass.
   checks. Static archives should have deterministic owner/time metadata, and gzip
   headers should not retain build-time mtimes.
 
+## External Practice Worth Adopting
+
+Debian's reproducible-builds work treats byte reproducibility as an adversarial
+artifact property, not as a "clean enough" recipe style. The useful habits for
+BuckPkgs are:
+
+- vary wall clock, build path, directory order, locale, timezone, username,
+  hostname, CPU topology, and related ambient state when chasing a mismatch
+- first make the producing tool deterministic, then use format-specific
+  normalization only when the format or upstream producer genuinely requires it
+- compare final artifacts recursively and keep the diagnosis attached to bytes,
+  not just to a suspicious log line
+- record enough environment and dependency identity that a later rebuild has a
+  concrete target to reproduce
+
+BuckPkgs already covers part of that internally through the replayed
+`[reproducible]` subtarget and normalized package execution environment. The
+remaining authoring discipline is to keep package recipes within the same model
+instead of reintroducing ambient host state through a build-system escape hatch.
+
+### Research distilled into BuckPkgs policy
+
+The strongest portable guidance from Debian, reproducible-builds.org, and the
+major build systems reduces to a few rules:
+
+- Define reproducibility against a specific build environment, not against
+  whatever happens to be installed on the current machine.
+- Keep audit data separate from the produced payload. Debian's `.buildinfo`
+  work is useful evidence for that separation, but BuckPkgs should not mirror it
+  wholesale: the Buck graph already declares rebuild inputs more precisely than
+  an after-the-fact package metadata file can.
+- Treat `SOURCE_DATE_EPOCH` as the timestamp contract for embedded build dates
+  and timestamp clamping. Wall-clock time should not enter package bytes unless
+  the package ABI explicitly says it does.
+- Treat build paths, archive metadata, filesystem order, uid/gid/mode capture,
+  locale, timezone, username, hostname, umask, and runtime hash iteration as
+  normal reproducibility threat classes, not rare one-off bugs.
+- Prefer producer fixes over post-processing. Use format-specific normalization
+  where the format itself carries irrelevant metadata or upstream tooling gives
+  no better hook.
+- Use recursive artifact comparison to explain mismatches. Logs can point at a
+  suspect step; final bytes decide whether a build is reproducible.
+
+Path remapping deserves one extra rule. Compiler prefix-map flags are practical
+today and should stay part of the BuckPkgs toolbox. The broader
+`BUILD_PATH_PREFIX_MAP` idea is useful as a design reference, but it is still not
+the foundation we should assume every tool honors. BuckPkgs should keep explicit
+wrapper and verifier coverage instead of betting the package graph on that
+cross-tool contract.
+
+## Build-System Playbooks
+
+### Autotools
+
+- For out-of-source builds, invoke `configure` through a relative path from the
+  build directory. Absolute source checkout paths are easy to serialize into
+  generated files.
+- Treat `config.status`, generated headers, installed `*-config` helpers,
+  libtool archives, and generated Makefiles as payload surfaces, not throwaway
+  build metadata.
+- Prefer upstream support for `SOURCE_DATE_EPOCH`. If a configure script or
+  helper emits wall-clock text, patch that producer narrowly instead of
+  post-rewriting broad output trees.
+- Prefer `AX_BUILD_DATE_EPOCH` or equivalent project-native support when
+  Autoconf logic needs a build date. Do not let `configure` synthesize fresh wall
+  clock strings and hope an install-time scrub catches every consumer.
+- Keep deterministic archive behavior explicit when an Autotools package
+  overrides the usual tool variables. `ar` and `ranlib` should remain in
+  deterministic mode; package recipes should not quietly reintroduce host-owned
+  archive metadata.
+- Keep build parallelism declared through `make_jobs`; do not let package-local
+  scripts derive it from live host CPU count.
+
+### CMake
+
+- Timestamp-producing project logic should flow through `SOURCE_DATE_EPOCH` or
+  avoid embedding build time entirely. Review `string(TIMESTAMP ...)`,
+  generated headers, and version banners when a package differs only by text
+  payloads.
+- When CMake itself creates archives, use archive APIs that accept explicit
+  mtimes rather than letting source-tree mtimes or wall clock values leak into
+  the result.
+- Treat `CMAKE_SOURCE_DIR`, `CMAKE_BINARY_DIR`, generated export files, and
+  configured scripts as potential build-path leak points.
+- Projects that download and extract nested archives during configuration need
+  explicit timestamp semantics; archive extraction behavior is part of the
+  reproducibility contract, not an incidental fetch detail.
+- Package-generated archives and installers still need separate artifact checks.
+  A reproducible CMake configure step does not prove a downstream tarball, zip,
+  or CPack-style payload is byte-canonical.
+- CPack-like packaging needs its own policy surface: pinned uid/gid handling,
+  chosen archive format, explicit compression settings, and no hidden host-driven
+  threading or defaults that can vary between environments.
+
+### Meson
+
+- Meson should be treated as reproducible by default only when the surrounding
+  toolchain and project-authored generators are also deterministic.
+- For packager-controlled builds, prefer Meson's plain build mode so BuckPkgs
+  remains the authority for compiler and linker flags instead of merging them
+  with Meson's convenience defaults.
+- Audit `run_command()`, custom targets, generated configuration files, and any
+  helper that reads the wall clock, the live source/build directory, `uname`, or
+  other host identity.
+- Prefer Meson's normal out-of-source model; do not tunnel around it with ad hoc
+  shell glue that writes absolute scratch paths into installed outputs.
+- If a Meson project is not reproducible under BuckPkgs' normalized environment,
+  treat that as a package or upstream bug to prove and fix, not as a reason to
+  weaken verification.
+- Meson's release-archive discipline is worth copying for substitution inputs:
+  package the declared source state, then validate that the produced source
+  archive can complete the expected build/test/install loop before trusting it
+  as a reusable bootstrap artifact.
+
+## BuckPkgs Action List
+
+These are the concrete repository changes that follow from the research above.
+They are intentionally phrased as implementation work, not as general
+principles:
+
+1. Define substitute/import manifests for byte-perfect realized store objects.
+   They should capture artifact digest, store identity, target system, declared
+   source digests, closure references needed for validation, archive digest, and
+   verifier/schema version without duplicating the Buck graph as a parallel
+   rebuild description.
+2. Grow the current archive verifier beyond GNU `ar` and gzip. The next useful
+   classes are tar-like payloads, zip-like payloads, and compressed source or
+   bootstrap substitute archives whose uid/gid, member order, mtime, or header
+   data can still vary.
+3. Add package-family authoring helpers or lint rules for Autotools, CMake, and
+   Meson. The checks should catch wall-clock producers, absolute build-path
+   expansion, host-discovered parallelism, non-deterministic archive creation,
+   and package-local overrides that bypass BuckPkgs' normalized tools.
+4. Keep path remapping centralized in wrappers and package execution helpers.
+   Recipes should opt into narrow exceptions only when a package's own build
+   system genuinely needs them.
+5. Add a reprotest-style perturbation harness for selected representative
+   packages. Rebuild under varied checkout roots, temp roots, username/hostname
+   surfaces where practical, locale/timezone, umask, and explicit `make_jobs`
+   settings, then compare final trees recursively.
+6. Make source-substitution artifacts first-class and byte-perfect. Bootstrap
+   substitutes should be verified archives with recorded provenance and checked
+   re-realization semantics, not merely convenient tarballs.
+7. Extend static scans for common leak patterns in both recipes and fresh output
+   trees: `__DATE__`, `__TIME__`, wall-clock shell usage, repo/workdir paths,
+   generated host banners, and known archive/compression metadata hazards.
+8. Keep whole-closure rebuilds in the workflow whenever a fixed producer may
+   have already contaminated downstream artifacts. A green leaf package is not
+   proof that the closure recovered from older non-deterministic bytes.
+
 ## Package Authoring Rules
 
 When adding or changing a package recipe:
@@ -153,6 +307,33 @@ For realization-layer changes:
 - run formatting and whitespace checks
 - build representative package targets that exercise the changed contract
 - inspect fresh store outputs directly
+
+Every package target also exposes a `[reproducible]` subtarget. Building it
+replays only that package into a disposable tree with the same declared inputs,
+then verifies that the replayed tree matches the published store tree in shape,
+file bytes, symlink targets, permission modes, and normalized mtimes. This keeps
+layer-by-layer byte reproducibility checks local to the package under review
+instead of forcing a whole-bootstrap rebuild for every proof point.
+
+Package targets also expose an `[archive_metadata]` subtarget. It scans the
+published tree for static archives and gzip streams, then rejects the common
+non-canonical metadata classes that otherwise survive into final bytes:
+
+- GNU `ar` members with non-zero timestamp, uid, or gid fields
+- gzip headers that retain a stored timestamp or original filename
+
+Use it for packages that install `.a`, `.gz`, generated docs, manpages, source
+bundles, or other archive-like payloads. It is intentionally narrower than a
+general diffing tool; it exists to make a high-value authoring check cheap enough
+to run routinely.
+
+Examples:
+
+```text
+buck2 build root//development/libraries/glibc:out_stage1[reproducible]
+buck2 build root//development/compilers/gcc:out_stage1[reproducible]
+buck2 build root//development/libraries/zlib:out_stage1[archive_metadata]
+```
 
 For bootstrap-sensitive changes:
 
