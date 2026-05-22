@@ -62,6 +62,12 @@ object model. Reusing NAR would reduce format invention. A BuckPkgs-native forma
 would only be justified if direct CAS-tree import or streaming validation becomes
 materially simpler.
 
+The current implementation uses `buckpkgs-tree-v1`, a BuckPkgs-native,
+uncompressed canonical payload. It records sorted directory traversal, regular
+file bytes plus executable state, and symlink targets. This keeps the first
+verified import path dependency-light while preserving an upgrade path to NAR
+or compressed transport.
+
 ## What "Byte-Perfect" Means
 
 The substitute payload must round-trip the logical store object exactly:
@@ -103,14 +109,14 @@ Each substitutable output needs metadata at least like:
     "output": "out"
   },
   "archive": {
-    "encoding": "nar",
-    "compression": "zstd",
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
     "download_hash": "sha256:...",
     "download_size": 123456789,
     "payload_hash": "sha256:...",
     "payload_size": 123456789
   },
-  "output_tree_digest": "<Buck2 CAS directory/tree digest>",
+  "canonical_tree_hash": "sha256:...",
   "references": [
     "/pkgs/store/<dep>-glibc-...",
     "/pkgs/store/<dep>-binutils-..."
@@ -129,7 +135,7 @@ The exact field names can evolve, but the semantic commitments should not:
 
 - the manifest names the logical store object being substituted
 - it commits to the byte payload
-- it commits to the realized Buck2 tree digest
+- it commits to the decoded canonical tree payload
 - it names the closure edges required to consume the object
 - it is signable as a stable document
 
@@ -179,6 +185,28 @@ Therefore:
 Unsigned imports may be useful for local experiments, but the normal bootstrap
 substitute path should require trust metadata.
 
+## Implemented Object Pipeline
+
+The repository now has an object-level substitution pipeline:
+
+- `pkgs_export_store_substitute(...)` exports a live `PkgsPackageInfo` output
+  into a `buckpkgs-tree-v1` payload plus `buckpkgs-store-object-v1` JSON manifest
+- `pkgs_export_store_tree_substitute(...)` exports a declared tree with explicit
+  store identity, which supports isolated import tests and externally prepared
+  finalized trees
+- `pkgs_imported_store_output(...)` verifies that payload and manifest, then
+  returns the same `PkgsPackageInfo` surface backed by a store output
+- `pkgs_prebuilt_store_substitute(...)` binds externally published archive and
+  manifest artifacts to the import rule
+- `pkgs_hydrate_store_object` verifies an object manifest and atomically
+  publishes it below a selected store root, defaulting to `/pkgs/store`
+
+The object manifest currently verifies store identity, package metadata, target
+system, exact reference metadata, payload hash/size, and the decoded canonical
+tree hash. Signature verification and closure-manifest orchestration remain to
+be implemented before published bootstrap substitutes should be treated as
+trusted ordinary-build inputs.
+
 ## Preferred Bootstrap-Island Import Pipeline
 
 For the bootstrap island, the cleanest ordinary-build flow is deliberately
@@ -218,17 +246,20 @@ The Buck2 fork already has most of the local path semantics:
 - verification of existing store outputs against recorded artifact values
 - atomic publication on first realization
 
-The missing primitive is a store-import action.
+The BuckPkgs prototype now implements archive import as a normal verified action
+through `pkgs_imported_store_output(...)`. A native Buck2 store-import action is
+still the appropriate later optimization if direct CAS tree import or stronger
+diagnostic integration becomes valuable.
 
 ### Option A: Archive Import Action
 
-Add a Buck2 action conceptually like:
+The current BuckPkgs rule performs the equivalent operation:
 
 ```python
-ctx.actions.import_store_archive(
-    output = store_output.as_output(),
-    manifest = manifest_artifact,
-    archive = archive_artifact,
+pkgs_imported_store_output(
+    name = "gcc",
+    substitute = ":gcc_substitute",
+    runtime_inputs = [":glibc", ":binutils"],
 )
 ```
 
@@ -257,7 +288,8 @@ RE/CAS representation.
 
 ### Recommendation
 
-For the bootstrap island, implement the external CAS-backed hydrator first:
+For the bootstrap island, continue with closure publication and the external
+hydration workflow on top of the implemented object pipeline:
 
 - the manifest already carries the logical store path
 - the manifest already carries the decoded tree digest

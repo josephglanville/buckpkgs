@@ -55,6 +55,10 @@ should not grow into another programmable package language.
   performance ground rules for the project.
 - [REPRODUCIBILITY.md](./REPRODUCIBILITY.md): the current determinism contract,
   known failure modes, and artifact-level verification expectations.
+- [STORE_SUBSTITUTES.md](./STORE_SUBSTITUTES.md): the manifest, archive, and
+  hydration model for importing finalized store objects.
+- [BOOTSTRAP_ISLAND.md](./BOOTSTRAP_ISLAND.md): the graph boundary that keeps
+  ordinary builds from implicitly rebuilding bootstrap turnover.
 
 ## Current Position
 

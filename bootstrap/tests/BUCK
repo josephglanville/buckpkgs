@@ -2,7 +2,10 @@ load(
     "//rules:pkgs.bzl",
     "pkgs_configure_make_install_package",
     "pkgs_elf_interpreters",
+    "pkgs_export_store_substitute",
+    "pkgs_export_store_tree_substitute",
     "pkgs_export_patch",
+    "pkgs_imported_store_output",
     "pkgs_make_install_package",
     "pkgs_package",
     "pkgs_seed_free",
@@ -44,6 +47,50 @@ pkgs_seed_free(
     name = "build_only_dep_seed_free",
     packages = [":build_only_dep"],
     forbidden = ["//bootstrap/foreign_seed:bash"],
+)
+
+pkgs_export_store_substitute(
+    name = "build_only_dep_substitute",
+    package = ":build_only_dep",
+)
+
+pkgs_imported_store_output(
+    name = "build_only_dep_imported",
+    substitute = ":build_only_dep_substitute",
+)
+
+pkgs_export_store_tree_substitute(
+    name = "source_tree_substitute",
+    tree = ":payload_tree",
+    package_name = "source-tree",
+    version = "0",
+    store_path_key = "0123456789abcdef0123456789abcdef",
+    store_name = "source-tree-0",
+)
+
+pkgs_imported_store_output(
+    name = "source_tree_imported",
+    substitute = ":source_tree_substitute",
+)
+
+pkgs_package(
+    name = "runtime_consumer",
+    package_name = "runtime-consumer",
+    version = "0",
+    builder = "bootstrap-test-v0",
+    sources = [_PAYLOAD_SOURCE],
+    runtime_inputs = [":build_only_dep"],
+)
+
+pkgs_export_store_substitute(
+    name = "runtime_consumer_substitute",
+    package = ":runtime_consumer",
+)
+
+pkgs_imported_store_output(
+    name = "runtime_consumer_imported",
+    substitute = ":runtime_consumer_substitute",
+    runtime_inputs = [":build_only_dep_imported"],
 )
 
 _CLOSURE_CONSUMER_MAKEFILE_CONTENT = [

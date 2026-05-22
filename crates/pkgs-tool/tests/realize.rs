@@ -1,8 +1,11 @@
 use std::fs::{self, File, FileTimes};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{symlink, PermissionsExt};
+use std::path::Path;
 use std::process::Command;
 use std::time::{Duration, UNIX_EPOCH};
 
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 use tempfile::tempdir;
 
 #[test]
@@ -148,6 +151,365 @@ fn stages_an_immutable_tree() {
             & 0o222,
         0
     );
+}
+
+#[test]
+fn exports_hydrates_and_imports_store_objects() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(source.join("bin")).unwrap();
+    fs::write(source.join("bin/tool"), "#!/bin/sh\necho imported\n").unwrap();
+    let mut permissions = fs::metadata(source.join("bin/tool")).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(source.join("bin/tool"), permissions).unwrap();
+    symlink("tool", source.join("bin/tool-link")).unwrap();
+
+    let key = "0123456789abcdef0123456789abcdef";
+    let entry = format!("{key}-example-1.0");
+    let store_path = format!("/pkgs/store/{entry}");
+    let archive = temp.path().join("example.bpkgs-tree");
+    let manifest = temp.path().join("example.manifest.json");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_object"))
+        .args([
+            "--input",
+            source.to_str().unwrap(),
+            "--store-path",
+            &store_path,
+            "--store-path-key",
+            key,
+            "--store-entry",
+            &entry,
+            "--package-name",
+            "example",
+            "--version",
+            "1.0",
+            "--target-system",
+            "x86_64-linux",
+            "--runtime-store-output",
+            &store_path,
+            "--archive",
+            archive.to_str().unwrap(),
+            "--manifest",
+            manifest.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let manifest_contents = fs::read_to_string(&manifest).unwrap();
+    assert!(manifest_contents.contains("\"format\": \"buckpkgs-store-object-v1\""));
+    assert!(manifest_contents.contains("\"encoding\": \"buckpkgs-tree-v1\""));
+    assert!(manifest_contents.contains(&store_path));
+
+    let store_root = temp.path().join("store");
+    for _ in 0..2 {
+        let status = Command::new(env!("CARGO_BIN_EXE_pkgs_hydrate_store_object"))
+            .args([
+                "--manifest",
+                manifest.to_str().unwrap(),
+                "--archive",
+                archive.to_str().unwrap(),
+                "--store-root",
+                store_root.to_str().unwrap(),
+            ])
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+    let hydrated = store_root.join(&entry);
+    assert_eq!(
+        fs::read_to_string(hydrated.join("bin/tool")).unwrap(),
+        "#!/bin/sh\necho imported\n"
+    );
+    assert_eq!(
+        fs::read_link(hydrated.join("bin/tool-link")).unwrap(),
+        Path::new("tool")
+    );
+    assert_eq!(
+        fs::metadata(hydrated.join("bin/tool"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o222,
+        0
+    );
+
+    let imported = temp.path().join("imported");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_import_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--archive",
+            archive.to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "example",
+            "--expected-version",
+            "1.0",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-runtime-store-output",
+            &store_path,
+            "--output",
+            imported.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(imported.join("bin/tool")).unwrap(),
+        "#!/bin/sh\necho imported\n"
+    );
+}
+
+#[test]
+fn rejects_tampered_store_object_archives() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("payload"), "payload\n").unwrap();
+    let key = "0123456789abcdef0123456789abcdef";
+    let entry = format!("{key}-example-1.0");
+    let store_path = format!("/pkgs/store/{entry}");
+    let archive = temp.path().join("example.bpkgs-tree");
+    let manifest = temp.path().join("example.manifest.json");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_object"))
+        .args([
+            "--input",
+            source.to_str().unwrap(),
+            "--store-path",
+            &store_path,
+            "--store-path-key",
+            key,
+            "--store-entry",
+            &entry,
+            "--package-name",
+            "example",
+            "--version",
+            "1.0",
+            "--target-system",
+            "x86_64-linux",
+            "--runtime-store-output",
+            &store_path,
+            "--archive",
+            archive.to_str().unwrap(),
+            "--manifest",
+            manifest.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let mut tampered = fs::read(&archive).unwrap();
+    tampered.extend_from_slice(b"changed");
+    fs::write(&archive, tampered).unwrap();
+    let output = temp.path().join("output");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_import_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--archive",
+            archive.to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "example",
+            "--expected-version",
+            "1.0",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-runtime-store-output",
+            &store_path,
+            "--output",
+            output.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+    assert!(!output.exists());
+}
+
+#[test]
+fn rejects_store_archives_with_children_below_symlinks() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("payload"), "payload\n").unwrap();
+    let key = "0123456789abcdef0123456789abcdef";
+    let entry = format!("{key}-example-1.0");
+    let store_path = format!("/pkgs/store/{entry}");
+    let archive = temp.path().join("example.bpkgs-tree");
+    let manifest = temp.path().join("example.manifest.json");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_object"))
+        .args([
+            "--input",
+            source.to_str().unwrap(),
+            "--store-path",
+            &store_path,
+            "--store-path-key",
+            key,
+            "--store-entry",
+            &entry,
+            "--package-name",
+            "example",
+            "--version",
+            "1.0",
+            "--target-system",
+            "x86_64-linux",
+            "--runtime-store-output",
+            &store_path,
+            "--archive",
+            archive.to_str().unwrap(),
+            "--manifest",
+            manifest.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let outside = temp.path().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    let mut payload = b"BUCKPKGS-STORE-ARCHIVE-V1\0".to_vec();
+    append_archive_record(&mut payload, 1, b"", None);
+    append_archive_record(
+        &mut payload,
+        3,
+        b"escape",
+        Some(outside.as_os_str().as_encoded_bytes()),
+    );
+    append_archive_record(&mut payload, 2, b"escape/payload", Some(b"owned\n"));
+    payload.push(0);
+    fs::write(&archive, &payload).unwrap();
+
+    let hash = format!("sha256:{:x}", Sha256::digest(&payload));
+    let mut value: Value = serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+    value["archive"]["download_hash"] = Value::String(hash.clone());
+    value["archive"]["payload_hash"] = Value::String(hash.clone());
+    value["archive"]["download_size"] = Value::from(payload.len() as u64);
+    value["archive"]["payload_size"] = Value::from(payload.len() as u64);
+    value["canonical_tree_hash"] = Value::String(hash);
+    fs::write(&manifest, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+
+    let output = temp.path().join("output");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_import_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--archive",
+            archive.to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "example",
+            "--expected-version",
+            "1.0",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-runtime-store-output",
+            &store_path,
+            "--output",
+            output.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+    assert!(!outside.join("payload").exists());
+}
+
+#[test]
+fn rejects_store_archives_with_noncanonical_traversal_order() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("payload"), "payload\n").unwrap();
+    let key = "0123456789abcdef0123456789abcdef";
+    let entry = format!("{key}-example-1.0");
+    let store_path = format!("/pkgs/store/{entry}");
+    let archive = temp.path().join("example.bpkgs-tree");
+    let manifest = temp.path().join("example.manifest.json");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_object"))
+        .args([
+            "--input",
+            source.to_str().unwrap(),
+            "--store-path",
+            &store_path,
+            "--store-path-key",
+            key,
+            "--store-entry",
+            &entry,
+            "--package-name",
+            "example",
+            "--version",
+            "1.0",
+            "--target-system",
+            "x86_64-linux",
+            "--runtime-store-output",
+            &store_path,
+            "--archive",
+            archive.to_str().unwrap(),
+            "--manifest",
+            manifest.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let mut payload = b"BUCKPKGS-STORE-ARCHIVE-V1\0".to_vec();
+    append_archive_record(&mut payload, 1, b"", None);
+    append_archive_record(&mut payload, 2, b"z", Some(b"last\n"));
+    append_archive_record(&mut payload, 2, b"a", Some(b"first\n"));
+    payload.push(0);
+    fs::write(&archive, &payload).unwrap();
+
+    let hash = format!("sha256:{:x}", Sha256::digest(&payload));
+    let mut value: Value = serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+    value["archive"]["download_hash"] = Value::String(hash.clone());
+    value["archive"]["payload_hash"] = Value::String(hash.clone());
+    value["archive"]["download_size"] = Value::from(payload.len() as u64);
+    value["archive"]["payload_size"] = Value::from(payload.len() as u64);
+    value["canonical_tree_hash"] = Value::String(hash);
+    fs::write(&manifest, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+
+    let output = temp.path().join("output");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_import_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--archive",
+            archive.to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "example",
+            "--expected-version",
+            "1.0",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-runtime-store-output",
+            &store_path,
+            "--output",
+            output.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+    assert!(!output.exists());
+}
+
+fn append_archive_record(payload: &mut Vec<u8>, kind: u8, path: &[u8], contents: Option<&[u8]>) {
+    payload.push(kind);
+    payload.extend_from_slice(&(path.len() as u32).to_be_bytes());
+    payload.extend_from_slice(path);
+    if let Some(contents) = contents {
+        if kind == 2 {
+            payload.push(0);
+            payload.extend_from_slice(&(contents.len() as u64).to_be_bytes());
+        } else {
+            payload.extend_from_slice(&(contents.len() as u32).to_be_bytes());
+        }
+        payload.extend_from_slice(contents);
+    }
 }
 
 #[test]

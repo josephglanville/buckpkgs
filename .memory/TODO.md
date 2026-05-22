@@ -1,5 +1,18 @@
 # Reproducibility Board
 
+## Package Substitution
+
+- [x] Define and parse a versioned store-object manifest that commits to store
+      identity, archive bytes, realized-tree identity, and closure references.
+- [x] Implement canonical substitute archive export and hydration with atomic
+      publication under `/pkgs/store`.
+- [x] Implement imported `PkgsPackageInfo` providers backed by
+      manifest-verified store-object archives.
+- [ ] Publish a finalized bootstrap closure manifest and point
+      `toolchains//:cxx_pkgs` at imports rather than live turnover targets.
+- [ ] Prove a clean ordinary consumer can hydrate/import the bootstrap closure
+      without analyzing or executing live bootstrap stages.
+
 ## Active
 
 - [x] Rebuild GCC stage1 with combined

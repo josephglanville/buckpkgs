@@ -175,6 +175,17 @@ BuckPkgs should own:
 - imported-provider declarations that rebuild `PkgsPackageInfo` from substitute
   metadata without turning ordinary builds into substitute-fetch executions
 
+The object-level pieces of that surface now exist:
+
+- `pkgs_export_store_substitute(...)`
+- `pkgs_export_store_tree_substitute(...)`
+- `pkgs_prebuilt_store_substitute(...)`
+- `pkgs_imported_store_output(...)`
+- `pkgs_hydrate_store_object`
+
+The remaining island work is closure publication/trust, prebuilt bootstrap
+declarations, and moving `cxx_pkgs` off live stage targets.
+
 ## What Belongs In Buck2
 
 The Buck2 fork already has the right local foundation:

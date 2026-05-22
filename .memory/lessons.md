@@ -40,3 +40,9 @@
   embedded through file-name serialization in target libraries require
   `-ffile-prefix-map` as well, which is why the first GCC stage1 archive pass
   still leaked absolute `libstdc++` include roots.
+- Store-substitute extraction must validate archive structure before writing:
+  hash validation alone does not prevent a signed archive containing a symlink
+  followed by a descendant file entry from escaping its destination tree.
+- A Buck import test needs a store path with no live package producer; exporting
+  and reimporting one live package only exercises existing-store verification,
+  not first publication of the imported store object.

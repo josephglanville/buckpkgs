@@ -32,6 +32,23 @@ PkgsPackageInfo = provider(
     ],
 )
 
+PkgsStoreSubstituteInfo = provider(
+    fields = [
+        "archive",
+        "logical_store_path",
+        "manifest",
+        "name",
+        "output",
+        "references",
+        "runtime_store_entries",
+        "store_entry",
+        "store_name",
+        "store_path_key",
+        "target_system",
+        "version",
+    ],
+)
+
 def pkgs_source(dep, digests = []):
     return struct(
         dep = dep,
@@ -304,6 +321,17 @@ def _collect_runtime_store_outputs(store_entry, store_output, deps):
 
     return outputs
 
+def _logical_store_paths(entries):
+    return ["{}/{}".format(LOGICAL_STORE_ROOT, entry) for entry in entries]
+
+def _runtime_manifest_entries(store_entry, deps):
+    runtime_closure = _collect_closure(
+        store_entry,
+        [dep.runtime_closure for dep in deps],
+    )
+    references = [entry for entry in runtime_closure if entry != store_entry]
+    return (runtime_closure, references)
+
 def _deps_by_role(ctx):
     return [
         ("native_build_inputs", [dep[PkgsPackageInfo] for dep in ctx.attrs.native_build_inputs]),
@@ -561,6 +589,330 @@ def pkgs_package(
         native_build_inputs = native_build_inputs,
         build_inputs = build_inputs,
         target_inputs = target_inputs,
+        runtime_inputs = runtime_inputs,
+        visibility = visibility,
+    )
+
+def _declare_store_substitute(
+        ctx,
+        tree,
+        store_path_key,
+        store_name,
+        package_name,
+        version,
+        output,
+        target_system,
+        runtime_store_entries):
+    store_entry = "{}-{}".format(store_path_key, store_name)
+    logical_store_path = "{}/{}".format(LOGICAL_STORE_ROOT, store_entry)
+    archive = ctx.actions.declare_output("{}.bpkgs-tree".format(ctx.label.name))
+    manifest = ctx.actions.declare_output("{}.manifest.json".format(ctx.label.name))
+    references = [
+        entry
+        for entry in runtime_store_entries
+        if entry != store_entry
+    ]
+    args = cmd_args([
+        ctx.attrs._exporter[RunInfo],
+        "--input",
+        tree,
+        "--store-path",
+        logical_store_path,
+        "--store-path-key",
+        store_path_key,
+        "--store-entry",
+        store_entry,
+        "--package-name",
+        package_name,
+        "--version",
+        version,
+        "--output",
+        output,
+        "--target-system",
+        target_system,
+        "--archive",
+        archive.as_output(),
+        "--manifest",
+        manifest.as_output(),
+    ])
+    for entry in references:
+        args.add("--reference", "{}/{}".format(LOGICAL_STORE_ROOT, entry))
+    for entry in runtime_store_entries:
+        args.add("--runtime-store-output", "{}/{}".format(LOGICAL_STORE_ROOT, entry))
+
+    ctx.actions.run(
+        args,
+        category = "pkgs_export_store_substitute",
+        identifier = ctx.label.name,
+    )
+
+    return [
+        DefaultInfo(default_output = manifest, other_outputs = [archive]),
+        PkgsStoreSubstituteInfo(
+            archive = archive,
+            logical_store_path = logical_store_path,
+            manifest = manifest,
+            name = package_name,
+            output = output,
+            references = _logical_store_paths(references),
+            runtime_store_entries = runtime_store_entries,
+            store_entry = store_entry,
+            store_name = store_name,
+            store_path_key = store_path_key,
+            target_system = target_system,
+            version = version,
+        ),
+    ]
+
+def _pkgs_export_store_substitute_impl(ctx):
+    package = ctx.attrs.package[PkgsPackageInfo]
+    return _declare_store_substitute(
+        ctx,
+        package.store_output,
+        package.store_path_key,
+        package.store_entry[len(package.store_path_key) + 1:],
+        package.name,
+        package.version,
+        package.output,
+        ctx.attrs.target_system,
+        package.runtime_closure,
+    )
+
+_pkgs_export_store_substitute = rule(
+    impl = _pkgs_export_store_substitute_impl,
+    attrs = {
+        "package": attrs.dep(providers = [PkgsPackageInfo]),
+        "target_system": attrs.string(),
+        "_exporter": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_export_store_object",
+                providers = [RunInfo],
+            ),
+        ),
+    },
+)
+
+def pkgs_export_store_substitute(name, package, visibility = []):
+    _pkgs_export_store_substitute(
+        name = name,
+        package = package,
+        target_system = _TARGET_SYSTEM,
+        visibility = visibility,
+    )
+
+def _pkgs_export_store_tree_substitute_impl(ctx):
+    store_entry = "{}-{}".format(ctx.attrs.store_path_key, ctx.attrs.store_name)
+    runtime_store_entries = _collect_closure(store_entry, [ctx.attrs.runtime_store_entries])
+    return _declare_store_substitute(
+        ctx,
+        ctx.attrs.tree[DefaultInfo].default_outputs[0],
+        ctx.attrs.store_path_key,
+        ctx.attrs.store_name,
+        ctx.attrs.package_name,
+        ctx.attrs.version,
+        ctx.attrs.output,
+        ctx.attrs.target_system,
+        runtime_store_entries,
+    )
+
+_pkgs_export_store_tree_substitute = rule(
+    impl = _pkgs_export_store_tree_substitute_impl,
+    attrs = {
+        "output": attrs.string(default = "out"),
+        "package_name": attrs.string(),
+        "runtime_store_entries": attrs.list(attrs.string(), default = []),
+        "store_name": attrs.string(),
+        "store_path_key": attrs.string(),
+        "target_system": attrs.string(),
+        "tree": attrs.dep(providers = [DefaultInfo]),
+        "version": attrs.string(),
+        "_exporter": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_export_store_object",
+                providers = [RunInfo],
+            ),
+        ),
+    },
+)
+
+def pkgs_export_store_tree_substitute(
+        name,
+        tree,
+        package_name,
+        version,
+        store_path_key,
+        store_name,
+        output = "out",
+        runtime_store_entries = [],
+        visibility = []):
+    _pkgs_export_store_tree_substitute(
+        name = name,
+        tree = tree,
+        package_name = package_name,
+        version = version,
+        output = output,
+        store_path_key = store_path_key,
+        store_name = store_name,
+        target_system = _TARGET_SYSTEM,
+        runtime_store_entries = runtime_store_entries,
+        visibility = visibility,
+    )
+
+def _pkgs_prebuilt_store_substitute_impl(ctx):
+    store_entry = "{}-{}".format(ctx.attrs.store_path_key, ctx.attrs.store_name)
+    return [
+        DefaultInfo(
+            default_output = ctx.attrs.manifest[DefaultInfo].default_outputs[0],
+            other_outputs = [ctx.attrs.archive[DefaultInfo].default_outputs[0]],
+        ),
+        PkgsStoreSubstituteInfo(
+            archive = ctx.attrs.archive[DefaultInfo].default_outputs[0],
+            logical_store_path = "{}/{}".format(LOGICAL_STORE_ROOT, store_entry),
+            manifest = ctx.attrs.manifest[DefaultInfo].default_outputs[0],
+            name = ctx.attrs.package_name,
+            output = ctx.attrs.output,
+            references = ctx.attrs.references,
+            runtime_store_entries = ctx.attrs.runtime_store_entries,
+            store_entry = store_entry,
+            store_name = ctx.attrs.store_name,
+            store_path_key = ctx.attrs.store_path_key,
+            target_system = ctx.attrs.target_system,
+            version = ctx.attrs.version,
+        ),
+    ]
+
+_pkgs_prebuilt_store_substitute = rule(
+    impl = _pkgs_prebuilt_store_substitute_impl,
+    attrs = {
+        "archive": attrs.dep(providers = [DefaultInfo]),
+        "manifest": attrs.dep(providers = [DefaultInfo]),
+        "output": attrs.string(default = "out"),
+        "package_name": attrs.string(),
+        "references": attrs.list(attrs.string(), default = []),
+        "runtime_store_entries": attrs.list(attrs.string(), default = []),
+        "store_name": attrs.string(),
+        "store_path_key": attrs.string(),
+        "target_system": attrs.string(),
+        "version": attrs.string(),
+    },
+)
+
+def pkgs_prebuilt_store_substitute(
+        name,
+        archive,
+        manifest,
+        package_name,
+        version,
+        store_path_key,
+        store_name,
+        target_system,
+        output = "out",
+        references = [],
+        runtime_store_entries = [],
+        visibility = []):
+    _pkgs_prebuilt_store_substitute(
+        name = name,
+        archive = archive,
+        manifest = manifest,
+        package_name = package_name,
+        version = version,
+        output = output,
+        store_path_key = store_path_key,
+        store_name = store_name,
+        target_system = target_system,
+        references = references,
+        runtime_store_entries = runtime_store_entries,
+        visibility = visibility,
+    )
+
+def _pkgs_imported_store_output_impl(ctx):
+    substitute = ctx.attrs.substitute[PkgsStoreSubstituteInfo]
+    runtime_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.runtime_inputs]
+    runtime_closure, references = _runtime_manifest_entries(substitute.store_entry, runtime_inputs)
+    if runtime_closure != substitute.runtime_store_entries:
+        fail("imported package runtime closure does not match substitute manifest metadata for {}".format(substitute.logical_store_path))
+    if _logical_store_paths(references) != substitute.references:
+        fail("imported package references do not match substitute manifest metadata for {}".format(substitute.logical_store_path))
+
+    store_path = ctx.actions.store_path(
+        store_path_key = substitute.store_path_key,
+        store_name = substitute.store_name,
+    )
+    store_output = ctx.actions.declare_store_output(
+        store_path = store_path,
+        dir = True,
+    )
+    runtime_store_outputs = _collect_runtime_store_outputs(
+        substitute.store_entry,
+        store_output,
+        runtime_inputs,
+    )
+    args = cmd_args([
+        ctx.attrs._importer[RunInfo],
+        "--manifest",
+        substitute.manifest,
+        "--archive",
+        substitute.archive,
+        "--expected-store-path",
+        substitute.logical_store_path,
+        "--expected-package-name",
+        substitute.name,
+        "--expected-version",
+        substitute.version,
+        "--expected-output",
+        substitute.output,
+        "--expected-target-system",
+        substitute.target_system,
+        "--output",
+        store_output.as_output(),
+    ])
+    for reference in substitute.references:
+        args.add("--expected-reference", reference)
+    for entry in substitute.runtime_store_entries:
+        args.add("--expected-runtime-store-output", "{}/{}".format(LOGICAL_STORE_ROOT, entry))
+    ctx.actions.run(
+        args,
+        category = "pkgs_import_store_object",
+        identifier = ctx.label.name,
+    )
+
+    return [
+        DefaultInfo(default_output = store_output),
+        PkgsPackageInfo(
+            build_closure = runtime_closure,
+            foreign_runtime_entries = [],
+            is_foreign = False,
+            logical_store_path = substitute.logical_store_path,
+            name = substitute.name,
+            output = substitute.output,
+            runtime_closure = runtime_closure,
+            runtime_store_outputs = runtime_store_outputs,
+            store_entry = substitute.store_entry,
+            store_output = store_output,
+            store_path_key = substitute.store_path_key,
+            tree = store_output,
+            version = substitute.version,
+        ),
+    ]
+
+_pkgs_imported_store_output = rule(
+    impl = _pkgs_imported_store_output_impl,
+    attrs = {
+        "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "substitute": attrs.dep(providers = [PkgsStoreSubstituteInfo]),
+        "_importer": attrs.default_only(
+            attrs.exec_dep(
+                default = "//crates/pkgs-tool:pkgs_import_store_object",
+                providers = [RunInfo],
+            ),
+        ),
+    },
+)
+
+def pkgs_imported_store_output(name, substitute, runtime_inputs = [], visibility = []):
+    _pkgs_imported_store_output(
+        name = name,
+        substitute = substitute,
         runtime_inputs = runtime_inputs,
         visibility = visibility,
     )

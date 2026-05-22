@@ -15,6 +15,16 @@ _COMMON_DEPS = [
     "//third-party/rust:thiserror",
 ]
 
+_STORE_SUBSTITUTE_SRCS = _COMMON_SRCS + [
+    "src/store_substitute.rs",
+]
+
+_STORE_SUBSTITUTE_DEPS = _COMMON_DEPS + [
+    "//third-party/rust:serde",
+    "//third-party/rust:serde_json",
+    "//third-party/rust:sha2",
+]
+
 pkgs_bootstrap_rust_binary(
     name = "pkgs_configure_make_install",
     srcs = _BUILD_SRCS + [
@@ -68,6 +78,36 @@ pkgs_bootstrap_rust_binary(
     crate_root = "src/bin/pkgs_stage_tree.rs",
     visibility = ["PUBLIC"],
     deps = _COMMON_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_export_store_object",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_export_store_object.rs",
+    ],
+    crate_root = "src/bin/pkgs_export_store_object.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_hydrate_store_object",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_hydrate_store_object.rs",
+    ],
+    crate_root = "src/bin/pkgs_hydrate_store_object.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_import_store_object",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_import_store_object.rs",
+    ],
+    crate_root = "src/bin/pkgs_import_store_object.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
 )
 
 pkgs_bootstrap_rust_binary(
