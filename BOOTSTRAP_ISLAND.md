@@ -264,7 +264,15 @@ Buck2 changes that would make the island robust rather than merely conventional:
 3. **Compatible imported-tree identity**
    - publish a Buck2 directory digest set or durable verified receipt alongside
      substitute metadata
-   - avoid or reuse the native import action's remaining authenticated walk;
+   - implemented for the complete 17-object published substitute closure
+     through reviewed REAPI directory digests served by local Foundry and
+     Buck2's store-aware CAS import action
+   - a first fresh `toolchains//tests:gcc_smoke` import normalized and sealed
+     legacy physical objects while transferring `761MiB`; a subsequent fresh
+     daemon verified and reused the sealed package-backed toolchain locally
+     with no reported CAS transfer
+   - retain the local authenticated walk on daemon restart until durable store
+     receipts can safely elide it;
      the prior legacy-manifest verification plus Buck2 fingerprint duplicate
      walk has already been collapsed in source
    - imported store action outputs are content-addressed and use source

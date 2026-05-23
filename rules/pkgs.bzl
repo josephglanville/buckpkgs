@@ -1194,6 +1194,117 @@ def pkgs_hydrated_store_output(
         visibility = visibility,
     )
 
+def _pkgs_cas_store_output_impl(ctx):
+    store_entry = "{}-{}".format(ctx.attrs.store_path_key, ctx.attrs.store_name)
+    logical_store_path = "{}/{}".format(LOGICAL_STORE_ROOT, store_entry)
+    runtime_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.runtime_inputs]
+    runtime_closure, references = _canonical_runtime_manifest_entries(store_entry, runtime_inputs)
+    if runtime_closure != ctx.attrs.runtime_store_entries:
+        fail("CAS package runtime closure does not match pinned manifest metadata for {}".format(logical_store_path))
+    if _logical_store_paths(references) != ctx.attrs.references:
+        fail("CAS package references do not match pinned manifest metadata for {}".format(logical_store_path))
+
+    store_path = ctx.actions.store_path(
+        store_path_key = ctx.attrs.store_path_key,
+        store_name = ctx.attrs.store_name,
+    )
+    store_output = ctx.actions.import_cas_store_output(
+        store_path = store_path,
+        dir = True,
+        manifest = ctx.attrs.manifest,
+        cas_root_digest = ctx.attrs.cas_root_digest,
+        re_use_case = ctx.attrs.cas_use_case,
+        package_name = ctx.attrs.package_name,
+        version = ctx.attrs.version,
+        output = ctx.attrs.output,
+        target_system = ctx.attrs.target_system,
+        references = ctx.attrs.references,
+        runtime_store_outputs = [
+            "{}/{}".format(LOGICAL_STORE_ROOT, entry)
+            for entry in ctx.attrs.runtime_store_entries
+        ],
+        canonical_tree_hash = ctx.attrs.canonical_tree_hash,
+    )
+    runtime_store_outputs = _runtime_store_outputs_for_entries(
+        runtime_closure,
+        store_entry,
+        store_output,
+        runtime_inputs,
+    )
+    return [
+        DefaultInfo(default_output = store_output),
+        PkgsPackageInfo(
+            build_closure = runtime_closure,
+            foreign_build_entries = [],
+            foreign_runtime_entries = [],
+            is_foreign = False,
+            logical_store_path = logical_store_path,
+            name = ctx.attrs.package_name,
+            output = ctx.attrs.output,
+            runtime_closure = runtime_closure,
+            runtime_store_outputs = runtime_store_outputs,
+            store_entry = store_entry,
+            store_output = store_output,
+            store_path_key = ctx.attrs.store_path_key,
+            tree = store_output,
+            validation_outputs = [],
+            version = ctx.attrs.version,
+        ),
+    ]
+
+_pkgs_cas_store_output = rule(
+    impl = _pkgs_cas_store_output_impl,
+    attrs = {
+        "manifest": attrs.source(),
+        "canonical_tree_hash": attrs.string(),
+        "cas_root_digest": attrs.string(),
+        "cas_use_case": attrs.string(default = "buckpkgs-published"),
+        "output": attrs.string(default = "out"),
+        "package_name": attrs.string(),
+        "references": attrs.list(attrs.string(), default = []),
+        "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "runtime_store_entries": attrs.list(attrs.string(), default = []),
+        "store_name": attrs.string(),
+        "store_path_key": attrs.string(),
+        "target_system": attrs.string(),
+        "version": attrs.string(),
+    },
+)
+
+def pkgs_cas_store_output(
+        name,
+        manifest,
+        package_name,
+        version,
+        store_path_key,
+        store_name,
+        target_system,
+        canonical_tree_hash,
+        cas_root_digest,
+        output = "out",
+        references = [],
+        runtime_store_entries = [],
+        runtime_inputs = [],
+        cas_use_case = "buckpkgs-published",
+        visibility = []):
+    _pkgs_cas_store_output(
+        name = name,
+        manifest = manifest,
+        canonical_tree_hash = canonical_tree_hash,
+        cas_root_digest = cas_root_digest,
+        cas_use_case = cas_use_case,
+        package_name = package_name,
+        version = version,
+        output = output,
+        store_path_key = store_path_key,
+        store_name = store_name,
+        target_system = target_system,
+        references = references,
+        runtime_store_entries = runtime_store_entries,
+        runtime_inputs = runtime_inputs,
+        visibility = visibility,
+    )
+
 def _pkgs_seed_free_impl(ctx):
     packages = [dep[PkgsPackageInfo] for dep in ctx.attrs.packages]
     forbidden = [dep[PkgsPackageInfo] for dep in ctx.attrs.forbidden]

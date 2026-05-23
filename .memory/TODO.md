@@ -269,6 +269,14 @@
       `34.3s`; the fresh `inih` execution run took `9:58.7`, dominated
       separately by native Python and Ninja rebuilds invalidated by corrected
       package identities.
+- [x] CAS-backed store imports: local Foundry retains reviewed REAPI directory
+      graphs for all 17 published substitute objects, Buck2's store-aware CAS
+      importer normalizes and seals fetched or legacy pre-seal physical trees,
+      and all normal substitute façades route through
+      `pkgs_cas_store_output(...)` without changing the archive hydration
+      closure. A fresh `toolchains//tests:gcc_smoke` migration run transferred
+      `761MiB` and sealed the toolchain layer; the next fresh-daemon run
+      executed the package-backed compile/link with no reported CAS transfer.
 - [ ] Random seeds: keep watching for packages that do not self-seed the way GCC
       already does when profile or coverage-style outputs are introduced.
 - [ ] Parallelism stress: compare representative package outputs at

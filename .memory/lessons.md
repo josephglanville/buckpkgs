@@ -133,3 +133,15 @@
 - Descriptor-backed install arguments affect installed bytes just like plain
   install arguments. Omitting them from store identity lets a corrected
   realization collide with a previously published divergent store object.
+- A CAS representation should initially be an additive publication overlay,
+  not a silent rewrite of an archive manifest already hashed by a closure
+  bundle. That keeps the established hydration path valid while individual
+  canonical package façades migrate to direct CAS import.
+- REAPI directory graphs do not carry store sealing modes or normalized mtimes.
+  Buck2 must normalize and seal CAS-reconstructed package trees during atomic
+  publication, while retaining strict pre-sealed validation for native package
+  producers.
+- A local CAS importer needs an already-published-store fast path. After one
+  authenticated migration seals a legacy physical store object, a fresh Buck2
+  daemon can verify and reuse it locally instead of refetching hundreds of
+  megabytes of compiler payload from CAS.

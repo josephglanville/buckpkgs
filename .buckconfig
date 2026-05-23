@@ -24,3 +24,10 @@
 
 [build]
   execution_platforms = prelude//platforms:default
+
+[buck2_re_client]
+  action_cache_address = grpc://127.0.0.1:8980
+  engine_address = grpc://127.0.0.1:8980
+  cas_address = grpc://127.0.0.1:8980
+  tls = false
+  instance_name = buckpkgs-local

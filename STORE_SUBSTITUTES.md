@@ -209,6 +209,10 @@ The repository now has object and bootstrap-closure substitution pipelines:
   which authenticates the manifest and canonical tree hash while constructing
   its `ArtifactValue` in one physical traversal, without depending on the live
   producer graph or creating a staged copy
+- `pkgs_cas_store_output(...)` passes a reviewed CAS publication manifest to
+  Buck2's CAS store-import action, which fetches a pinned REAPI directory graph
+  from Foundry and atomically publishes the same logical store output without
+  requiring an already-hydrated physical tree
 
 The manifests verify store identity, package metadata, target system, exact
 canonical reference metadata, payload hash/size, decoded canonical tree hash,
@@ -217,6 +221,41 @@ bootstrap prototype, repository-pinned JSON under
 `bootstrap/substitutes/linux_x86_64/` is the trusted publication metadata.
 Cryptographic signatures or a separately authenticated publication channel are
 still required before consuming bundles obtained from an untrusted service.
+
+## CAS Publication Overlay
+
+CAS publication is an additive transport representation of an approved store
+object. A CAS-capable manifest retains the canonical archive/tree identity and
+adds:
+
+```json
+{
+  "cas": {
+    "format": "reapi-directory-v1",
+    "digest_function": "sha256",
+    "root_digest": "<sha256-hex>:<encoded-directory-size>"
+  }
+}
+```
+
+`foundryctl cas upload-tree /pkgs/store/<entry>` uploads file, directory, and
+symlink nodes and returns this root digest. All 17 objects in the current
+published bootstrap substitute closure now have parallel `.cas.manifest.json`
+overlays, so the existing archive closure manifest and hydration bundle remain
+valid while normal consumers use the CAS representation.
+
+An REAPI directory commits to contents, executable bits, and symlink targets,
+but not BuckPkgs' sealed write bits or normalized mtimes. The Buck2 CAS
+store-import materializer therefore normalizes timestamps and seals fetched
+trees before atomic `/pkgs/store/...` publication. Native package outputs still
+must arrive sealed and are rejected if writable.
+
+For a previously published physical tree, the CAS importer first authenticates
+the existing bytes against the pinned canonical tree. Its first CAS-backed use
+normalizes and seals a valid legacy tree; subsequent fresh Buck2 daemons verify
+and reuse that sealed `/pkgs/store/...` object without fetching the CAS payload
+again. The retained CAS remains the substitution source when the local store
+object is absent.
 
 ## Preferred Bootstrap-Island Import Pipeline
 

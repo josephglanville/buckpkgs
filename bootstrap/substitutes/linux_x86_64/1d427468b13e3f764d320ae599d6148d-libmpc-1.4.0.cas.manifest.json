@@ -1,0 +1,30 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+  "store_path_key": "1d427468b13e3f764d320ae599d6148d",
+  "store_entry": "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+  "package": {
+    "name": "libmpc",
+    "version": "1.4.0",
+    "output": "out"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:c597f85e254cd67f1d8a7d1acea7fde4f17b4fa6d35230ecc14147aa717ed2f3",
+    "download_size": 1746727,
+    "payload_hash": "sha256:c597f85e254cd67f1d8a7d1acea7fde4f17b4fa6d35230ecc14147aa717ed2f3",
+    "payload_size": 1746727
+  },
+  "canonical_tree_hash": "sha256:c597f85e254cd67f1d8a7d1acea7fde4f17b4fa6d35230ecc14147aa717ed2f3",
+  "references": [],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0"
+  ],
+  "cas": {
+    "format": "reapi-directory-v1",
+    "digest_function": "sha256",
+    "root_digest": "17af7f1f63130e5c00c52812bc937b59d22d54223567d3b5e2353f7585888791:238"
+  }
+}
