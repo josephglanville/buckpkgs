@@ -1,3 +1,4 @@
+load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_PRODUCER_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_make_install_package", "pkgs_seed_free")
 
 _SOURCE = pkgs_http_archive_source(
@@ -42,7 +43,7 @@ pkgs_make_install_package(
         "//bootstrap/foreign_seed:coreutils",
         "//bootstrap/foreign_seed:patch",
     ],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
@@ -54,6 +55,7 @@ pkgs_seed_free(
         "//bootstrap/foreign_seed:binutils",
         "//bootstrap/foreign_seed:coreutils",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_make_install_package(
@@ -71,13 +73,13 @@ pkgs_make_install_package(
     patches = [_DESTDIR_AND_PATH_SHELL_PATCH],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
     runtime_inputs = ["//development/libraries/glibc:out_stage1"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 alias(
     name = "bin",
     actual = ":bin_final",
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
@@ -89,4 +91,5 @@ pkgs_seed_free(
         "//bootstrap/foreign_seed:binutils",
         "//bootstrap/foreign_seed:coreutils",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )

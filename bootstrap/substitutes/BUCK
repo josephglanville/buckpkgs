@@ -1,3 +1,4 @@
+load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_SUBSTITUTE_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_hydrated_store_output")
 
 _TARGET_SYSTEM = "x86_64-linux"
@@ -9,257 +10,287 @@ export_file(
     visibility = ["PUBLIC"],
 )
 
-export_file(
-    name = "gmp_manifest",
-    src = "linux_x86_64/a71279fad6ed78a2b843de2497590614-gmp-6.3.0.manifest.json",
-)
-
-export_file(
-    name = "mpfr_manifest",
-    src = "linux_x86_64/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2.manifest.json",
-)
-
-export_file(
-    name = "libmpc_manifest",
-    src = "linux_x86_64/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0.manifest.json",
-)
-
-export_file(
-    name = "glibc_manifest",
-    src = "linux_x86_64/5331594618ea5972bfd3208387ed54b3-glibc-2.42.manifest.json",
-)
-
-export_file(
-    name = "linux_headers_manifest",
-    src = "linux_x86_64/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7.manifest.json",
-)
-
-export_file(
-    name = "bash_manifest",
-    src = "linux_x86_64/096afc650c09c96b853c0d9abbdb20df-bash-5.3.manifest.json",
-)
-
-export_file(
-    name = "binutils_manifest",
-    src = "linux_x86_64/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0.manifest.json",
-)
-
-export_file(
-    name = "gcc_manifest",
-    src = "linux_x86_64/ce44949178532f9a9195421c393cca11-gcc-15.2.0.manifest.json",
-)
-
-export_file(
-    name = "binutils_wrapper_manifest",
-    src = "linux_x86_64/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin.manifest.json",
-)
-
-export_file(
-    name = "gcc_wrapper_manifest",
-    src = "linux_x86_64/d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin.manifest.json",
-)
-
-export_file(
-    name = "gnumake_manifest",
-    src = "linux_x86_64/723b6d25c84083cce1b57a5cd294aa5c-gnumake-4.4.1.manifest.json",
-)
-
-export_file(
-    name = "gnused_manifest",
-    src = "linux_x86_64/8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9.manifest.json",
-)
-
-export_file(
-    name = "findutils_manifest",
-    src = "linux_x86_64/a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0.manifest.json",
-)
-
-export_file(
-    name = "coreutils_manifest",
-    src = "linux_x86_64/bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10.manifest.json",
-)
-
 pkgs_hydrated_store_output(
     name = "gmp",
-    manifest = ":gmp_manifest",
+    manifest = "linux_x86_64/a71279fad6ed78a2b843de2497590614-gmp-6.3.0.manifest.json",
     package_name = "gmp",
     version = "6.3.0",
     store_path_key = "a71279fad6ed78a2b843de2497590614",
     store_name = "gmp-6.3.0",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:e43d51f4f34b0ff99db35c2c18a5354aed4eed08cfaf444a3c44c82583a9d808",
     runtime_store_entries = ["a71279fad6ed78a2b843de2497590614-gmp-6.3.0"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "mpfr",
-    manifest = ":mpfr_manifest",
+    manifest = "linux_x86_64/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2.manifest.json",
     package_name = "mpfr",
     version = "4.2.2",
     store_path_key = "049b681bdd4657e11abaca06cf0b61a1",
     store_name = "mpfr-4.2.2",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:506d2a46c288cbddb1e6997d3f8cb19ab71105c078b64e31139264ae28030c42",
     runtime_store_entries = ["049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "libmpc",
-    manifest = ":libmpc_manifest",
+    manifest = "linux_x86_64/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0.manifest.json",
     package_name = "libmpc",
     version = "1.4.0",
     store_path_key = "1d427468b13e3f764d320ae599d6148d",
     store_name = "libmpc-1.4.0",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:c597f85e254cd67f1d8a7d1acea7fde4f17b4fa6d35230ecc14147aa717ed2f3",
     runtime_store_entries = ["1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "glibc",
-    manifest = ":glibc_manifest",
+    manifest = "linux_x86_64/5331594618ea5972bfd3208387ed54b3-glibc-2.42.manifest.json",
     package_name = "glibc",
     version = "2.42",
     store_path_key = "5331594618ea5972bfd3208387ed54b3",
     store_name = "glibc-2.42",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:6e360d6aaef0708ccb50e738295fd3d4657524e93de5cea1d6b8663f01bfc261",
     runtime_store_entries = ["5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "linux_headers",
-    manifest = ":linux_headers_manifest",
+    manifest = "linux_x86_64/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7.manifest.json",
     package_name = "linux-headers",
     version = "6.18.7",
     store_path_key = "4349dc439d38eb56f3d68cd8b4dbe7f2",
     store_name = "linux-headers-6.18.7",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:679814efc9f5febfa035f8a99efc87a207914627fab9e518b778d3433bb52f5e",
     runtime_store_entries = ["4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "bash",
-    manifest = ":bash_manifest",
+    manifest = "linux_x86_64/096afc650c09c96b853c0d9abbdb20df-bash-5.3.manifest.json",
     package_name = "bash",
     version = "5.3",
     store_path_key = "096afc650c09c96b853c0d9abbdb20df",
     store_name = "bash-5.3",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:ce96b9ef3d08b6e1cc9b781f00d2aee007be69b1f3d81ea5ef179c9891aa1a9d",
     references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
     runtime_store_entries = [
         "096afc650c09c96b853c0d9abbdb20df-bash-5.3",
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
     ],
     runtime_inputs = [":glibc"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "gnumake",
-    manifest = ":gnumake_manifest",
+    manifest = "linux_x86_64/723b6d25c84083cce1b57a5cd294aa5c-gnumake-4.4.1.manifest.json",
     package_name = "gnumake",
     version = "4.4.1",
     store_path_key = "723b6d25c84083cce1b57a5cd294aa5c",
     store_name = "gnumake-4.4.1",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:fbfb707dd57269820798d3ffc976672ca453db9efef9b27fdd0cf6fd970b4da9",
     references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
     runtime_store_entries = [
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
         "723b6d25c84083cce1b57a5cd294aa5c-gnumake-4.4.1",
     ],
     runtime_inputs = [":glibc"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "gnused",
-    manifest = ":gnused_manifest",
+    manifest = "linux_x86_64/8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9.manifest.json",
     package_name = "gnused",
     version = "4.9",
     store_path_key = "8c6ae4b374c5326b381cf3fde5d672de",
     store_name = "gnused-4.9",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:bc88febc9f6a8818fbe1a11d3fad1a8804997070f83da14758f0fcc96045fc17",
     references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
     runtime_store_entries = [
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
         "8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9",
     ],
     runtime_inputs = [":glibc"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_hydrated_store_output(
+    name = "gnugrep",
+    manifest = "linux_x86_64/d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12.manifest.json",
+    package_name = "gnugrep",
+    version = "3.12",
+    store_path_key = "d23256b434a0aab58ab30c60ea3704aa",
+    store_name = "gnugrep-3.12",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:6f28d84595e0174267a88b656ea16ffcbdc5f6314faf5e1294a9d19d8cd73f2a",
+    references = [
+        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+    ],
+    runtime_store_entries = [
+        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+        "d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12",
+    ],
+    runtime_inputs = [":gcc"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_hydrated_store_output(
+    name = "gawk",
+    manifest = "linux_x86_64/b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0.manifest.json",
+    package_name = "gawk",
+    version = "5.4.0",
+    store_path_key = "b060b888aa062fa4c4d85404b87da73e",
+    store_name = "gawk-5.4.0",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:f9564d13d8364b35da808906f7153f1f004283e1fc3141278b1a339eb5e2b84c",
+    references = [
+        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+    ],
+    runtime_store_entries = [
+        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0",
+        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+    ],
+    runtime_inputs = [":gcc"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_hydrated_store_output(
+    name = "gnupatch",
+    manifest = "linux_x86_64/f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8.manifest.json",
+    package_name = "patch",
+    version = "2.8",
+    store_path_key = "f8debe78c130ca1bd12e4bb51ba6135c",
+    store_name = "patch-2.8",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:70e58ebee9314db943a2021fc45b9cf71dd7169d7114221cd71bd353544e79cb",
+    references = [
+        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+    ],
+    runtime_store_entries = [
+        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+        "f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8",
+    ],
+    runtime_inputs = [":gcc"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "findutils",
-    manifest = ":findutils_manifest",
+    manifest = "linux_x86_64/a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0.manifest.json",
     package_name = "findutils",
     version = "4.10.0",
     store_path_key = "a5cf0a55274cc499ef5d03190c40bfdb",
     store_name = "findutils-4.10.0",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:ed65c231521a5cd7ecd29f978aaca34061c794ea3c65c3e1a3d8c989043466d6",
     references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
     runtime_store_entries = [
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
         "a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0",
     ],
     runtime_inputs = [":glibc"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "coreutils",
-    manifest = ":coreutils_manifest",
+    manifest = "linux_x86_64/bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10.manifest.json",
     package_name = "coreutils",
     version = "9.10",
     store_path_key = "bef5edaaa8bb28862b07b95d4fe20c33",
     store_name = "coreutils-9.10",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:9567885bcc1a86e393a62b400e32dcbd3f9ec7532208a107335df9896024c872",
     references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
     runtime_store_entries = [
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
         "bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10",
     ],
     runtime_inputs = [":glibc"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "binutils",
-    manifest = ":binutils_manifest",
+    manifest = "linux_x86_64/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0.manifest.json",
     package_name = "binutils",
     version = "2.46.0",
     store_path_key = "ec3cb3291b13cfea4b676a70d7df1557",
     store_name = "binutils-2.46.0",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:25cc54373f8e623179cc9f868531455b70b331ff58ce3e446fd3ad69005b0bd1",
     references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
     runtime_store_entries = [
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
         "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
     ],
     runtime_inputs = [":glibc"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "gcc",
-    manifest = ":gcc_manifest",
+    manifest = "linux_x86_64/ce44949178532f9a9195421c393cca11-gcc-15.2.0.manifest.json",
     package_name = "gcc",
     version = "15.2.0",
     store_path_key = "ce44949178532f9a9195421c393cca11",
     store_name = "gcc-15.2.0",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:17d10f39483853024a57c8ccfb070dfd2be05bae06b6861c8ebfc71f0ab61e77",
     references = [
         "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
         "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
@@ -274,12 +305,12 @@ pkgs_hydrated_store_output(
         "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
     ],
     runtime_inputs = [":gmp", ":mpfr", ":libmpc", ":glibc"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "binutils_wrapper",
-    manifest = ":binutils_wrapper_manifest",
+    manifest = "linux_x86_64/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin.manifest.json",
     package_name = "binutils-wrapper",
     version = "2.46.0",
     output = "bin",
@@ -287,6 +318,7 @@ pkgs_hydrated_store_output(
     store_name = "binutils-wrapper-2.46.0-bin",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:58d600a8cc1a5e5aa9d0278e69aa5c9111599506b172074f1b0c7c63f405afd9",
     references = [
         "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
         "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
@@ -299,19 +331,20 @@ pkgs_hydrated_store_output(
         "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
     ],
     runtime_inputs = [":binutils", ":bash"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_hydrated_store_output(
     name = "gcc_wrapper",
-    manifest = ":gcc_wrapper_manifest",
+    manifest = "linux_x86_64/bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin.manifest.json",
     package_name = "gcc-wrapper",
     version = "15.2.0",
     output = "bin",
-    store_path_key = "d7db326f8a8486b29ed65bb3c70bca28",
+    store_path_key = "bbca89e9477fd196133e0482703d02a3",
     store_name = "gcc-wrapper-15.2.0-bin",
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
+    canonical_tree_hash = "sha256:814f37e15447e90b547ffab56db20e54cb4fb0ca8d4bfccdbff4ed451037cef1",
     references = [
         "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
         "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
@@ -331,10 +364,10 @@ pkgs_hydrated_store_output(
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
         "7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
         "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin",
         "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-        "d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin",
         "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
     ],
     runtime_inputs = [":gcc", ":binutils_wrapper", ":linux_headers", ":glibc", ":bash"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )

@@ -57,9 +57,24 @@
 - A Buck import test needs a store path with no live package producer; exporting
   and reimporting one live package only exercises existing-store verification,
   not first publication of the imported store object.
-- Buck2 store paths remain action outputs, so ordinary bootstrap imports need a
-  local-only verified projection from an externally hydrated `/pkgs/store`
-  object rather than an analysis-time physical-store artifact reference.
+- Buck2 store paths remain action outputs, but ordinary bootstrap imports do not
+  need a staged copy: a native Buck2 import action can register an externally
+  hydrated `/pkgs/store` object by accepting the pinned source manifest as its
+  direct input. With legacy canonical-payload hashes, the importer can validate
+  the manifest contract and canonical bytes while constructing Buck2's
+  artifact value from the same physical traversal; a Buck2-compatible
+  directory digest or trusted receipt is instead needed to avoid or share that
+  remaining walk.
+- The remaining import cost and ordinary invalidation cost are different
+  problems. First-use imported toolchains still require one authenticated
+  store-tree traversal per uncached imported artifact. Content-based outputs
+  and source manifests are still required, but eligibility alone did not merge
+  a local custom native action across configurations. Declare native package
+  build tools as execution dependencies so the normal package/toolchain path
+  shares the exact imported action node. Changing published base identities can
+  then force costly but legitimate rebuilds of normal tools such as Python and
+  Ninja. Optimize the remaining scan with reusable Buck2 directory metadata or
+  receipts, and avoid triggering the latter casually.
 - Substitute manifests and imported providers must share one canonical runtime
   closure ordering; otherwise correct pinned metadata can fail verification or
   misalign runtime store artifacts with their logical paths.
@@ -67,23 +82,37 @@
   builds. A configure/make package needs an imported build-tool profile
   containing its final shell, make, and basic Unix utilities as well.
 - A reusable C compiler wrapper must not blindly add C++ compiler-runtime
-  `RUNPATH` entries to every C library. Until the wrapper is split and
-  republished, downstream C packages must declare the compiler store reference
-  honestly in their runtime closure.
+  `RUNPATH` entries to every C library. Republish wrapper-policy changes from
+  imported base inputs, then C-only packages can drop the compiler runtime
+  edge while C++ launchers continue to retain it.
 - Meson installation must not trigger an implicit rebuild. Running explicit
   `meson compile --jobs N` followed by `meson install --no-rebuild` keeps
   parallelism in the declared package identity instead of backend discovery.
 - Bootstrap transport belongs behind canonical package labels. Ordinary
   recipes should not encode whether a tool is live, foreign-seeded, or supplied
   by a hydrated substitute; boundary checks and publication rules may.
+- A provider-level seed cut does not sever Buck action ancestry: a promoted
+  self-hosting output can be byte-clean while ordinary consumers still analyze
+  its stage0 construction graph. The GCC precedent applies here: publish the
+  validated output and expose only its imported façade to ordinary builds.
+- Because bootstrap producers live under ordinary-looking `development/`,
+  `tools/`, and `shells/` paths, naming convention is not a graph boundary.
+  Restrict live outputs with an exact visibility allowlist and separately
+  restrict substitute transport targets to canonical façade aliases.
+- Seal bridge-shaped targets too: a seed-check stamp or per-object export is a
+  dependency edge into its producer unless its visibility is restricted.
 - A missing higher-layer build tool is not justification for widening the
   foreign seed. Build Python, Ninja, Meson, and their prerequisites as native
   packages from the sealed base unless an explicit bootstrap expansion is
   approved.
-- A normal self-hosting tool may require its verified stage0 output while it
-  promotes itself: `grep` is needed to configure GNU grep and `awk` is needed
-  by GNU awk's `config.status`. Declare that bridge explicitly and still
-  require the promoted output to pass the foreign-seed boundary.
+- Once a published baseline exists, promoted GNU grep and GNU awk should
+  self-host through the published façade rather than stage0 inputs. Continue
+  to require each republished output to pass the foreign-seed boundary.
+- Self-hosted publication is generational: an isolated candidate may build
+  from the currently published façade, then become the next pinned façade.
+  After the alias advances, analyzing the private recipe can legitimately
+  produce a different candidate identity; ordinary consumers must remain
+  attached only to the pinned import generation.
 - CPython installs generated `_sysconfigdata_*.py` and its Makefile, so in-tree
   scratch paths in `abs_srcdir` and `abs_builddir` are package outputs, not
   harmless build logs; make those values relative before bytecode is emitted.

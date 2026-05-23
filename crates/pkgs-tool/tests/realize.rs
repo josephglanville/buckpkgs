@@ -648,6 +648,34 @@ fn projects_verified_hydrated_store_objects_and_reports_missing_hydration() {
         .unwrap();
     assert!(status.success());
 
+    let verification_stamp = temp.path().join("verified.stamp");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_verify_hydrated_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--store-root",
+            store_root.to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "projected",
+            "--expected-version",
+            "1.0",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-runtime-store-output",
+            &store_path,
+            "--stamp",
+            verification_stamp.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(verification_stamp).unwrap(),
+        "verified\n"
+    );
+
     let projected = temp.path().join("projected-output");
     let status = Command::new(env!("CARGO_BIN_EXE_pkgs_project_hydrated_store_object"))
         .args([

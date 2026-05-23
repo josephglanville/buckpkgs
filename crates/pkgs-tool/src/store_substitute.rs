@@ -235,6 +235,46 @@ pub(crate) struct ProjectHydratedArgs {
     output: PathBuf,
 }
 
+#[derive(Debug, Parser)]
+#[command(name = "pkgs-verify-hydrated-store-object")]
+pub(crate) struct VerifyHydratedArgs {
+    #[arg(long)]
+    manifest: PathBuf,
+
+    #[arg(long, default_value = "/pkgs/store")]
+    store_root: PathBuf,
+
+    #[arg(long)]
+    expected_store_path: String,
+
+    #[arg(long)]
+    expected_package_name: String,
+
+    #[arg(long)]
+    expected_version: String,
+
+    #[arg(long, default_value = "out")]
+    expected_output: String,
+
+    #[arg(long)]
+    expected_target_system: String,
+
+    #[arg(long = "expected-reference")]
+    expected_references: Vec<String>,
+
+    #[arg(long = "expected-runtime-store-output")]
+    expected_runtime_store_outputs: Vec<String>,
+
+    #[arg(
+        long,
+        default_value = "hydrate the configured bootstrap substitute closure first"
+    )]
+    missing_hint: String,
+
+    #[arg(long)]
+    stamp: PathBuf,
+}
+
 struct ExpectedManifest<'a> {
     store_path: &'a str,
     package_name: &'a str,
@@ -261,6 +301,20 @@ impl<'a> From<&'a ImportArgs> for ExpectedManifest<'a> {
 
 impl<'a> From<&'a ProjectHydratedArgs> for ExpectedManifest<'a> {
     fn from(args: &'a ProjectHydratedArgs) -> Self {
+        Self {
+            store_path: &args.expected_store_path,
+            package_name: &args.expected_package_name,
+            version: &args.expected_version,
+            output: &args.expected_output,
+            target_system: &args.expected_target_system,
+            references: &args.expected_references,
+            runtime_store_outputs: &args.expected_runtime_store_outputs,
+        }
+    }
+}
+
+impl<'a> From<&'a VerifyHydratedArgs> for ExpectedManifest<'a> {
+    fn from(args: &'a VerifyHydratedArgs) -> Self {
         Self {
             store_path: &args.expected_store_path,
             package_name: &args.expected_package_name,
@@ -497,14 +551,23 @@ pub(crate) fn export_store_object(args: &ExportArgs) -> Result<(), Error> {
 
 pub(crate) fn hydrate_store_object(args: &HydrateArgs) -> Result<PathBuf, Error> {
     let (manifest, payload) = load_and_verify(&args.manifest, &args.archive)?;
-    fs::create_dir_all(&args.store_root).map_err(|source| common::Error::CreateDir {
-        path: args.store_root.clone(),
+    publish_validated_store_object(&manifest, &args.store_root, || Ok(payload))
+}
+
+fn publish_validated_store_object<F>(
+    manifest: &StoreObjectManifest,
+    store_root: &Path,
+    load_payload: F,
+) -> Result<PathBuf, Error>
+where
+    F: FnOnce() -> Result<Vec<u8>, Error>,
+{
+    fs::create_dir_all(store_root).map_err(|source| common::Error::CreateDir {
+        path: store_root.to_path_buf(),
         source,
     })?;
-    let destination = args.store_root.join(&manifest.store_entry);
-    let lock_path = args
-        .store_root
-        .join(format!("{}.buckpkgs.lock", manifest.store_entry));
+    let destination = store_root.join(&manifest.store_entry);
+    let lock_path = store_root.join(format!("{}.buckpkgs.lock", manifest.store_entry));
     let lock = OpenOptions::new()
         .create(true)
         .write(true)
@@ -526,16 +589,15 @@ pub(crate) fn hydrate_store_object(args: &HydrateArgs) -> Result<PathBuf, Error>
         return Ok(destination);
     }
 
-    let temporary = args
-        .store_root
-        .join(format!("{}.buckpkgs.tmp", manifest.store_entry));
+    let temporary = store_root.join(format!("{}.buckpkgs.tmp", manifest.store_entry));
     if temporary.exists() {
         fs::remove_dir_all(&temporary).map_err(|source| common::Error::RemoveDir {
             path: temporary.clone(),
             source,
         })?;
     }
-    if let Err(err) = materialize_payload(&payload, &temporary) {
+    let payload = load_payload()?;
+    if let Err(err) = materialize_validated_payload(&payload, &temporary) {
         let _ = fs::remove_dir_all(&temporary);
         return Err(err);
     }
@@ -553,7 +615,7 @@ pub(crate) fn hydrate_store_object(args: &HydrateArgs) -> Result<PathBuf, Error>
 pub(crate) fn import_store_object(args: &ImportArgs) -> Result<(), Error> {
     let (manifest, payload) = load_and_verify(&args.manifest, &args.archive)?;
     validate_expected_manifest(&manifest, ExpectedManifest::from(args))?;
-    materialize_payload(&payload, &args.output)
+    materialize_validated_payload(&payload, &args.output)
 }
 
 pub(crate) fn export_store_closure(args: &ExportClosureArgs) -> Result<(), Error> {
@@ -657,11 +719,15 @@ pub(crate) fn hydrate_store_closure(args: &HydrateClosureArgs) -> Result<(), Err
     }
     validate_closure(&closure, &manifests)?;
 
-    for object in closure.objects.values() {
-        hydrate_store_object(&HydrateArgs {
-            manifest: bundle_path(&args.bundle, &object.manifest)?,
-            archive: bundle_path(&args.bundle, &object.archive)?,
-            store_root: args.store_root.clone(),
+    for (object_path, object) in &closure.objects {
+        let manifest = manifests
+            .get(object_path)
+            .ok_or_else(|| Error::UnreachableClosureObject(object_path.clone()))?;
+        let manifest_path = bundle_path(&args.bundle, &object.manifest)?;
+        let archive_path = bundle_path(&args.bundle, &object.archive)?;
+        publish_validated_store_object(manifest, &args.store_root, || {
+            let (_, payload) = load_and_verify(&manifest_path, &archive_path)?;
+            Ok(payload)
         })?;
     }
     Ok(())
@@ -686,6 +752,21 @@ pub(crate) fn project_hydrated_store_object(args: &ProjectHydratedArgs) -> Resul
     common::normalize_tree_mtimes(&args.output)?;
     common::make_tree_read_only(&args.output)?;
     verify_existing_tree(&args.output, &manifest.canonical_tree_hash)
+}
+
+pub(crate) fn verify_hydrated_store_object(args: &VerifyHydratedArgs) -> Result<(), Error> {
+    let manifest = load_manifest(&args.manifest)?;
+    validate_expected_manifest(&manifest, ExpectedManifest::from(args))?;
+    let source = args.store_root.join(&manifest.store_entry);
+    if !source.is_dir() {
+        return Err(Error::MissingHydratedStoreObject {
+            store_path: manifest.store_path,
+            path: source,
+            hint: args.missing_hint.clone(),
+        });
+    }
+    verify_existing_tree(&source, &manifest.canonical_tree_hash)?;
+    write_file(&args.stamp, b"verified\n")
 }
 
 fn load_and_verify(
@@ -977,8 +1058,7 @@ fn encode_entry(path: &Path, relative: &Path, output: &mut Vec<u8>) -> Result<()
     Err(Error::UnsupportedEntry(path.to_path_buf()))
 }
 
-fn materialize_payload(payload: &[u8], output: &Path) -> Result<(), Error> {
-    validate_payload(payload)?;
+fn materialize_validated_payload(payload: &[u8], output: &Path) -> Result<(), Error> {
     if output.exists() {
         return Err(Error::ExistingOutput(output.to_path_buf()));
     }

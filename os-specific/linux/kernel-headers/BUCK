@@ -1,3 +1,4 @@
+load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_PRODUCER_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_http_archive_source", "pkgs_linux_headers_package", "pkgs_seed_free")
 
 _SOURCE = pkgs_http_archive_source(
@@ -35,7 +36,7 @@ pkgs_linux_headers_package(
         "cc-fullversion:=999999",
     ],
     native_build_inputs = _NATIVE_TOOLS,
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
@@ -44,6 +45,7 @@ pkgs_seed_free(
     forbidden = [
         "//bootstrap/foreign_seed:gcc",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 alias(

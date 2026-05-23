@@ -643,7 +643,7 @@ _pkgs_package = rule(
         "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "builder": attrs.string(),
         "foreign": attrs.bool(default = False),
-        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -713,7 +713,8 @@ def _declare_store_substitute(
         version,
         output,
         target_system,
-        runtime_store_entries):
+        runtime_store_entries,
+        validation_outputs = []):
     runtime_store_entries = sorted(_collect_entries([runtime_store_entries]))
     store_entry = "{}-{}".format(store_path_key, store_name)
     logical_store_path = "{}/{}".format(LOGICAL_STORE_ROOT, store_entry)
@@ -724,29 +725,32 @@ def _declare_store_substitute(
         for entry in runtime_store_entries
         if entry != store_entry
     ]
-    args = cmd_args([
-        ctx.attrs._exporter[RunInfo],
-        "--input",
-        tree,
-        "--store-path",
-        logical_store_path,
-        "--store-path-key",
-        store_path_key,
-        "--store-entry",
-        store_entry,
-        "--package-name",
-        package_name,
-        "--version",
-        version,
-        "--output",
-        output,
-        "--target-system",
-        target_system,
-        "--archive",
-        archive.as_output(),
-        "--manifest",
-        manifest.as_output(),
-    ])
+    args = cmd_args(
+        [
+            ctx.attrs._exporter[RunInfo],
+            "--input",
+            tree,
+            "--store-path",
+            logical_store_path,
+            "--store-path-key",
+            store_path_key,
+            "--store-entry",
+            store_entry,
+            "--package-name",
+            package_name,
+            "--version",
+            version,
+            "--output",
+            output,
+            "--target-system",
+            target_system,
+            "--archive",
+            archive.as_output(),
+            "--manifest",
+            manifest.as_output(),
+        ],
+        hidden = validation_outputs,
+    )
     for entry in references:
         args.add("--reference", "{}/{}".format(LOGICAL_STORE_ROOT, entry))
     for entry in runtime_store_entries:
@@ -788,6 +792,7 @@ def _pkgs_export_store_substitute_impl(ctx):
         package.output,
         ctx.attrs.target_system,
         package.runtime_closure,
+        package.validation_outputs,
     )
 
 _pkgs_export_store_substitute = rule(
@@ -1096,45 +1101,27 @@ def _pkgs_hydrated_store_output_impl(ctx):
         store_path_key = ctx.attrs.store_path_key,
         store_name = ctx.attrs.store_name,
     )
-    store_output = ctx.actions.declare_store_output(
+    store_output = ctx.actions.import_store_output(
         store_path = store_path,
         dir = True,
+        missing_hint = ctx.attrs.missing_hint,
+        manifest = ctx.attrs.manifest,
+        package_name = ctx.attrs.package_name,
+        version = ctx.attrs.version,
+        output = ctx.attrs.output,
+        target_system = ctx.attrs.target_system,
+        references = ctx.attrs.references,
+        runtime_store_outputs = [
+            "{}/{}".format(LOGICAL_STORE_ROOT, entry)
+            for entry in ctx.attrs.runtime_store_entries
+        ],
+        canonical_tree_hash = ctx.attrs.canonical_tree_hash,
     )
     runtime_store_outputs = _runtime_store_outputs_for_entries(
         runtime_closure,
         store_entry,
         store_output,
         runtime_inputs,
-    )
-    args = cmd_args([
-        ctx.attrs._projector[RunInfo],
-        "--manifest",
-        ctx.attrs.manifest[DefaultInfo].default_outputs[0],
-        "--expected-store-path",
-        logical_store_path,
-        "--expected-package-name",
-        ctx.attrs.package_name,
-        "--expected-version",
-        ctx.attrs.version,
-        "--expected-output",
-        ctx.attrs.output,
-        "--expected-target-system",
-        ctx.attrs.target_system,
-        "--missing-hint",
-        ctx.attrs.missing_hint,
-        "--output",
-        store_output.as_output(),
-    ])
-    for reference in ctx.attrs.references:
-        args.add("--expected-reference", reference)
-    for entry in ctx.attrs.runtime_store_entries:
-        args.add("--expected-runtime-store-output", "{}/{}".format(LOGICAL_STORE_ROOT, entry))
-    ctx.actions.run(
-        args,
-        category = "pkgs_project_hydrated_store_object",
-        identifier = ctx.label.name,
-        local_only = True,
-        allow_cache_upload = False,
     )
     return [
         DefaultInfo(default_output = store_output),
@@ -1160,7 +1147,8 @@ def _pkgs_hydrated_store_output_impl(ctx):
 _pkgs_hydrated_store_output = rule(
     impl = _pkgs_hydrated_store_output_impl,
     attrs = {
-        "manifest": attrs.dep(providers = [DefaultInfo]),
+        "manifest": attrs.source(),
+        "canonical_tree_hash": attrs.string(),
         "missing_hint": attrs.string(),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
@@ -1171,12 +1159,6 @@ _pkgs_hydrated_store_output = rule(
         "store_path_key": attrs.string(),
         "target_system": attrs.string(),
         "version": attrs.string(),
-        "_projector": attrs.default_only(
-            attrs.exec_dep(
-                default = "//crates/pkgs-tool:pkgs_project_hydrated_store_object",
-                providers = [RunInfo],
-            ),
-        ),
     },
 )
 
@@ -1189,6 +1171,7 @@ def pkgs_hydrated_store_output(
         store_name,
         target_system,
         missing_hint,
+        canonical_tree_hash,
         output = "out",
         references = [],
         runtime_store_entries = [],
@@ -1197,6 +1180,7 @@ def pkgs_hydrated_store_output(
     _pkgs_hydrated_store_output(
         name = name,
         manifest = manifest,
+        canonical_tree_hash = canonical_tree_hash,
         package_name = package_name,
         version = version,
         output = output,
@@ -1262,6 +1246,7 @@ pkgs_seed_free = rule(
 
 def _pkgs_seed_cut_impl(ctx):
     package = ctx.attrs.package[PkgsPackageInfo]
+    forbidden = [dep[PkgsPackageInfo] for dep in ctx.attrs.forbidden]
     if package.foreign_runtime_entries:
         fail("cannot discharge foreign build inputs while runtime closure still contains foreign entries: {}".format(package.foreign_runtime_entries))
 
@@ -1278,6 +1263,8 @@ def _pkgs_seed_cut_impl(ctx):
     )
     for entry in package.foreign_build_entries:
         args.add("--forbidden", "{}/{}".format(LOGICAL_STORE_ROOT, entry))
+    for dep in forbidden:
+        args.add("--forbidden", dep.logical_store_path)
     ctx.actions.run(
         args,
         category = "pkgs_verify_seed_cut",
@@ -1308,6 +1295,7 @@ def _pkgs_seed_cut_impl(ctx):
 pkgs_seed_cut = rule(
     impl = _pkgs_seed_cut_impl,
     attrs = {
+        "forbidden": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "package": attrs.dep(providers = [PkgsPackageInfo]),
         "_verifier": attrs.default_only(
             attrs.exec_dep(
@@ -1589,7 +1577,7 @@ _pkgs_make_install_package = rule(
         ),
         "make_args": attrs.list(attrs.string(), default = []),
         "make_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
-        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
@@ -1701,7 +1689,7 @@ _pkgs_linux_headers_package = rule(
         "kernel_release": attrs.string(),
         "make_args": attrs.list(attrs.string(), default = []),
         "make_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
-        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -1953,7 +1941,7 @@ _pkgs_configure_make_install_package = rule(
         "link_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "make_args": attrs.list(attrs.string(), default = []),
         "make_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
-        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "out_of_source": attrs.bool(default = False),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
@@ -2202,7 +2190,7 @@ _pkgs_meson_install_package = rule(
             default = [],
         ),
         "meson_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
-        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
@@ -2311,7 +2299,7 @@ _pkgs_cc_wrapper_package = rule(
         "foreign": attrs.bool(default = False),
         "headers": attrs.dep(providers = [PkgsPackageInfo]),
         "libc": attrs.dep(providers = [PkgsPackageInfo]),
-        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "bin"),
         "package_name": attrs.string(),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -2386,7 +2374,7 @@ _pkgs_bintools_wrapper_package = rule(
         "build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "builder": attrs.string(),
         "foreign": attrs.bool(default = False),
-        "native_build_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "bin"),
         "package_name": attrs.string(),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -2658,7 +2646,7 @@ def pkgs_cc_wrapper_package(
         package_name = package_name,
         version = version,
         output = output,
-        builder = "cc-wrapper-tree-v4",
+        builder = "cc-wrapper-tree-v5",
         cc = cc,
         bintools = bintools,
         dynamic_linker = _DYNAMIC_LINKER,

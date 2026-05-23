@@ -1,3 +1,4 @@
+load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_PRODUCER_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_package", "pkgs_source")
 
 def foreign_wrapped_package(name, commands):
@@ -35,5 +36,5 @@ def foreign_wrapped_package(name, commands):
         builder = "foreign-seed-wrapper-v0",
         foreign = True,
         sources = [source],
-        visibility = ["PUBLIC"],
+        visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
     )

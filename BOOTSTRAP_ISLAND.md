@@ -195,7 +195,7 @@ such as `root//development/libraries/glibc:out` and
 `*_stage*` and `*_final` targets remain live publication producers.
 
 The imported bootstrap surface now also includes the final Bash, GNU Make,
-Coreutils, Findutils, and GNU sed outputs required by ordinary
+Coreutils, Findutils, GNU sed, GNU grep, GNU awk, and GNU patch outputs required by ordinary
 configure/make-style packages. `root//development/libraries/zlib:out`
 demonstrates the boundary with a useful non-toolchain package: zlib is a direct
 PostgreSQL build input in nixpkgs, builds shared and static libraries plus
@@ -203,14 +203,35 @@ PostgreSQL build input in nixpkgs, builds shared and static libraries plus
 to pinned bootstrap imports rather than live turnover or foreign-seed targets.
 Higher-layer tools such as Ninja and Meson are normal native package
 derivations built on that sealed imported façade. Their immediate Python
-dependency is an explicitly reduced native build interpreter with `zlib`, not
-an addition to the foreign seed or pinned bootstrap closure and not a claim
-that full canonical Python has already been built. Meson consumers remain
-ordinary package recipes once those native layers pass their reproducibility
-gates.
+dependency is an explicitly reduced native build interpreter with `zlib`; its
+GNU awk/grep/patch build-tool dependencies now also resolve through the pinned
+imported surface, rather than reaching the live promotion graph. This is not a
+claim that full canonical Python has already been built. Meson consumers remain
+ordinary package recipes: a local fresh `inih` build has now completed through
+the imported façade, rebuilding normal-layer Python and Ninja without entering
+bootstrap producers. The newly pinned expanded closure has passed hydration
+verification from its assembled bundle into an independent disposable store
+root; a clean-consumer rerun after external distribution remains operational
+validation.
 
-The remaining hardening work is an authenticated remote publication channel and
-stronger graph enforcement, such as a dedicated cell or visibility lint.
+Live producers and foreign seed wrappers are now restricted by an exact
+`BOOTSTRAP_PRODUCER_VISIBILITY` allowlist, and substitute targets may be
+consumed only by canonical façade aliases or bootstrap tests. A dedicated cell
+would provide a still stronger namespace boundary. The live closure export
+bundle is likewise not a public dependency surface; it can be selected for the
+publication workflow and consumed by bootstrap validation targets only.
+Producer-side seed-check targets and individual export actions are restricted
+as well, since either otherwise provides an ordinary dependency bridge into
+the live graph. Promoted GNU awk and GNU grep production recipes now consume
+their published aliases instead of stage-zero self-hosting inputs. An isolated
+run of the repaired recipes produced and pinned the published
+`b060b888...-gawk`, `d23256b4...-gnugrep`, and
+`f8debe78...-patch` generation without selecting the live closure bundle; once
+those aliases advance, the private recipes correctly identify a subsequent
+publication candidate rather than becoming normal-build dependencies. The
+remaining operational work is publishing the verified expanded closure through
+an authenticated remote channel and rerunning clean-consumer execution gates
+against that published distribution.
 
 ## What Belongs In Buck2
 
@@ -233,12 +254,28 @@ Buck2 changes that would make the island robust rather than merely conventional:
 1. **Store-aware imported-provider support**
    - represent already-hydrated store objects cleanly in the ordinary graph
    - surface crisp diagnostics when the required closure is absent
+   - implemented in source through a native import action that consumes the
+     pinned source manifest directly, validates its declared provider contract
+     and canonical tree bytes, and constructs its Buck artifact value in one
+     physical traversal
 2. **Store-aware diagnostic surface**
    - missing finalized store object errors should name the logical
      `/pkgs/store/...` path and the missing manifest entry
-3. **Optional future store substitute import actions**
-   - useful for non-bootstrap workflows or tighter graph integration
-   - not required for the bootstrap island's ordinary-build path
+3. **Compatible imported-tree identity**
+   - publish a Buck2 directory digest set or durable verified receipt alongside
+     substitute metadata
+   - avoid or reuse the native import action's remaining authenticated walk;
+     the prior legacy-manifest verification plus Buck2 fingerprint duplicate
+     walk has already been collapsed in source
+   - imported store action outputs are content-addressed and use source
+     manifests as inputs; native package build tools are execution
+     dependencies, so the usual ordinary package and package-backed toolchain
+     consumers share the same imported action nodes
+   - address the repeated imported-object verification observed under the old
+     importer in the `34.3s` first-use ordinary zlib/toolchain-smoke build;
+     after the execution transition the combined path performed one imported
+     GCC validation in `3.9s` and repeated hot in `0.0s`; keep separate the
+     `9:58.7` cold `inih` run dominated by ordinary Python/Ninja rebuilding
 4. **Remote execution parity**
    - imported finalized store closures should mount at the same logical paths
      when actions run remotely
@@ -265,6 +302,7 @@ Buck2 changes that would make the island robust rather than merely conventional:
 - an explicit hydrator fetches substitute blobs from the chosen artifact service
   and atomically realizes the finalized bootstrap closure
 - ordinary graph consumes already-realized imports plus substitute metadata
+  through Buck2's native no-copy import path
 - missing substitute data fails locally and clearly
 - bootstrap island workflow produces/publishes substitutes independently
 
@@ -273,8 +311,10 @@ Buck2 changes that would make the island robust rather than merely conventional:
 - move staged bootstrap turnover behind a dedicated cell or equivalent hard
   namespace
 - expose only import/export targets across that boundary
-- add lint or visibility checks so ordinary cells cannot reach staged bootstrap
-  internals accidentally
+  - implemented for current targets with explicit producer/substitute
+    visibility allowlists
+- add lint or visibility checks so future additions cannot reach staged
+  bootstrap internals accidentally
 
 ## Acceptance Criteria
 

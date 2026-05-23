@@ -1,73 +1,107 @@
 load("//rules:pkgs.bzl", "pkgs_export_store_closure", "pkgs_export_store_substitute")
 
+_EXPORT_VISIBILITY = ["//bootstrap/exports:", "//bootstrap/tests:"]
+
 pkgs_export_store_substitute(
     name = "gmp",
     package = "//development/libraries/gmp:out_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "mpfr",
     package = "//development/libraries/mpfr:out_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "libmpc",
     package = "//development/libraries/libmpc:out_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "glibc",
     package = "//development/libraries/glibc:out_stage1",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "gcc",
     package = "//development/compilers/gcc:out_stage2",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "binutils",
     package = "//development/tools/misc/binutils:bin_stage1",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "bash",
     package = "//shells/bash:bin_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "gnumake",
     package = "//development/tools/build-managers/gnumake:bin_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "coreutils",
     package = "//tools/misc/coreutils:bin_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "findutils",
     package = "//tools/misc/findutils:bin_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "gnused",
     package = "//tools/text/gnused:bin_final",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_export_store_substitute(
+    name = "gnugrep",
+    package = "//tools/text/gnugrep:bin_promoted_seed_cut",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_export_store_substitute(
+    name = "gawk",
+    package = "//tools/text/gawk:bin_promoted_seed_cut",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_export_store_substitute(
+    name = "gnupatch",
+    package = "//tools/text/gnupatch:bin_promoted_seed_cut",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "binutils_wrapper",
     package = "//development/tools/misc/binutils:bin_final_wrapped",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "linux_headers",
     package = "//os-specific/linux/kernel-headers:out_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_substitute(
     name = "gcc_wrapper",
-    package = "//development/compilers/gcc:bin_final",
+    package = "//development/compilers/gcc:bin_imported_final",
+    visibility = _EXPORT_VISIBILITY,
 )
 
 pkgs_export_store_closure(
@@ -77,8 +111,11 @@ pkgs_export_store_closure(
         ":binutils_wrapper",
         ":coreutils",
         ":findutils",
+        ":gawk",
         ":gcc_wrapper",
         ":gnumake",
+        ":gnugrep",
+        ":gnupatch",
         ":gnused",
     ],
     objects = [
@@ -87,15 +124,18 @@ pkgs_export_store_closure(
         ":binutils_wrapper",
         ":coreutils",
         ":findutils",
+        ":gawk",
         ":gcc",
         ":gcc_wrapper",
         ":glibc",
         ":gmp",
         ":gnumake",
+        ":gnugrep",
+        ":gnupatch",
         ":gnused",
         ":libmpc",
         ":linux_headers",
         ":mpfr",
     ],
-    visibility = ["PUBLIC"],
+    visibility = ["//bootstrap/tests:"],
 )

@@ -1,3 +1,4 @@
+load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_PRODUCER_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_bintools_wrapper_package", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
 
 _SOURCE = pkgs_http_archive_source(
@@ -59,7 +60,7 @@ pkgs_configure_make_install_package(
     ],
     make_args = ["MAKEINFO=true"],
     native_build_inputs = _STAGE0_NATIVE_TOOLS,
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
@@ -69,6 +70,7 @@ pkgs_seed_free(
         "//bootstrap/foreign_seed:gcc",
         "//bootstrap/foreign_seed:binutils",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_bintools_wrapper_package(
@@ -77,7 +79,7 @@ pkgs_bintools_wrapper_package(
     version = "2.46.0",
     bintools = ":bin_stage0",
     shell = "//shells/bash:bin_stage2",
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_configure_make_install_package(
@@ -106,7 +108,7 @@ pkgs_configure_make_install_package(
     runtime_inputs = [
         "//development/libraries/glibc:out_stage1",
     ],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
@@ -116,6 +118,7 @@ pkgs_seed_free(
         "//bootstrap/foreign_seed:gcc",
         "//bootstrap/foreign_seed:binutils",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_bintools_wrapper_package(
@@ -124,7 +127,7 @@ pkgs_bintools_wrapper_package(
     version = "2.46.0",
     bintools = ":bin_stage1",
     shell = "//shells/bash:bin_stage2",
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_bintools_wrapper_package(
@@ -133,7 +136,7 @@ pkgs_bintools_wrapper_package(
     version = "2.46.0",
     bintools = ":bin_stage1",
     shell = "//shells/bash:bin_final",
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 alias(

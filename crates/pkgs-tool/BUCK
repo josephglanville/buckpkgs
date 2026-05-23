@@ -152,6 +152,16 @@ pkgs_bootstrap_rust_binary(
 )
 
 pkgs_bootstrap_rust_binary(
+    name = "pkgs_verify_hydrated_store_object",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_verify_hydrated_store_object.rs",
+    ],
+    crate_root = "src/bin/pkgs_verify_hydrated_store_object.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
     name = "pkgs_verify_no_refs",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_verify_no_refs.rs",

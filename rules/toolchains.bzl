@@ -51,8 +51,8 @@ def _pkgs_tool(toolchain_name, tool_name, package, path):
 
 def pkgs_gcc_cxx_toolchain(
         name,
-        gcc = "root//development/compilers/gcc:bin_stage2",
-        bintools = "root//development/tools/misc/binutils:bin_stage1_wrapped",
+        gcc = "root//development/compilers/gcc:bin",
+        bintools = "root//development/tools/misc/binutils:bin",
         visibility = []):
     cc = _pkgs_tool(name, "cc", gcc, "bin/gcc")
     cxx = _pkgs_tool(name, "cxx", gcc, "bin/g++")

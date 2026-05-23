@@ -1,3 +1,4 @@
+load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_PRODUCER_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
 
 _SOURCE = pkgs_http_archive_source(
@@ -39,7 +40,7 @@ pkgs_configure_make_install_package(
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     native_build_inputs = _NATIVE_TOOLS,
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
@@ -53,6 +54,7 @@ pkgs_seed_free(
         "//bootstrap/foreign_seed:findutils",
         "//bootstrap/foreign_seed:gawk",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_configure_make_install_package(
@@ -63,7 +65,7 @@ pkgs_configure_make_install_package(
     configure_env = ["CC=cc"],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
     runtime_inputs = ["//development/libraries/glibc:out_stage1"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 alias(
@@ -83,4 +85,5 @@ pkgs_seed_free(
         "//bootstrap/foreign_seed:findutils",
         "//bootstrap/foreign_seed:gawk",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )

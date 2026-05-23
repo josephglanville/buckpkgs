@@ -71,16 +71,28 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     let compiler_runtime_lib_path = format!("-Wl,-rpath,{}/lib", args.compiler_root.display());
     let compiler_runtime_lib64_path = format!("-Wl,-rpath,{}/lib64", args.compiler_root.display());
 
-    for (name, target) in [
-        ("cc", &args.cc),
-        ("gcc", &args.cc),
-        ("c++", &args.cxx),
-        ("g++", &args.cxx),
-    ] {
+    for name in ["cc", "gcc"] {
         write_wrapper(
             &bin_dir.join(name),
             &args.shell,
-            target,
+            &args.cc,
+            [
+                &sysroot,
+                &bintools,
+                &crt,
+                &headers_flag,
+                &headers_dir,
+                &dynamic_linker,
+                &libc_runtime_path,
+            ],
+        )?;
+    }
+
+    for name in ["c++", "g++"] {
+        write_wrapper(
+            &bin_dir.join(name),
+            &args.shell,
+            &args.cxx,
             [
                 &sysroot,
                 &bintools,
@@ -182,8 +194,12 @@ mod tests {
         assert!(gcc.contains("'-idirafter' '/pkgs/store/linux-headers/include'"));
         assert!(gcc.contains("-Wl,-dynamic-linker,/pkgs/store/glibc/lib/ld-linux-x86-64.so.2"));
         assert!(gcc.contains("-Wl,-rpath,/pkgs/store/glibc/lib"));
-        assert!(gcc.contains("-Wl,-rpath,/pkgs/store/gcc/lib"));
-        assert!(gcc.contains("-Wl,-rpath,/pkgs/store/gcc/lib64"));
+        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/gcc/lib"));
+        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/gcc/lib64"));
+
+        let gxx = fs::read_to_string(output.join("bin/g++")).unwrap();
+        assert!(gxx.contains("-Wl,-rpath,/pkgs/store/gcc/lib"));
+        assert!(gxx.contains("-Wl,-rpath,/pkgs/store/gcc/lib64"));
 
         let cpp = fs::read_to_string(output.join("bin/cpp")).unwrap();
         assert!(cpp.contains("--sysroot=/pkgs/store/glibc"));

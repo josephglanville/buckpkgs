@@ -37,7 +37,6 @@ pkgs_configure_make_install_package(
     ],
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/compilers/gcc:out",
         "//development/libraries/glibc:out",
     ],
     visibility = ["PUBLIC"],

@@ -35,7 +35,20 @@ ordinary consumers to the live bootstrap turnover graph.
 - Treat the established `bootstrap/foreign_seed` and pinned substitute closure
   as sealed: building new higher-layer tools should use native package
   derivations, and extending either bootstrap surface requires explicit user
-  approval.
+  approval. The approved GNU awk/grep/patch extension is consumed only through
+  pinned imports.
+- Live bootstrap producers and foreign seed wrappers must use the explicit
+  `BOOTSTRAP_PRODUCER_VISIBILITY` allowlist. Ordinary package-facing labels
+  must resolve through `BOOTSTRAP_SUBSTITUTE_VISIBILITY`-guarded imports, not
+  live staged outputs or transport labels.
+- Apply the same visibility restriction to producer-side verification targets
+  and keep per-object export targets internal to the export/test surface; an
+  output stamp or exporter is still a dependency bridge into its inputs.
+- Declare native package build-tool inputs as execution dependencies so normal
+  package actions and package-backed toolchains share published tool imports.
+- Treat promoted self-hosting tools as publication generations: build a
+  candidate from the pinned façade, pin its verified export, and do not expect
+  the private producer target to retain that identity after the façade moves.
 - Do not publish a reduced language-runtime build tool under the canonical
   full-runtime label; reserve `python:bin` for a feature contract comparable to
   normal Nixpkgs `python3`.
@@ -57,11 +70,13 @@ ordinary consumers to the live bootstrap turnover graph.
   imported-provider changes.
 - A graph-boundary check demonstrating imported consumer targets do not depend
   on live turnover labels.
+- An analysis-time visibility check for the publication graph and representative
+  normal consumers after any bootstrap target visibility change.
 - For a bootstrap publication change, compare the generated closure/object
   manifests byte-for-byte with the reviewed pinned files under
   `bootstrap/substitutes/<system>/`.
 - Hydrate a pinned closure into a disposable store root before relying on the
-  ordinary `pkgs_hydrated_store_output(...)` projection path.
+  ordinary `pkgs_hydrated_store_output(...)` native import path.
 
 ## Reviewer Policy
 

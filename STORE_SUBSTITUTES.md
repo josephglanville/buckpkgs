@@ -204,9 +204,11 @@ The repository now has object and bootstrap-closure substitution pipelines:
   object substitutes and refuses incomplete or unreachable object sets
 - `pkgs_hydrate_store_closure` verifies a pinned closure plus every bundled
   object before atomically hydrating store objects below `/pkgs/store`
-- `pkgs_hydrated_store_output(...)` verifies an already-hydrated physical store
-  object against pinned manifest metadata and exposes it as `PkgsPackageInfo`
-  without depending on the live producer graph
+- `pkgs_hydrated_store_output(...)` passes the reviewed manifest source and its
+  declared provider contract directly to Buck2's native store-import action,
+  which authenticates the manifest and canonical tree hash while constructing
+  its `ArtifactValue` in one physical traversal, without depending on the live
+  producer graph or creating a staged copy
 
 The manifests verify store identity, package metadata, target system, exact
 canonical reference metadata, payload hash/size, decoded canonical tree hash,
@@ -221,8 +223,10 @@ still required before consuming bundles obtained from an untrusted service.
 For the bootstrap island, the ordinary-build flow is deliberately split around
 Buck2:
 
-1. `bootstrap/exports:linux_x86_64_bundle` builds and exports the finalized live
-   roots from the explicit bootstrap publication workflow
+1. an explicit publication workflow exports finalized roots; after a reviewed
+   baseline exists, selected repaired outputs may be produced from imported
+   published inputs and assembled with unchanged archived objects without
+   selecting the expensive live closure bundle target
 2. the pinned `bootstrap/substitutes/linux_x86_64/closure.json` selects and
    authenticates the expected named closure for the host/target pair through
    source review and version control
@@ -240,36 +244,94 @@ Buck2:
    - referenced closure entries
 5. the hydrator expands into temporary siblings and atomically publishes the
    finalized store objects at `/pkgs/store/...`
-6. ordinary Buck graphs use `pkgs_hydrated_store_output(...)` to verify and
-   project those already-realized store objects into declared store outputs,
-   failing clearly if hydration has not run
+6. ordinary Buck graphs use `pkgs_hydrated_store_output(...)` to pass each
+   pinned manifest into Buck2's native import action, which verifies the
+   declared provider metadata and already-realized store object before
+   registering it as a store output, failing clearly if hydration has not run
 
-The projection action is local-only and cannot upload cache entries: Buck's
-declared store outputs must be action outputs, while the trusted physical
-`/pkgs/store/...` object is intentionally created outside the ordinary build
-graph. This keeps the bootstrap seed graph islanded and does not make ordinary
-builds fetch or derive the live bootstrap tower.
+The native Buck2 import action reads the reviewed source manifest directly,
+validates its package/store/runtime contract, hashes the physical
+`/pkgs/store/...` tree in canonical BuckPkgs order while constructing Buck2's
+`ArtifactValue`, and registers that value directly with the store materializer
+without projecting bytes through a staged output. Imported store outputs use
+content-addressed staged identities and a source manifest input. Native package
+build tools are execution dependencies, so ordinary packages and package-backed
+toolchains share the imported tool action nodes in the usual host-build case.
+This keeps the bootstrap seed graph islanded and does not make ordinary builds
+fetch or derive the live bootstrap tower.
 
 The pinned bootstrap closure now contains final compiler wrappers plus Bash,
-GNU Make, Coreutils, Findutils, and GNU sed. This is sufficient for
+GNU Make, Coreutils, Findutils, GNU sed, GNU grep, GNU awk, and GNU patch. This is sufficient for
 `development/libraries/zlib:out`, a direct PostgreSQL dependency in nixpkgs, to
 build as an ordinary imported-bootstrap package and pass its foreign-seed
-reference check. Ordinary package definitions depend on canonical labels such
-as `development/libraries/glibc:out` and `development/compilers/gcc:bin`;
-only those aliases expose the reviewed `bootstrap/substitutes` transport layer.
-The current local-only projection remains correct but costly because each
-imported tree is verified and copied into a Buck-declared output before use.
-That projection cost is separate from native store sealing: package finalizers
-seal new native staged outputs before hashing, and Buck2 preserves and validates
-those modes while already walking metadata for atomic publication. Existing
-store outputs are verified and trusted rather than repaired during use.
+reference check, and for the reduced Python/Meson path to avoid live text-tool
+promotion ancestry. Ordinary package definitions depend on canonical labels
+such as `development/libraries/glibc:out`, `development/compilers/gcc:bin`,
+and `tools/text/gawk:bin`; only those aliases may consume the reviewed
+`bootstrap/substitutes` transport layer. Live publication producers are
+restricted to bootstrap producers, exports, and validation targets through an
+explicit visibility allowlist. Producer-side seed checks and individual export
+actions are similarly internal-only dependency surfaces, so they cannot act as
+bridges back into the live island.
+Pinned manifests authenticate a canonical BuckPkgs payload hash, while Buck2
+requires its own RE-directory-shaped artifact fingerprint. The native import
+action now first authenticates the manifest contract itself, then derives both
+tree identities from the same byte stream: Buck2 reads the imported object
+once to validate the canonical hash and construct its artifact value. This
+eliminates the previous verifier-plus-fingerprint duplicate read in addition
+to the staged copy and materializer re-verification. A future manifest field
+containing compatible Buck2 directory digest metadata for the configured
+digest algorithms, or a durable trusted receipt, could avoid or reuse that
+remaining single import traversal. This cost is separate from native store sealing:
+package finalizers seal new native staged outputs before hashing, and Buck2
+preserves and validates those modes while already walking metadata for atomic
+publication. Existing store outputs are verified and trusted rather than
+repaired during use.
+After moving native package build tools into execution configuration, a combined
+ordinary `zlib` plus C toolchain-smoke build performed one imported GCC
+validation in `3.9s`; an immediate repeat completed in `0.0s`, without
+building any live bootstrap producer.
 Meson, Ninja, and Python are not in the pinned bootstrap closure. They are
 defined as native package derivations above the sealed imported façade. The
 immediate Meson path uses an explicitly reduced native Python build interpreter
-with `zlib`; canonical full Python remains reserved for the normal
-Nixpkgs-style feature profile. These targets must pass reproducibility and
-foreign-seed boundary checks before Meson-built consumers are treated as
-verified.
+with `zlib` and imported GNU awk/grep/patch; canonical full Python remains
+reserved for the normal Nixpkgs-style feature profile. The corrected GCC
+wrapper is republished by a small producer whose inputs are themselves
+canonical imported substitutes, so wrapper-policy changes do not re-enter the
+live bootstrap graph. Its C launchers no longer inject GCC runtime-library
+RUNPATHs, allowing C-only `zlib` and `inih` outputs to retain only Glibc in
+their runtime closure. A locally assembled seventeen-object bundle containing
+the new text tools and wrapper passes closure hydration into an independent
+disposable store root. Local ordinary builds of `zlib`, toolchain smoke
+targets, and the Meson-built `inih` package pass through the imported aliases;
+after pinning the repaired text tools, their public alias import completed in
+`0.1s`. Both C-only libraries have Glibc-only runtime closures and no
+GCC-wrapper references.
+Publication through the configured distribution channel and a clean-consumer
+rerun against that external path remain to be run.
+
+The promoted GNU awk and GNU grep recipes now use their published `:bin`
+façades, together with the imported final tool profile, instead of stage-zero
+self-hosting inputs. The first repaired generation is pinned as
+`b060b888...-gawk`, `d23256b4...-gnugrep`, and
+`f8debe78...-patch`, exported in isolation from the published baseline and
+hydrated successfully from a newly assembled seventeen-object bundle into a
+fresh store root. Advancing the public aliases makes the private recipes
+describe the next candidate generation; this is intentional publication flow,
+not a dependency from ordinary consumers back into the producer island.
+
+The observed cold costs separate two issues. Under the prior two-walk importer,
+first use of ordinary `zlib` plus toolchain smoke targets took `34.3s`, with
+repeated verifier walks over large imported objects before Buck2 fingerprinted
+the same trees. The one-walk importer removes that duplicate payload pass; its
+remaining first-use import scan may still be avoided or shared with published
+Buck2 directory metadata or durable receipts. A subsequent fresh `inih` run
+took `9:58.7`, primarily rebuilding normal-layer Python and Ninja after
+corrected dependency identities changed. That second cost instead motivates
+keeping published base identities stable once reviewed. Moving native package
+build tools into execution configuration also removes the duplicate configured
+native import actions observed when ordinary packages and package-backed
+toolchains were built together.
 
 ## Recommended Buck2 Integration
 
@@ -282,10 +344,13 @@ The Buck2 fork already has most of the local path semantics:
 - source-sealed native outputs whose modes are preserved and validated during
   atomic first publication, without a repair-on-reuse pass
 
-The BuckPkgs prototype now implements archive import as a normal verified action
-through `pkgs_imported_store_output(...)`. A native Buck2 store-import action is
-still the appropriate later optimization if direct CAS tree import or stronger
-diagnostic integration becomes valuable.
+The BuckPkgs prototype implements archive import as a normal verified action
+through `pkgs_imported_store_output(...)`, and hydrated bootstrap imports now
+use a native Buck2 store-import action that consumes the pinned source manifest
+directly. The native action verifies manifest and canonical payload identity
+and constructs the Buck artifact value during one store-tree traversal. Direct
+CAS tree import or compatible expected directory digests remain the next
+optimization for avoiding or sharing that remaining first-use traversal.
 
 ### Option A: Archive Import Action
 
@@ -331,14 +396,22 @@ hydration workflow on top of the implemented object pipeline:
 - the manifest already carries the decoded tree digest
 - archive transport and realized-tree identity stay separate
 - ordinary Buck builds stay decoupled from substitute discovery and transport
+- ordinary hydrated imports use the native Buck2 registration path rather than
+  copying verified trees into staged outputs
+- new manifest/publication work should add Buck2-compatible directory identity
+  only with an explicit digest-algorithm contract, so a trusted import can
+  avoid or reuse the native action's remaining authenticated walk
 
-Buck2-native import actions can remain a later integration path for workflows
-that benefit from tighter action-graph coupling, but they should not be the
-required mechanism for hydrating the bootstrap island.
+Buck2's native already-hydrated import action is now the ordinary bootstrap
+consumption mechanism. A separate archive/CAS ingestion action can remain a
+later integration path for workflows that want Buck2 itself to fetch or decode
+substitute bytes; it is not required for the externally hydrated bootstrap
+island.
 
-## Optional Future Buck2 Hook Points
+## Optional Future Archive Import Hook
 
-The first implementation can stay close to existing patterns in the fork:
+An integrated archive/CAS importer can stay close to existing patterns in the
+fork:
 
 1. **Starlark API**
    - add a sibling to `ctx.actions.cas_artifact(...)` near the current download
@@ -367,10 +440,10 @@ The first implementation can stay close to existing patterns in the fork:
    - surface the logical store path, manifest identity, and failing verification
      stage in errors
 
-That cut would keep substitution execution aligned with Buck2's existing
-artifact model while avoiding a new direct-to-store mutation path. It is useful
-for integrated import workflows, but the bootstrap island should not depend on
-it.
+That extension would keep substitute ingestion aligned with Buck2's existing
+artifact model. It is useful for integrated import workflows, but the bootstrap
+island's normal path already consumes externally hydrated objects through the
+native no-copy registration action.
 
 ## Relationship To Existing Buck2 APIs
 

@@ -7,8 +7,11 @@
     "/pkgs/store/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
     "/pkgs/store/8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9",
     "/pkgs/store/a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0",
+    "/pkgs/store/b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0",
+    "/pkgs/store/bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin",
     "/pkgs/store/bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10",
-    "/pkgs/store/d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin"
+    "/pkgs/store/d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12",
+    "/pkgs/store/f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8"
   ],
   "objects": {
     "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2": {
@@ -61,6 +64,16 @@
       "archive": "a71279fad6ed78a2b843de2497590614-gmp-6.3.0.bpkgs-tree",
       "manifest_hash": "sha256:ecc57012c4b63c9d6d71bd0a1296dce3d1253f06b9e6dd14bb5ce4eec5756145"
     },
+    "/pkgs/store/b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0": {
+      "manifest": "b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0.manifest.json",
+      "archive": "b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0.bpkgs-tree",
+      "manifest_hash": "sha256:4486c6758dd7ed82763e1a5608f1018279b4a7c49edf0d371afdbfeb011e7b40"
+    },
+    "/pkgs/store/bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin": {
+      "manifest": "bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin.manifest.json",
+      "archive": "bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin.bpkgs-tree",
+      "manifest_hash": "sha256:7fca5b18694d7a8066d2e627ca5764a0bfe689ce583ae49076dc018a689384bf"
+    },
     "/pkgs/store/bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10": {
       "manifest": "bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10.manifest.json",
       "archive": "bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10.bpkgs-tree",
@@ -71,15 +84,20 @@
       "archive": "ce44949178532f9a9195421c393cca11-gcc-15.2.0.bpkgs-tree",
       "manifest_hash": "sha256:58aed83c500103238e5a2d3b621941f0efd8b8537a378f4035a941d1df51ab36"
     },
-    "/pkgs/store/d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin": {
-      "manifest": "d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin.manifest.json",
-      "archive": "d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin.bpkgs-tree",
-      "manifest_hash": "sha256:cdee3b9f6b465f0125b7d0a1c02c0e178b58ff919ce49352db7c3f5edae8f643"
+    "/pkgs/store/d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12": {
+      "manifest": "d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12.manifest.json",
+      "archive": "d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12.bpkgs-tree",
+      "manifest_hash": "sha256:4c8bf1bd1b5889c9816615e6a75191948b6c3a9be6aa542cd1e3aa9041f2e785"
     },
     "/pkgs/store/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0": {
       "manifest": "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0.manifest.json",
       "archive": "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0.bpkgs-tree",
       "manifest_hash": "sha256:4d80b404525990ffefcf328899bebde7da0ac32aa06deb65756850dc79127026"
+    },
+    "/pkgs/store/f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8": {
+      "manifest": "f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8.manifest.json",
+      "archive": "f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8.bpkgs-tree",
+      "manifest_hash": "sha256:61312f82efdbdaa19837786a152a152032b13b568709567394d41747fab974b1"
     }
   }
 }

@@ -4,8 +4,8 @@ load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 load("@root//rules:toolchains.bzl", "pkgs_gcc_cxx_toolchain")
 
 def buckpkgs_toolchains():
-    # Keep the ambient CXX toolchain bootstrap-safe. Package-backed GCC stays
-    # explicit until finalized bootstrap substitutes can be imported cheaply.
+    # Keep the ambient CXX toolchain bootstrap-safe. Package-backed GCC remains
+    # an explicit choice even when it is backed by finalized native imports.
     system_cxx_toolchain(
         name = "cxx",
         compiler = "gcc",

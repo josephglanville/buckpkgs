@@ -1,3 +1,4 @@
+load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_PRODUCER_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_cut", "pkgs_seed_free")
 
 _SOURCE = pkgs_http_archive_source(
@@ -39,8 +40,8 @@ _PKGS_NATIVE_TOOLS = [
     "//development/compilers/gcc:bin",
     "//tools/misc/coreutils:bin",
     "//tools/misc/findutils:bin",
-    "//tools/text/gawk:bin_stage0",
-    "//tools/text/gnugrep:bin_stage0",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
     "//tools/text/gnused:bin",
 ]
 
@@ -51,13 +52,14 @@ pkgs_configure_make_install_package(
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     native_build_inputs = _SEED,
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
     name = "bin_stage0_seed_free",
     packages = [":bin_stage0"],
     forbidden = _SEED,
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_configure_make_install_package(
@@ -68,7 +70,7 @@ pkgs_configure_make_install_package(
     configure_env = ["CC=cc"],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
     runtime_inputs = ["//development/libraries/glibc:out_stage1"],
-    visibility = ["PUBLIC"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_configure_make_install_package(
@@ -82,11 +84,18 @@ pkgs_configure_make_install_package(
         "//development/compilers/gcc:out",
         "//development/libraries/glibc:out",
     ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_cut(
-    name = "bin",
+    name = "bin_promoted_seed_cut",
     package = ":bin_promoted",
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
+)
+
+alias(
+    name = "bin",
+    actual = "//bootstrap/substitutes:gnugrep",
     visibility = ["PUBLIC"],
 )
 
@@ -94,4 +103,5 @@ pkgs_seed_free(
     name = "bin_final_seed_free",
     packages = [":bin_final"],
     forbidden = _SEED,
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
