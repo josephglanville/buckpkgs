@@ -12,6 +12,9 @@
       `toolchains//:cxx_pkgs` at imports rather than live turnover targets.
 - [x] Prove a clean ordinary consumer can hydrate/import the bootstrap closure
       without analyzing or executing live bootstrap stages.
+- [x] Build a real PostgreSQL-path package dependency (`zlib`) using an
+      imported final bootstrap tool profile rather than foreign-seed or live
+      turnover targets.
 
 ## Active
 
@@ -27,7 +30,7 @@
       roots for GCC and Binutils, and the checked-in
       `bootstrap/substitutes/linux_x86_64/` closure/object manifests compare
       byte-for-byte with that generated bundle metadata.
-- [x] `pkgs_hydrate_store_closure` hydrated the pinned ten-object
+- [x] `pkgs_hydrate_store_closure` hydrated the pinned fourteen-object
       `bootstrap-linux-x86_64` closure into a disposable store root, proving the
       bundle is complete and internally consistent before ordinary import use.
 - [x] `toolchains//tests:gcc_smoke` and `toolchains//tests:hello_world_c` build
@@ -35,6 +38,12 @@
       `root//bootstrap/substitutes:{gcc_wrapper,binutils_wrapper}`, and
       `cquery deps(toolchains//:cxx_pkgs)` contains no live GCC, Binutils,
       Bash, Glibc, or bootstrap export targets.
+- [x] Nixpkgs PostgreSQL lists `zlib` in direct `buildInputs`; the new
+      `root//development/libraries/zlib:out_pkgs` build consumes imported
+      `bash`, GNU Make, Binutils/GCC wrappers, Coreutils, Findutils, GNU sed,
+      and Glibc, produces shared/static `libz` plus `zlib.pc`, passes
+      `out_pkgs_seed_free`, and has no live-bootstrap or foreign-seed labels in
+      `cquery deps(root//development/libraries/zlib:out_pkgs)`.
 - [x] The restarted full bootstrap rebuild after the host power loss completed
       successfully for
       `//bootstrap/tests:final_base_seed_free` and

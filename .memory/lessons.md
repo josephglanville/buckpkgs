@@ -52,3 +52,6 @@
 - Substitute manifests and imported providers must share one canonical runtime
   closure ordering; otherwise correct pinned metadata can fail verification or
   misalign runtime store artifacts with their logical paths.
+- Importing only final compiler wrappers is not enough for ordinary package
+  builds. A configure/make package needs an imported build-tool profile
+  containing its final shell, make, and basic Unix utilities as well.

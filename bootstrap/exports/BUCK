@@ -36,6 +36,26 @@ pkgs_export_store_substitute(
 )
 
 pkgs_export_store_substitute(
+    name = "gnumake",
+    package = "//development/tools/build-managers/gnumake:bin",
+)
+
+pkgs_export_store_substitute(
+    name = "coreutils",
+    package = "//tools/misc/coreutils:bin",
+)
+
+pkgs_export_store_substitute(
+    name = "findutils",
+    package = "//tools/misc/findutils:bin",
+)
+
+pkgs_export_store_substitute(
+    name = "gnused",
+    package = "//tools/text/gnused:bin",
+)
+
+pkgs_export_store_substitute(
     name = "binutils_wrapper",
     package = "//development/tools/misc/binutils:bin_final_wrapped",
 )
@@ -55,16 +75,24 @@ pkgs_export_store_closure(
     closure_name = "bootstrap-linux-x86_64",
     roots = [
         ":binutils_wrapper",
+        ":coreutils",
+        ":findutils",
         ":gcc_wrapper",
+        ":gnumake",
+        ":gnused",
     ],
     objects = [
         ":bash",
         ":binutils",
         ":binutils_wrapper",
+        ":coreutils",
+        ":findutils",
         ":gcc",
         ":gcc_wrapper",
         ":glibc",
         ":gmp",
+        ":gnumake",
+        ":gnused",
         ":libmpc",
         ":linux_headers",
         ":mpfr",

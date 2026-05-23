@@ -17,6 +17,16 @@ _NATIVE_TOOLS = [
     "//bootstrap/foreign_seed:gcc",
 ]
 
+_SUBSTITUTED_NATIVE_TOOLS = [
+    "//bootstrap/substitutes:bash",
+    "//bootstrap/substitutes:gnumake",
+    "//bootstrap/substitutes:binutils_wrapper",
+    "//bootstrap/substitutes:gcc_wrapper",
+    "//bootstrap/substitutes:coreutils",
+    "//bootstrap/substitutes:findutils",
+    "//bootstrap/substitutes:gnused",
+]
+
 pkgs_configure_make_install_package(
     name = "out",
     package_name = "zlib",
@@ -35,10 +45,47 @@ pkgs_configure_make_install_package(
     visibility = ["PUBLIC"],
 )
 
+pkgs_configure_make_install_package(
+    name = "out_pkgs",
+    package_name = "zlib",
+    version = "1.3.2",
+    sources = [_SOURCE],
+    configure_args = [
+        "--static",
+        "--shared",
+    ],
+    configure_env = [
+        "CC=cc",
+        "AR=ar",
+        "RANLIB=ranlib",
+    ],
+    make_args = [
+        "AR=ar",
+        "RANLIB=ranlib",
+    ],
+    native_build_inputs = _SUBSTITUTED_NATIVE_TOOLS,
+    runtime_inputs = ["//bootstrap/substitutes:glibc"],
+    visibility = ["PUBLIC"],
+)
+
 pkgs_seed_free(
     name = "out_seed_free",
     packages = [":out"],
     forbidden = [
         "//bootstrap/foreign_seed:gcc",
+    ],
+)
+
+pkgs_seed_free(
+    name = "out_pkgs_seed_free",
+    packages = [":out_pkgs"],
+    forbidden = [
+        "//bootstrap/foreign_seed:gcc",
+        "//bootstrap/foreign_seed:binutils",
+        "//bootstrap/foreign_seed:bash",
+        "//bootstrap/foreign_seed:gnumake",
+        "//bootstrap/foreign_seed:coreutils",
+        "//bootstrap/foreign_seed:findutils",
+        "//bootstrap/foreign_seed:gnused",
     ],
 )

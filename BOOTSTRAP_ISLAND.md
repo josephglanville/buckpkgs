@@ -192,6 +192,14 @@ roots. `root//bootstrap/substitutes:*` holds reviewed pinned closure/object
 metadata and import-only provider declarations. `toolchains//:cxx_pkgs` selects
 those imports rather than live stage targets.
 
+The imported bootstrap surface now also includes the final Bash, GNU Make,
+Coreutils, Findutils, and GNU sed outputs required by ordinary
+configure/make-style packages. `root//development/libraries/zlib:out_pkgs`
+demonstrates the boundary with a useful non-toolchain package: zlib is a direct
+PostgreSQL build input in nixpkgs, builds shared and static libraries plus
+`zlib.pc`, and depends only on pinned bootstrap imports rather than live
+turnover or foreign-seed targets.
+
 The remaining hardening work is an authenticated remote publication channel and
 stronger graph enforcement, such as a dedicated cell or visibility lint.
 

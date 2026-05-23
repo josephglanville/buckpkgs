@@ -250,6 +250,14 @@ declared store outputs must be action outputs, while the trusted physical
 graph. This keeps the bootstrap seed graph islanded and does not make ordinary
 builds fetch or derive the live bootstrap tower.
 
+The pinned bootstrap closure now contains final compiler wrappers plus Bash,
+GNU Make, Coreutils, Findutils, and GNU sed. This is sufficient for
+`development/libraries/zlib:out_pkgs`, a direct PostgreSQL dependency in
+nixpkgs, to build as an ordinary imported-bootstrap package and pass its
+foreign-seed reference check. The current local-only projection remains
+correct but costly because each imported tree is verified and copied into a
+Buck-declared output before it can be used.
+
 ## Recommended Buck2 Integration
 
 The Buck2 fork already has most of the local path semantics:

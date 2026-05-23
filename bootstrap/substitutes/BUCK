@@ -1,7 +1,7 @@
 load("//rules:pkgs.bzl", "pkgs_hydrated_store_output")
 
 _TARGET_SYSTEM = "x86_64-linux"
-_MISSING_HINT = "hydrate the pinned closure with `pkgs_hydrate_store_closure --closure bootstrap/substitutes/linux_x86_64/closure.json --bundle <published-bundle>` before building `toolchains//:cxx_pkgs`"
+_MISSING_HINT = "hydrate the pinned closure with `pkgs_hydrate_store_closure --closure bootstrap/substitutes/linux_x86_64/closure.json --bundle <published-bundle>` before building imported bootstrap consumers"
 
 export_file(
     name = "linux_x86_64_closure",
@@ -59,6 +59,26 @@ export_file(
     src = "linux_x86_64/d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin.manifest.json",
 )
 
+export_file(
+    name = "gnumake_manifest",
+    src = "linux_x86_64/723b6d25c84083cce1b57a5cd294aa5c-gnumake-4.4.1.manifest.json",
+)
+
+export_file(
+    name = "gnused_manifest",
+    src = "linux_x86_64/8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9.manifest.json",
+)
+
+export_file(
+    name = "findutils_manifest",
+    src = "linux_x86_64/a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0.manifest.json",
+)
+
+export_file(
+    name = "coreutils_manifest",
+    src = "linux_x86_64/bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10.manifest.json",
+)
+
 pkgs_hydrated_store_output(
     name = "gmp",
     manifest = ":gmp_manifest",
@@ -105,6 +125,7 @@ pkgs_hydrated_store_output(
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
     runtime_store_entries = ["5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    visibility = ["PUBLIC"],
 )
 
 pkgs_hydrated_store_output(
@@ -134,6 +155,79 @@ pkgs_hydrated_store_output(
         "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
     ],
     runtime_inputs = [":glibc"],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_hydrated_store_output(
+    name = "gnumake",
+    manifest = ":gnumake_manifest",
+    package_name = "gnumake",
+    version = "4.4.1",
+    store_path_key = "723b6d25c84083cce1b57a5cd294aa5c",
+    store_name = "gnumake-4.4.1",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    runtime_store_entries = [
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "723b6d25c84083cce1b57a5cd294aa5c-gnumake-4.4.1",
+    ],
+    runtime_inputs = [":glibc"],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_hydrated_store_output(
+    name = "gnused",
+    manifest = ":gnused_manifest",
+    package_name = "gnused",
+    version = "4.9",
+    store_path_key = "8c6ae4b374c5326b381cf3fde5d672de",
+    store_name = "gnused-4.9",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    runtime_store_entries = [
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9",
+    ],
+    runtime_inputs = [":glibc"],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_hydrated_store_output(
+    name = "findutils",
+    manifest = ":findutils_manifest",
+    package_name = "findutils",
+    version = "4.10.0",
+    store_path_key = "a5cf0a55274cc499ef5d03190c40bfdb",
+    store_name = "findutils-4.10.0",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    runtime_store_entries = [
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0",
+    ],
+    runtime_inputs = [":glibc"],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_hydrated_store_output(
+    name = "coreutils",
+    manifest = ":coreutils_manifest",
+    package_name = "coreutils",
+    version = "9.10",
+    store_path_key = "bef5edaaa8bb28862b07b95d4fe20c33",
+    store_name = "coreutils-9.10",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    runtime_store_entries = [
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10",
+    ],
+    runtime_inputs = [":glibc"],
+    visibility = ["PUBLIC"],
 )
 
 pkgs_hydrated_store_output(
