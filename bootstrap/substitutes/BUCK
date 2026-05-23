@@ -1,0 +1,241 @@
+load("//rules:pkgs.bzl", "pkgs_hydrated_store_output")
+
+_TARGET_SYSTEM = "x86_64-linux"
+_MISSING_HINT = "hydrate the pinned closure with `pkgs_hydrate_store_closure --closure bootstrap/substitutes/linux_x86_64/closure.json --bundle <published-bundle>` before building `toolchains//:cxx_pkgs`"
+
+export_file(
+    name = "linux_x86_64_closure",
+    src = "linux_x86_64/closure.json",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "gmp_manifest",
+    src = "linux_x86_64/a71279fad6ed78a2b843de2497590614-gmp-6.3.0.manifest.json",
+)
+
+export_file(
+    name = "mpfr_manifest",
+    src = "linux_x86_64/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2.manifest.json",
+)
+
+export_file(
+    name = "libmpc_manifest",
+    src = "linux_x86_64/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0.manifest.json",
+)
+
+export_file(
+    name = "glibc_manifest",
+    src = "linux_x86_64/5331594618ea5972bfd3208387ed54b3-glibc-2.42.manifest.json",
+)
+
+export_file(
+    name = "linux_headers_manifest",
+    src = "linux_x86_64/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7.manifest.json",
+)
+
+export_file(
+    name = "bash_manifest",
+    src = "linux_x86_64/096afc650c09c96b853c0d9abbdb20df-bash-5.3.manifest.json",
+)
+
+export_file(
+    name = "binutils_manifest",
+    src = "linux_x86_64/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0.manifest.json",
+)
+
+export_file(
+    name = "gcc_manifest",
+    src = "linux_x86_64/ce44949178532f9a9195421c393cca11-gcc-15.2.0.manifest.json",
+)
+
+export_file(
+    name = "binutils_wrapper_manifest",
+    src = "linux_x86_64/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin.manifest.json",
+)
+
+export_file(
+    name = "gcc_wrapper_manifest",
+    src = "linux_x86_64/d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin.manifest.json",
+)
+
+pkgs_hydrated_store_output(
+    name = "gmp",
+    manifest = ":gmp_manifest",
+    package_name = "gmp",
+    version = "6.3.0",
+    store_path_key = "a71279fad6ed78a2b843de2497590614",
+    store_name = "gmp-6.3.0",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    runtime_store_entries = ["a71279fad6ed78a2b843de2497590614-gmp-6.3.0"],
+)
+
+pkgs_hydrated_store_output(
+    name = "mpfr",
+    manifest = ":mpfr_manifest",
+    package_name = "mpfr",
+    version = "4.2.2",
+    store_path_key = "049b681bdd4657e11abaca06cf0b61a1",
+    store_name = "mpfr-4.2.2",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    runtime_store_entries = ["049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2"],
+)
+
+pkgs_hydrated_store_output(
+    name = "libmpc",
+    manifest = ":libmpc_manifest",
+    package_name = "libmpc",
+    version = "1.4.0",
+    store_path_key = "1d427468b13e3f764d320ae599d6148d",
+    store_name = "libmpc-1.4.0",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    runtime_store_entries = ["1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0"],
+)
+
+pkgs_hydrated_store_output(
+    name = "glibc",
+    manifest = ":glibc_manifest",
+    package_name = "glibc",
+    version = "2.42",
+    store_path_key = "5331594618ea5972bfd3208387ed54b3",
+    store_name = "glibc-2.42",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    runtime_store_entries = ["5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+)
+
+pkgs_hydrated_store_output(
+    name = "linux_headers",
+    manifest = ":linux_headers_manifest",
+    package_name = "linux-headers",
+    version = "6.18.7",
+    store_path_key = "4349dc439d38eb56f3d68cd8b4dbe7f2",
+    store_name = "linux-headers-6.18.7",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    runtime_store_entries = ["4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7"],
+)
+
+pkgs_hydrated_store_output(
+    name = "bash",
+    manifest = ":bash_manifest",
+    package_name = "bash",
+    version = "5.3",
+    store_path_key = "096afc650c09c96b853c0d9abbdb20df",
+    store_name = "bash-5.3",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    runtime_store_entries = [
+        "096afc650c09c96b853c0d9abbdb20df-bash-5.3",
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+    ],
+    runtime_inputs = [":glibc"],
+)
+
+pkgs_hydrated_store_output(
+    name = "binutils",
+    manifest = ":binutils_manifest",
+    package_name = "binutils",
+    version = "2.46.0",
+    store_path_key = "ec3cb3291b13cfea4b676a70d7df1557",
+    store_name = "binutils-2.46.0",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    runtime_store_entries = [
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
+    ],
+    runtime_inputs = [":glibc"],
+)
+
+pkgs_hydrated_store_output(
+    name = "gcc",
+    manifest = ":gcc_manifest",
+    package_name = "gcc",
+    version = "15.2.0",
+    store_path_key = "ce44949178532f9a9195421c393cca11",
+    store_name = "gcc-15.2.0",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = [
+        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+    ],
+    runtime_store_entries = [
+        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+    ],
+    runtime_inputs = [":gmp", ":mpfr", ":libmpc", ":glibc"],
+)
+
+pkgs_hydrated_store_output(
+    name = "binutils_wrapper",
+    manifest = ":binutils_wrapper_manifest",
+    package_name = "binutils-wrapper",
+    version = "2.46.0",
+    output = "bin",
+    store_path_key = "7523b3ff8c52b0974a7de03ac2894f43",
+    store_name = "binutils-wrapper-2.46.0-bin",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = [
+        "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
+        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "/pkgs/store/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
+    ],
+    runtime_store_entries = [
+        "096afc650c09c96b853c0d9abbdb20df-bash-5.3",
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
+        "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
+    ],
+    runtime_inputs = [":binutils", ":bash"],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_hydrated_store_output(
+    name = "gcc_wrapper",
+    manifest = ":gcc_wrapper_manifest",
+    package_name = "gcc-wrapper",
+    version = "15.2.0",
+    output = "bin",
+    store_path_key = "d7db326f8a8486b29ed65bb3c70bca28",
+    store_name = "gcc-wrapper-15.2.0-bin",
+    target_system = _TARGET_SYSTEM,
+    missing_hint = _MISSING_HINT,
+    references = [
+        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
+        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "/pkgs/store/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7",
+        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "/pkgs/store/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
+        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+        "/pkgs/store/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
+    ],
+    runtime_store_entries = [
+        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+        "096afc650c09c96b853c0d9abbdb20df-bash-5.3",
+        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+        "4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7",
+        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+        "7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
+        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+        "d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin",
+        "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
+    ],
+    runtime_inputs = [":gcc", ":binutils_wrapper", ":linux_headers", ":glibc", ":bash"],
+    visibility = ["PUBLIC"],
+)

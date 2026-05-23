@@ -277,3 +277,15 @@ pkgs_cc_wrapper_package(
     shell = "//shells/bash:bin_stage2",
     visibility = ["PUBLIC"],
 )
+
+pkgs_cc_wrapper_package(
+    name = "bin_final",
+    package_name = "gcc-wrapper",
+    version = "15.2.0",
+    cc = ":out_stage2",
+    bintools = "//development/tools/misc/binutils:bin_final_wrapped",
+    headers = "//os-specific/linux/kernel-headers:out",
+    libc = "//development/libraries/glibc:out_stage1",
+    shell = "//shells/bash:bin",
+    visibility = ["PUBLIC"],
+)

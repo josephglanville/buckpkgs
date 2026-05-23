@@ -2,8 +2,8 @@
 
 ## Problem
 
-The current package-backed C/C++ toolchain makes ordinary targets walk directly
-into the bootstrap turnover graph:
+Before the substitute import surface, the package-backed C/C++ toolchain made
+ordinary targets walk directly into the bootstrap turnover graph:
 
 ```text
 toolchains//:cxx
@@ -45,7 +45,8 @@ This is a dependency-graph boundary, not merely a cache preference.
 ## Boundary Shape
 
 The clean end state is a dedicated Buck2 cell or equivalently hard-separated
-namespace:
+namespace. The current implementation establishes the rule boundary under
+`root//bootstrap`; a dedicated cell remains an enforcement improvement:
 
 ```text
 bootstrap//...
@@ -175,16 +176,24 @@ BuckPkgs should own:
 - imported-provider declarations that rebuild `PkgsPackageInfo` from substitute
   metadata without turning ordinary builds into substitute-fetch executions
 
-The object-level pieces of that surface now exist:
+The implemented pieces of that surface now include:
 
 - `pkgs_export_store_substitute(...)`
 - `pkgs_export_store_tree_substitute(...)`
+- `pkgs_export_store_closure(...)`
 - `pkgs_prebuilt_store_substitute(...)`
 - `pkgs_imported_store_output(...)`
 - `pkgs_hydrate_store_object`
+- `pkgs_hydrate_store_closure`
+- `pkgs_hydrated_store_output(...)`
 
-The remaining island work is closure publication/trust, prebuilt bootstrap
-declarations, and moving `cxx_pkgs` off live stage targets.
+`root//bootstrap/exports:linux_x86_64_bundle` publishes finalized live wrapper
+roots. `root//bootstrap/substitutes:*` holds reviewed pinned closure/object
+metadata and import-only provider declarations. `toolchains//:cxx_pkgs` selects
+those imports rather than live stage targets.
+
+The remaining hardening work is an authenticated remote publication channel and
+stronger graph enforcement, such as a dedicated cell or visibility lint.
 
 ## What Belongs In Buck2
 

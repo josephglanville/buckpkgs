@@ -111,6 +111,36 @@ pkgs_bootstrap_rust_binary(
 )
 
 pkgs_bootstrap_rust_binary(
+    name = "pkgs_export_store_closure",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_export_store_closure.rs",
+    ],
+    crate_root = "src/bin/pkgs_export_store_closure.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_hydrate_store_closure",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_hydrate_store_closure.rs",
+    ],
+    crate_root = "src/bin/pkgs_hydrate_store_closure.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_project_hydrated_store_object",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_project_hydrated_store_object.rs",
+    ],
+    crate_root = "src/bin/pkgs_project_hydrated_store_object.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
     name = "pkgs_verify_no_refs",
     srcs = _COMMON_SRCS + [
         "src/bin/pkgs_verify_no_refs.rs",

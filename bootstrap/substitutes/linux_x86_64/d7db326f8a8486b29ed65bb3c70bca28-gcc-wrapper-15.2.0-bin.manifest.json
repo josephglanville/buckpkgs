@@ -1,0 +1,44 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin",
+  "store_path_key": "d7db326f8a8486b29ed65bb3c70bca28",
+  "store_entry": "d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin",
+  "package": {
+    "name": "gcc-wrapper",
+    "version": "15.2.0",
+    "output": "bin"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:d028fc620ca20b65441c13b3b14fe888024eee90bfd10adef7544419f1fe9d2c",
+    "download_size": 3665,
+    "payload_hash": "sha256:d028fc620ca20b65441c13b3b14fe888024eee90bfd10adef7544419f1fe9d2c",
+    "payload_size": 3665
+  },
+  "canonical_tree_hash": "sha256:d028fc620ca20b65441c13b3b14fe888024eee90bfd10adef7544419f1fe9d2c",
+  "references": [
+    "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+    "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
+    "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+    "/pkgs/store/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7",
+    "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+    "/pkgs/store/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
+    "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+    "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+    "/pkgs/store/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
+    "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
+    "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
+    "/pkgs/store/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7",
+    "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
+    "/pkgs/store/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
+    "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+    "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
+    "/pkgs/store/d7db326f8a8486b29ed65bb3c70bca28-gcc-wrapper-15.2.0-bin",
+    "/pkgs/store/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0"
+  ]
+}

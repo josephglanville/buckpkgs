@@ -8,9 +8,9 @@
       publication under `/pkgs/store`.
 - [x] Implement imported `PkgsPackageInfo` providers backed by
       manifest-verified store-object archives.
-- [ ] Publish a finalized bootstrap closure manifest and point
+- [x] Publish a finalized bootstrap closure manifest and point
       `toolchains//:cxx_pkgs` at imports rather than live turnover targets.
-- [ ] Prove a clean ordinary consumer can hydrate/import the bootstrap closure
+- [x] Prove a clean ordinary consumer can hydrate/import the bootstrap closure
       without analyzing or executing live bootstrap stages.
 
 ## Active
@@ -23,6 +23,18 @@
 
 ## Checked
 
+- [x] `root//bootstrap/exports:linux_x86_64_bundle` exported finalized wrapper
+      roots for GCC and Binutils, and the checked-in
+      `bootstrap/substitutes/linux_x86_64/` closure/object manifests compare
+      byte-for-byte with that generated bundle metadata.
+- [x] `pkgs_hydrate_store_closure` hydrated the pinned ten-object
+      `bootstrap-linux-x86_64` closure into a disposable store root, proving the
+      bundle is complete and internally consistent before ordinary import use.
+- [x] `toolchains//tests:gcc_smoke` and `toolchains//tests:hello_world_c` build
+      through `toolchains//:cxx_pkgs` using
+      `root//bootstrap/substitutes:{gcc_wrapper,binutils_wrapper}`, and
+      `cquery deps(toolchains//:cxx_pkgs)` contains no live GCC, Binutils,
+      Bash, Glibc, or bootstrap export targets.
 - [x] The restarted full bootstrap rebuild after the host power loss completed
       successfully for
       `//bootstrap/tests:final_base_seed_free` and
@@ -161,6 +173,10 @@
 
 ## Next Checks
 
+- [ ] Imported-store performance: replace local-only verified full-tree
+      projection with native Buck2 already-hydrated store import support if
+      ordinary package-toolchain startup cost matters; the validated prototype
+      copies and verifies the 772 MB closure on first materialization.
 - [ ] Random seeds: keep watching for packages that do not self-seed the way GCC
       already does when profile or coverage-style outputs are introduced.
 - [ ] Parallelism stress: compare representative package outputs at

@@ -497,6 +497,214 @@ fn rejects_store_archives_with_noncanonical_traversal_order() {
     assert!(!output.exists());
 }
 
+#[test]
+fn exports_and_hydrates_complete_store_closures() {
+    let temp = tempdir().unwrap();
+    let dependency_source = temp.path().join("dependency-source");
+    let root_source = temp.path().join("root-source");
+    fs::create_dir_all(&dependency_source).unwrap();
+    fs::create_dir_all(&root_source).unwrap();
+    fs::write(dependency_source.join("dependency"), "dependency\n").unwrap();
+    fs::write(root_source.join("root"), "root\n").unwrap();
+
+    let dependency_key = "11111111111111111111111111111111";
+    let dependency_entry = format!("{dependency_key}-dependency-1.0");
+    let dependency_path = format!("/pkgs/store/{dependency_entry}");
+    let dependency_archive = temp.path().join("dependency.bpkgs-tree");
+    let dependency_manifest = temp.path().join("dependency.manifest.json");
+    export_test_store_object(
+        &dependency_source,
+        dependency_key,
+        &dependency_entry,
+        "dependency",
+        &[],
+        &[&dependency_path],
+        &dependency_archive,
+        &dependency_manifest,
+    );
+
+    let root_key = "22222222222222222222222222222222";
+    let root_entry = format!("{root_key}-root-1.0");
+    let root_path = format!("/pkgs/store/{root_entry}");
+    let root_archive = temp.path().join("root.bpkgs-tree");
+    let root_manifest = temp.path().join("root.manifest.json");
+    export_test_store_object(
+        &root_source,
+        root_key,
+        &root_entry,
+        "root",
+        &[&dependency_path],
+        &[&dependency_path, &root_path],
+        &root_archive,
+        &root_manifest,
+    );
+
+    let bundle = temp.path().join("bundle");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_closure"))
+        .args([
+            "--name",
+            "test-closure",
+            "--target-system",
+            "x86_64-linux",
+            "--root",
+            &root_path,
+            "--object-manifest",
+            dependency_manifest.to_str().unwrap(),
+            "--object-archive",
+            dependency_archive.to_str().unwrap(),
+            "--object-manifest",
+            root_manifest.to_str().unwrap(),
+            "--object-archive",
+            root_archive.to_str().unwrap(),
+            "--output",
+            bundle.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let closure = fs::read_to_string(bundle.join("closure.json")).unwrap();
+    assert!(closure.contains("\"format\": \"buckpkgs-store-closure-v1\""));
+    assert!(closure.contains(&dependency_path));
+    assert!(closure.contains(&root_path));
+
+    let store_root = temp.path().join("hydrated-store");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_hydrate_store_closure"))
+        .args([
+            "--closure",
+            bundle.join("closure.json").to_str().unwrap(),
+            "--bundle",
+            bundle.to_str().unwrap(),
+            "--store-root",
+            store_root.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(store_root.join(dependency_entry).join("dependency")).unwrap(),
+        "dependency\n"
+    );
+    assert_eq!(
+        fs::read_to_string(store_root.join(root_entry).join("root")).unwrap(),
+        "root\n"
+    );
+
+    let incomplete = temp.path().join("incomplete");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_closure"))
+        .args([
+            "--name",
+            "test-closure",
+            "--target-system",
+            "x86_64-linux",
+            "--root",
+            &root_path,
+            "--object-manifest",
+            root_manifest.to_str().unwrap(),
+            "--object-archive",
+            root_archive.to_str().unwrap(),
+            "--output",
+            incomplete.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+    assert!(!incomplete.exists());
+}
+
+#[test]
+fn projects_verified_hydrated_store_objects_and_reports_missing_hydration() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("payload"), "payload\n").unwrap();
+    let key = "33333333333333333333333333333333";
+    let entry = format!("{key}-projected-1.0");
+    let store_path = format!("/pkgs/store/{entry}");
+    let archive = temp.path().join("projected.bpkgs-tree");
+    let manifest = temp.path().join("projected.manifest.json");
+    export_test_store_object(
+        &source,
+        key,
+        &entry,
+        "projected",
+        &[],
+        &[&store_path],
+        &archive,
+        &manifest,
+    );
+
+    let store_root = temp.path().join("store");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_hydrate_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--archive",
+            archive.to_str().unwrap(),
+            "--store-root",
+            store_root.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let projected = temp.path().join("projected-output");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_project_hydrated_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--store-root",
+            store_root.to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "projected",
+            "--expected-version",
+            "1.0",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-runtime-store-output",
+            &store_path,
+            "--output",
+            projected.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(projected.join("payload")).unwrap(),
+        "payload\n"
+    );
+
+    let missing_output = Command::new(env!("CARGO_BIN_EXE_pkgs_project_hydrated_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--store-root",
+            temp.path().join("missing-store").to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "projected",
+            "--expected-version",
+            "1.0",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-runtime-store-output",
+            &store_path,
+            "--missing-hint",
+            "run the hydration command",
+            "--output",
+            temp.path().join("missing-output").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!missing_output.status.success());
+    let stderr = String::from_utf8(missing_output.stderr).unwrap();
+    assert!(stderr.contains(&store_path));
+    assert!(stderr.contains("run the hydration command"));
+}
+
 fn append_archive_record(payload: &mut Vec<u8>, kind: u8, path: &[u8], contents: Option<&[u8]>) {
     payload.push(kind);
     payload.extend_from_slice(&(path.len() as u32).to_be_bytes());
@@ -510,6 +718,47 @@ fn append_archive_record(payload: &mut Vec<u8>, kind: u8, path: &[u8], contents:
         }
         payload.extend_from_slice(contents);
     }
+}
+
+fn export_test_store_object(
+    source: &Path,
+    key: &str,
+    entry: &str,
+    package_name: &str,
+    references: &[&str],
+    runtime_store_outputs: &[&str],
+    archive: &Path,
+    manifest: &Path,
+) {
+    let store_path = format!("/pkgs/store/{entry}");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_object"));
+    command.args([
+        "--input",
+        source.to_str().unwrap(),
+        "--store-path",
+        &store_path,
+        "--store-path-key",
+        key,
+        "--store-entry",
+        entry,
+        "--package-name",
+        package_name,
+        "--version",
+        "1.0",
+        "--target-system",
+        "x86_64-linux",
+        "--archive",
+        archive.to_str().unwrap(),
+        "--manifest",
+        manifest.to_str().unwrap(),
+    ]);
+    for reference in references {
+        command.args(["--reference", reference]);
+    }
+    for runtime_store_output in runtime_store_outputs {
+        command.args(["--runtime-store-output", runtime_store_output]);
+    }
+    assert!(command.status().unwrap().success());
 }
 
 #[test]

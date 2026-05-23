@@ -1,0 +1,73 @@
+load("//rules:pkgs.bzl", "pkgs_export_store_closure", "pkgs_export_store_substitute")
+
+pkgs_export_store_substitute(
+    name = "gmp",
+    package = "//development/libraries/gmp:out",
+)
+
+pkgs_export_store_substitute(
+    name = "mpfr",
+    package = "//development/libraries/mpfr:out",
+)
+
+pkgs_export_store_substitute(
+    name = "libmpc",
+    package = "//development/libraries/libmpc:out",
+)
+
+pkgs_export_store_substitute(
+    name = "glibc",
+    package = "//development/libraries/glibc:out_stage1",
+)
+
+pkgs_export_store_substitute(
+    name = "gcc",
+    package = "//development/compilers/gcc:out_stage2",
+)
+
+pkgs_export_store_substitute(
+    name = "binutils",
+    package = "//development/tools/misc/binutils:bin_stage1",
+)
+
+pkgs_export_store_substitute(
+    name = "bash",
+    package = "//shells/bash:bin",
+)
+
+pkgs_export_store_substitute(
+    name = "binutils_wrapper",
+    package = "//development/tools/misc/binutils:bin_final_wrapped",
+)
+
+pkgs_export_store_substitute(
+    name = "linux_headers",
+    package = "//os-specific/linux/kernel-headers:out",
+)
+
+pkgs_export_store_substitute(
+    name = "gcc_wrapper",
+    package = "//development/compilers/gcc:bin_final",
+)
+
+pkgs_export_store_closure(
+    name = "linux_x86_64_bundle",
+    closure_name = "bootstrap-linux-x86_64",
+    roots = [
+        ":binutils_wrapper",
+        ":gcc_wrapper",
+    ],
+    objects = [
+        ":bash",
+        ":binutils",
+        ":binutils_wrapper",
+        ":gcc",
+        ":gcc_wrapper",
+        ":glibc",
+        ":gmp",
+        ":libmpc",
+        ":linux_headers",
+        ":mpfr",
+    ],
+    visibility = ["PUBLIC"],
+)

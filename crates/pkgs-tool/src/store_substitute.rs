@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Cursor, Read, Write};
@@ -17,6 +17,7 @@ use thiserror::Error;
 use crate::common;
 
 const MANIFEST_FORMAT: &str = "buckpkgs-store-object-v1";
+const CLOSURE_FORMAT: &str = "buckpkgs-store-closure-v1";
 const ARCHIVE_ENCODING: &str = "buckpkgs-tree-v1";
 const ARCHIVE_COMPRESSION: &str = "none";
 const ARCHIVE_MAGIC: &[u8] = b"BUCKPKGS-STORE-ARCHIVE-V1\0";
@@ -54,6 +55,22 @@ struct ArchiveIdentity {
     download_size: u64,
     payload_hash: String,
     payload_size: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct StoreClosureManifest {
+    format: String,
+    name: String,
+    target_system: String,
+    roots: Vec<String>,
+    objects: BTreeMap<String, ClosureObject>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ClosureObject {
+    manifest: String,
+    archive: String,
+    manifest_hash: String,
 }
 
 #[derive(Debug, Parser)]
@@ -143,6 +160,119 @@ pub(crate) struct ImportArgs {
     output: PathBuf,
 }
 
+#[derive(Debug, Parser)]
+#[command(name = "pkgs-export-store-closure")]
+pub(crate) struct ExportClosureArgs {
+    #[arg(long)]
+    name: String,
+
+    #[arg(long)]
+    target_system: String,
+
+    #[arg(long = "root")]
+    roots: Vec<String>,
+
+    #[arg(long = "object-manifest")]
+    object_manifests: Vec<PathBuf>,
+
+    #[arg(long = "object-archive")]
+    object_archives: Vec<PathBuf>,
+
+    #[arg(long)]
+    output: PathBuf,
+}
+
+#[derive(Debug, Parser)]
+#[command(name = "pkgs-hydrate-store-closure")]
+pub(crate) struct HydrateClosureArgs {
+    #[arg(long)]
+    closure: PathBuf,
+
+    #[arg(long)]
+    bundle: PathBuf,
+
+    #[arg(long, default_value = "/pkgs/store")]
+    store_root: PathBuf,
+}
+
+#[derive(Debug, Parser)]
+#[command(name = "pkgs-project-hydrated-store-object")]
+pub(crate) struct ProjectHydratedArgs {
+    #[arg(long)]
+    manifest: PathBuf,
+
+    #[arg(long, default_value = "/pkgs/store")]
+    store_root: PathBuf,
+
+    #[arg(long)]
+    expected_store_path: String,
+
+    #[arg(long)]
+    expected_package_name: String,
+
+    #[arg(long)]
+    expected_version: String,
+
+    #[arg(long, default_value = "out")]
+    expected_output: String,
+
+    #[arg(long)]
+    expected_target_system: String,
+
+    #[arg(long = "expected-reference")]
+    expected_references: Vec<String>,
+
+    #[arg(long = "expected-runtime-store-output")]
+    expected_runtime_store_outputs: Vec<String>,
+
+    #[arg(
+        long,
+        default_value = "hydrate the configured bootstrap substitute closure first"
+    )]
+    missing_hint: String,
+
+    #[arg(long)]
+    output: PathBuf,
+}
+
+struct ExpectedManifest<'a> {
+    store_path: &'a str,
+    package_name: &'a str,
+    version: &'a str,
+    output: &'a str,
+    target_system: &'a str,
+    references: &'a [String],
+    runtime_store_outputs: &'a [String],
+}
+
+impl<'a> From<&'a ImportArgs> for ExpectedManifest<'a> {
+    fn from(args: &'a ImportArgs) -> Self {
+        Self {
+            store_path: &args.expected_store_path,
+            package_name: &args.expected_package_name,
+            version: &args.expected_version,
+            output: &args.expected_output,
+            target_system: &args.expected_target_system,
+            references: &args.expected_references,
+            runtime_store_outputs: &args.expected_runtime_store_outputs,
+        }
+    }
+}
+
+impl<'a> From<&'a ProjectHydratedArgs> for ExpectedManifest<'a> {
+    fn from(args: &'a ProjectHydratedArgs) -> Self {
+        Self {
+            store_path: &args.expected_store_path,
+            package_name: &args.expected_package_name,
+            version: &args.expected_version,
+            output: &args.expected_output,
+            target_system: &args.expected_target_system,
+            references: &args.expected_references,
+            runtime_store_outputs: &args.expected_runtime_store_outputs,
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub(crate) enum Error {
     #[error(transparent)]
@@ -175,6 +305,19 @@ pub(crate) enum Error {
         source: serde_json::Error,
     },
 
+    #[error("failed to parse store-closure manifest {path}")]
+    ParseClosureManifest {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("failed to encode store-closure manifest")]
+    EncodeClosureManifest {
+        #[source]
+        source: serde_json::Error,
+    },
+
     #[error("unsupported store-object manifest format: {0}")]
     ManifestFormat(String),
 
@@ -183,6 +326,9 @@ pub(crate) enum Error {
 
     #[error("unsupported store-object archive compression: {0}")]
     ArchiveCompression(String),
+
+    #[error("unsupported store-closure manifest format: {0}")]
+    ClosureFormat(String),
 
     #[error("invalid store path key: {0}")]
     InvalidStorePathKey(String),
@@ -195,6 +341,12 @@ pub(crate) enum Error {
 
     #[error("manifest contains an invalid store reference: {0}")]
     InvalidStoreReference(String),
+
+    #[error("manifest list `{field}` is not in canonical sorted unique form")]
+    NonCanonicalManifestList { field: &'static str },
+
+    #[error("manifest runtime closure does not equal references plus its own store path")]
+    InvalidManifestClosure,
 
     #[error("manifest store path `{actual}` does not match expected path `{expected}`")]
     UnexpectedStorePath { expected: String, actual: String },
@@ -211,8 +363,52 @@ pub(crate) enum Error {
     #[error("canonical tree hash mismatch: expected {expected}, got {actual}")]
     TreeHash { expected: String, actual: String },
 
+    #[error("closure export needs one archive for each object manifest")]
+    ClosureObjectArgumentCount,
+
+    #[error("closure contains duplicate object path: {0}")]
+    DuplicateClosureObject(String),
+
+    #[error("closure root has no published object: {0}")]
+    MissingClosureRoot(String),
+
+    #[error("closure object `{object}` references unpublished object `{reference}`")]
+    MissingClosureReference { object: String, reference: String },
+
+    #[error("closure contains object not reachable from a declared root: {0}")]
+    UnreachableClosureObject(String),
+
+    #[error(
+        "closure object `{object}` belongs to target system `{actual}`, expected `{expected}`"
+    )]
+    ClosureTargetSystem {
+        object: String,
+        expected: String,
+        actual: String,
+    },
+
+    #[error("closure bundle path is not a safe relative path: {0:?}")]
+    UnsafeBundlePath(PathBuf),
+
+    #[error("closure manifest hash mismatch for `{object}`: expected {expected}, got {actual}")]
+    ClosureManifestHash {
+        object: String,
+        expected: String,
+        actual: String,
+    },
+
+    #[error("closure object manifest describes `{actual}`, expected `{expected}`")]
+    ClosureObjectIdentity { expected: String, actual: String },
+
     #[error("source tree does not exist or is not a directory: {0}")]
     MissingTree(PathBuf),
+
+    #[error("hydrated store object `{store_path}` is unavailable at {path}; {hint}")]
+    MissingHydratedStoreObject {
+        store_path: String,
+        path: PathBuf,
+        hint: String,
+    },
 
     #[error("output path already exists: {0}")]
     ExistingOutput(PathBuf),
@@ -356,62 +552,147 @@ pub(crate) fn hydrate_store_object(args: &HydrateArgs) -> Result<PathBuf, Error>
 
 pub(crate) fn import_store_object(args: &ImportArgs) -> Result<(), Error> {
     let (manifest, payload) = load_and_verify(&args.manifest, &args.archive)?;
-    if manifest.store_path != args.expected_store_path {
-        return Err(Error::UnexpectedStorePath {
-            expected: args.expected_store_path.clone(),
-            actual: manifest.store_path,
-        });
-    }
-    if manifest.package.name != args.expected_package_name {
-        return Err(Error::UnexpectedManifestMetadata {
-            field: "package.name",
-        });
-    }
-    if manifest.package.version != args.expected_version {
-        return Err(Error::UnexpectedManifestMetadata {
-            field: "package.version",
-        });
-    }
-    if manifest.package.output != args.expected_output {
-        return Err(Error::UnexpectedManifestMetadata {
-            field: "package.output",
-        });
-    }
-    if manifest.target_system != args.expected_target_system {
-        return Err(Error::UnexpectedManifestMetadata {
-            field: "target_system",
-        });
-    }
-    let mut expected_references = args.expected_references.clone();
-    expected_references.sort();
-    expected_references.dedup();
-    if manifest.references != expected_references {
-        return Err(Error::UnexpectedManifestMetadata {
-            field: "references",
-        });
-    }
-    let mut expected_runtime_store_outputs = args.expected_runtime_store_outputs.clone();
-    expected_runtime_store_outputs.sort();
-    expected_runtime_store_outputs.dedup();
-    if manifest.runtime_store_outputs != expected_runtime_store_outputs {
-        return Err(Error::UnexpectedManifestMetadata {
-            field: "runtime_store_outputs",
-        });
-    }
+    validate_expected_manifest(&manifest, ExpectedManifest::from(args))?;
     materialize_payload(&payload, &args.output)
+}
+
+pub(crate) fn export_store_closure(args: &ExportClosureArgs) -> Result<(), Error> {
+    if args.object_manifests.len() != args.object_archives.len() {
+        return Err(Error::ClosureObjectArgumentCount);
+    }
+
+    let mut roots = args.roots.clone();
+    roots.sort();
+    roots.dedup();
+    let mut manifests = BTreeMap::new();
+    let mut objects = BTreeMap::new();
+    let mut bundle_files = Vec::new();
+    for (manifest_path, archive_path) in args
+        .object_manifests
+        .iter()
+        .zip(args.object_archives.iter())
+    {
+        let (manifest, _) = load_and_verify(manifest_path, archive_path)?;
+        if manifest.target_system != args.target_system {
+            return Err(Error::ClosureTargetSystem {
+                object: manifest.store_path.clone(),
+                expected: args.target_system.clone(),
+                actual: manifest.target_system,
+            });
+        }
+        let object_path = manifest.store_path.clone();
+        let manifest_name = format!("{}.manifest.json", manifest.store_entry);
+        let archive_name = format!("{}.bpkgs-tree", manifest.store_entry);
+        let manifest_bytes = read_file(manifest_path)?;
+        let manifest_hash = sha256(&manifest_bytes);
+        if manifests.insert(object_path.clone(), manifest).is_some() {
+            return Err(Error::DuplicateClosureObject(object_path));
+        }
+        objects.insert(
+            object_path,
+            ClosureObject {
+                manifest: manifest_name.clone(),
+                archive: archive_name.clone(),
+                manifest_hash,
+            },
+        );
+        bundle_files.push((manifest_path.clone(), manifest_name));
+        bundle_files.push((archive_path.clone(), archive_name));
+    }
+
+    let closure = StoreClosureManifest {
+        format: CLOSURE_FORMAT.to_owned(),
+        name: args.name.clone(),
+        target_system: args.target_system.clone(),
+        roots,
+        objects,
+    };
+    validate_closure(&closure, &manifests)?;
+    if args.output.exists() {
+        return Err(Error::ExistingOutput(args.output.clone()));
+    }
+    fs::create_dir_all(&args.output).map_err(|source| common::Error::CreateDir {
+        path: args.output.clone(),
+        source,
+    })?;
+    for (source, name) in bundle_files {
+        write_file(&args.output.join(name), &read_file(&source)?)?;
+    }
+    let mut json = serde_json::to_vec_pretty(&closure)
+        .map_err(|source| Error::EncodeClosureManifest { source })?;
+    json.push(b'\n');
+    write_file(&args.output.join("closure.json"), &json)
+}
+
+pub(crate) fn hydrate_store_closure(args: &HydrateClosureArgs) -> Result<(), Error> {
+    let closure = load_closure_manifest(&args.closure)?;
+    let mut manifests = BTreeMap::new();
+    for (object_path, object) in &closure.objects {
+        let manifest_path = bundle_path(&args.bundle, &object.manifest)?;
+        let archive_path = bundle_path(&args.bundle, &object.archive)?;
+        let manifest_bytes = read_file(&manifest_path)?;
+        let actual_manifest_hash = sha256(&manifest_bytes);
+        if actual_manifest_hash != object.manifest_hash {
+            return Err(Error::ClosureManifestHash {
+                object: object_path.clone(),
+                expected: object.manifest_hash.clone(),
+                actual: actual_manifest_hash,
+            });
+        }
+        let (manifest, _) = load_and_verify(&manifest_path, &archive_path)?;
+        if manifest.store_path != *object_path {
+            return Err(Error::ClosureObjectIdentity {
+                expected: object_path.clone(),
+                actual: manifest.store_path,
+            });
+        }
+        if manifest.target_system != closure.target_system {
+            return Err(Error::ClosureTargetSystem {
+                object: object_path.clone(),
+                expected: closure.target_system.clone(),
+                actual: manifest.target_system,
+            });
+        }
+        manifests.insert(object_path.clone(), manifest);
+    }
+    validate_closure(&closure, &manifests)?;
+
+    for object in closure.objects.values() {
+        hydrate_store_object(&HydrateArgs {
+            manifest: bundle_path(&args.bundle, &object.manifest)?,
+            archive: bundle_path(&args.bundle, &object.archive)?,
+            store_root: args.store_root.clone(),
+        })?;
+    }
+    Ok(())
+}
+
+pub(crate) fn project_hydrated_store_object(args: &ProjectHydratedArgs) -> Result<(), Error> {
+    let manifest = load_manifest(&args.manifest)?;
+    validate_expected_manifest(&manifest, ExpectedManifest::from(args))?;
+    let source = args.store_root.join(&manifest.store_entry);
+    if !source.is_dir() {
+        return Err(Error::MissingHydratedStoreObject {
+            store_path: manifest.store_path,
+            path: source,
+            hint: args.missing_hint.clone(),
+        });
+    }
+    verify_existing_tree(&source, &manifest.canonical_tree_hash)?;
+    if args.output.exists() {
+        return Err(Error::ExistingOutput(args.output.clone()));
+    }
+    common::copy_tree(&source, &args.output)?;
+    common::normalize_tree_mtimes(&args.output)?;
+    common::make_tree_read_only(&args.output)?;
+    verify_existing_tree(&args.output, &manifest.canonical_tree_hash)
 }
 
 fn load_and_verify(
     manifest_path: &Path,
     archive_path: &Path,
 ) -> Result<(StoreObjectManifest, Vec<u8>), Error> {
-    let manifest_bytes = read_file(manifest_path)?;
-    let manifest: StoreObjectManifest =
-        serde_json::from_slice(&manifest_bytes).map_err(|source| Error::ParseManifest {
-            path: manifest_path.to_path_buf(),
-            source,
-        })?;
-    validate_manifest(&manifest)?;
+    let manifest = load_manifest(manifest_path)?;
 
     let payload = read_file(archive_path)?;
     let digest = sha256(&payload);
@@ -438,6 +719,30 @@ fn load_and_verify(
     Ok((manifest, payload))
 }
 
+fn load_manifest(manifest_path: &Path) -> Result<StoreObjectManifest, Error> {
+    let manifest_bytes = read_file(manifest_path)?;
+    let manifest: StoreObjectManifest =
+        serde_json::from_slice(&manifest_bytes).map_err(|source| Error::ParseManifest {
+            path: manifest_path.to_path_buf(),
+            source,
+        })?;
+    validate_manifest(&manifest)?;
+    Ok(manifest)
+}
+
+fn load_closure_manifest(path: &Path) -> Result<StoreClosureManifest, Error> {
+    let bytes = read_file(path)?;
+    let manifest: StoreClosureManifest =
+        serde_json::from_slice(&bytes).map_err(|source| Error::ParseClosureManifest {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    if manifest.format != CLOSURE_FORMAT {
+        return Err(Error::ClosureFormat(manifest.format));
+    }
+    Ok(manifest)
+}
+
 fn validate_manifest(manifest: &StoreObjectManifest) -> Result<(), Error> {
     if manifest.format != MANIFEST_FORMAT {
         return Err(Error::ManifestFormat(manifest.format.clone()));
@@ -462,6 +767,18 @@ fn validate_manifest(manifest: &StoreObjectManifest) -> Result<(), Error> {
     {
         validate_store_reference(reference)?;
     }
+    if canonical_store_paths(&manifest.references) != manifest.references {
+        return Err(Error::NonCanonicalManifestList {
+            field: "references",
+        });
+    }
+    let mut expected_runtime_store_outputs = manifest.references.clone();
+    expected_runtime_store_outputs.push(manifest.store_path.clone());
+    expected_runtime_store_outputs.sort();
+    expected_runtime_store_outputs.dedup();
+    if manifest.runtime_store_outputs != expected_runtime_store_outputs {
+        return Err(Error::InvalidManifestClosure);
+    }
     Ok(())
 }
 
@@ -473,7 +790,11 @@ fn validate_identity(key: &str, entry: &str, store_path: &str) -> Result<(), Err
     {
         return Err(Error::InvalidStorePathKey(key.to_owned()));
     }
-    if !entry.starts_with(&format!("{key}-")) {
+    let prefix = format!("{key}-");
+    if !entry.starts_with(&prefix)
+        || entry[prefix.len()..].is_empty()
+        || entry[prefix.len()..].contains('/')
+    {
         return Err(Error::InvalidStoreEntry {
             key: key.to_owned(),
             entry: entry.to_owned(),
@@ -487,6 +808,112 @@ fn validate_identity(key: &str, entry: &str, store_path: &str) -> Result<(), Err
         });
     }
     Ok(())
+}
+
+fn canonical_store_paths(paths: &[String]) -> Vec<String> {
+    let mut canonical = paths.to_vec();
+    canonical.sort();
+    canonical.dedup();
+    canonical
+}
+
+fn validate_expected_manifest(
+    manifest: &StoreObjectManifest,
+    expected: ExpectedManifest<'_>,
+) -> Result<(), Error> {
+    if manifest.store_path != expected.store_path {
+        return Err(Error::UnexpectedStorePath {
+            expected: expected.store_path.to_owned(),
+            actual: manifest.store_path.clone(),
+        });
+    }
+    if manifest.package.name != expected.package_name {
+        return Err(Error::UnexpectedManifestMetadata {
+            field: "package.name",
+        });
+    }
+    if manifest.package.version != expected.version {
+        return Err(Error::UnexpectedManifestMetadata {
+            field: "package.version",
+        });
+    }
+    if manifest.package.output != expected.output {
+        return Err(Error::UnexpectedManifestMetadata {
+            field: "package.output",
+        });
+    }
+    if manifest.target_system != expected.target_system {
+        return Err(Error::UnexpectedManifestMetadata {
+            field: "target_system",
+        });
+    }
+    if manifest.references != canonical_store_paths(expected.references) {
+        return Err(Error::UnexpectedManifestMetadata {
+            field: "references",
+        });
+    }
+    if manifest.runtime_store_outputs != canonical_store_paths(expected.runtime_store_outputs) {
+        return Err(Error::UnexpectedManifestMetadata {
+            field: "runtime_store_outputs",
+        });
+    }
+    Ok(())
+}
+
+fn validate_closure(
+    closure: &StoreClosureManifest,
+    manifests: &BTreeMap<String, StoreObjectManifest>,
+) -> Result<(), Error> {
+    if closure.format != CLOSURE_FORMAT {
+        return Err(Error::ClosureFormat(closure.format.clone()));
+    }
+    if closure.roots != canonical_store_paths(&closure.roots) {
+        return Err(Error::NonCanonicalManifestList { field: "roots" });
+    }
+    for root in &closure.roots {
+        if !closure.objects.contains_key(root) || !manifests.contains_key(root) {
+            return Err(Error::MissingClosureRoot(root.clone()));
+        }
+    }
+
+    let mut reachable = BTreeSet::new();
+    let mut pending = closure.roots.clone();
+    while let Some(object_path) = pending.pop() {
+        if !reachable.insert(object_path.clone()) {
+            continue;
+        }
+        let manifest = manifests
+            .get(&object_path)
+            .ok_or_else(|| Error::MissingClosureRoot(object_path.clone()))?;
+        for reference in &manifest.references {
+            if !closure.objects.contains_key(reference) || !manifests.contains_key(reference) {
+                return Err(Error::MissingClosureReference {
+                    object: object_path.clone(),
+                    reference: reference.clone(),
+                });
+            }
+            pending.push(reference.clone());
+        }
+    }
+    for object in closure.objects.keys() {
+        if !reachable.contains(object) {
+            return Err(Error::UnreachableClosureObject(object.clone()));
+        }
+    }
+    Ok(())
+}
+
+fn bundle_path(root: &Path, relative: &str) -> Result<PathBuf, Error> {
+    let path = PathBuf::from(relative);
+    if path.as_os_str().is_empty()
+        || path.is_absolute()
+        || path
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err(Error::UnsafeBundlePath(path));
+    }
+    Ok(root.join(path))
 }
 
 fn validate_store_reference(reference: &str) -> Result<(), Error> {

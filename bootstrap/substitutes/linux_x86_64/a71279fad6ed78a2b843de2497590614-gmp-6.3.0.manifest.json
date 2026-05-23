@@ -1,0 +1,25 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+  "store_path_key": "a71279fad6ed78a2b843de2497590614",
+  "store_entry": "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
+  "package": {
+    "name": "gmp",
+    "version": "6.3.0",
+    "output": "out"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:e43d51f4f34b0ff99db35c2c18a5354aed4eed08cfaf444a3c44c82583a9d808",
+    "download_size": 2931726,
+    "payload_hash": "sha256:e43d51f4f34b0ff99db35c2c18a5354aed4eed08cfaf444a3c44c82583a9d808",
+    "payload_size": 2931726
+  },
+  "canonical_tree_hash": "sha256:e43d51f4f34b0ff99db35c2c18a5354aed4eed08cfaf444a3c44c82583a9d808",
+  "references": [],
+  "runtime_store_outputs": [
+    "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0"
+  ]
+}

@@ -35,6 +35,11 @@ ordinary consumers to the live bootstrap turnover graph.
   imported-provider changes.
 - A graph-boundary check demonstrating imported consumer targets do not depend
   on live turnover labels.
+- For a bootstrap publication change, compare the generated closure/object
+  manifests byte-for-byte with the reviewed pinned files under
+  `bootstrap/substitutes/<system>/`.
+- Hydrate a pinned closure into a disposable store root before relying on the
+  ordinary `pkgs_hydrated_store_output(...)` projection path.
 
 ## Reviewer Policy
 

@@ -46,3 +46,9 @@
 - A Buck import test needs a store path with no live package producer; exporting
   and reimporting one live package only exercises existing-store verification,
   not first publication of the imported store object.
+- Buck2 store paths remain action outputs, so ordinary bootstrap imports need a
+  local-only verified projection from an externally hydrated `/pkgs/store`
+  object rather than an analysis-time physical-store artifact reference.
+- Substitute manifests and imported providers must share one canonical runtime
+  closure ordering; otherwise correct pinned metadata can fail verification or
+  misalign runtime store artifacts with their logical paths.

@@ -26,6 +26,8 @@ def buckpkgs_toolchains():
 
     pkgs_gcc_cxx_toolchain(
         name = "cxx_pkgs",
+        gcc = "root//bootstrap/substitutes:gcc_wrapper",
+        bintools = "root//bootstrap/substitutes:binutils_wrapper",
         visibility = ["PUBLIC"],
     )
 

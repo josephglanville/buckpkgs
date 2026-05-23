@@ -185,9 +185,9 @@ Therefore:
 Unsigned imports may be useful for local experiments, but the normal bootstrap
 substitute path should require trust metadata.
 
-## Implemented Object Pipeline
+## Implemented Pipeline
 
-The repository now has an object-level substitution pipeline:
+The repository now has object and bootstrap-closure substitution pipelines:
 
 - `pkgs_export_store_substitute(...)` exports a live `PkgsPackageInfo` output
   into a `buckpkgs-tree-v1` payload plus `buckpkgs-store-object-v1` JSON manifest
@@ -200,41 +200,55 @@ The repository now has an object-level substitution pipeline:
   manifest artifacts to the import rule
 - `pkgs_hydrate_store_object` verifies an object manifest and atomically
   publishes it below a selected store root, defaulting to `/pkgs/store`
+- `pkgs_export_store_closure(...)` exports a complete named closure bundle from
+  object substitutes and refuses incomplete or unreachable object sets
+- `pkgs_hydrate_store_closure` verifies a pinned closure plus every bundled
+  object before atomically hydrating store objects below `/pkgs/store`
+- `pkgs_hydrated_store_output(...)` verifies an already-hydrated physical store
+  object against pinned manifest metadata and exposes it as `PkgsPackageInfo`
+  without depending on the live producer graph
 
-The object manifest currently verifies store identity, package metadata, target
-system, exact reference metadata, payload hash/size, and the decoded canonical
-tree hash. Signature verification and closure-manifest orchestration remain to
-be implemented before published bootstrap substitutes should be treated as
-trusted ordinary-build inputs.
+The manifests verify store identity, package metadata, target system, exact
+canonical reference metadata, payload hash/size, decoded canonical tree hash,
+closure completeness, and reachability from the named roots. For the current
+bootstrap prototype, repository-pinned JSON under
+`bootstrap/substitutes/linux_x86_64/` is the trusted publication metadata.
+Cryptographic signatures or a separately authenticated publication channel are
+still required before consuming bundles obtained from an untrusted service.
 
 ## Preferred Bootstrap-Island Import Pipeline
 
-For the bootstrap island, the cleanest ordinary-build flow is deliberately
-outside Buck2:
+For the bootstrap island, the ordinary-build flow is deliberately split around
+Buck2:
 
-1. a dedicated bootstrap hydration command selects the named closure manifest
-   for the host/target pair
-2. that hydrator fetches canonical substitute blobs directly from the configured
-   artifact service:
+1. `bootstrap/exports:linux_x86_64_bundle` builds and exports the finalized live
+   roots from the explicit bootstrap publication workflow
+2. the pinned `bootstrap/substitutes/linux_x86_64/closure.json` selects and
+   authenticates the expected named closure for the host/target pair through
+   source review and version control
+3. `pkgs_hydrate_store_closure` consumes that pinned closure and a corresponding
+   bundle fetched from the configured artifact service:
    - local archive cache
    - remote substitute service
    - remote-cache CAS used purely as byte transport
-3. the hydrator verifies:
-   - manifest signature/trust policy
+4. the hydrator verifies:
+   - bundle contents against the repository-pinned closure metadata
    - logical store path identity
    - archive download hash/size
    - payload hash/size
-   - decoded tree digest against `output_tree_digest`
+   - decoded canonical tree digest
    - referenced closure entries
-4. the hydrator expands into temporary siblings and atomically publishes the
+5. the hydrator expands into temporary siblings and atomically publishes the
    finalized store objects at `/pkgs/store/...`
-5. ordinary Buck graphs consume thin imported-provider declarations for those
-   already-realized store objects and fail clearly if the required closure was
-   not hydrated first
+6. ordinary Buck graphs use `pkgs_hydrated_store_output(...)` to verify and
+   project those already-realized store objects into declared store outputs,
+   failing clearly if hydration has not run
 
-That keeps the bootstrap seed graph islanded. Buck can use the resulting store
-objects as artifacts, but it does not participate in fetching or deriving them
-on the ordinary build path.
+The projection action is local-only and cannot upload cache entries: Buck's
+declared store outputs must be action outputs, while the trusted physical
+`/pkgs/store/...` object is intentionally created outside the ordinary build
+graph. This keeps the bootstrap seed graph islanded and does not make ordinary
+builds fetch or derive the live bootstrap tower.
 
 ## Recommended Buck2 Integration
 

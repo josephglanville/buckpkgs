@@ -126,3 +126,12 @@ pkgs_bintools_wrapper_package(
     shell = "//shells/bash:bin_stage2",
     visibility = ["PUBLIC"],
 )
+
+pkgs_bintools_wrapper_package(
+    name = "bin_final_wrapped",
+    package_name = "binutils-wrapper",
+    version = "2.46.0",
+    bintools = ":bin_stage1",
+    shell = "//shells/bash:bin",
+    visibility = ["PUBLIC"],
+)
