@@ -189,16 +189,25 @@ The implemented pieces of that surface now include:
 
 `root//bootstrap/exports:linux_x86_64_bundle` publishes finalized live wrapper
 roots. `root//bootstrap/substitutes:*` holds reviewed pinned closure/object
-metadata and import-only provider declarations. `toolchains//:cxx_pkgs` selects
-those imports rather than live stage targets.
+metadata and import-only provider declarations. Canonical package-facing labels
+such as `root//development/libraries/glibc:out` and
+`root//development/compilers/gcc:bin` alias those imports, while explicit
+`*_stage*` and `*_final` targets remain live publication producers.
 
 The imported bootstrap surface now also includes the final Bash, GNU Make,
 Coreutils, Findutils, and GNU sed outputs required by ordinary
-configure/make-style packages. `root//development/libraries/zlib:out_pkgs`
+configure/make-style packages. `root//development/libraries/zlib:out`
 demonstrates the boundary with a useful non-toolchain package: zlib is a direct
 PostgreSQL build input in nixpkgs, builds shared and static libraries plus
-`zlib.pc`, and depends only on pinned bootstrap imports rather than live
-turnover or foreign-seed targets.
+`zlib.pc`, and names ordinary package labels whose canonical definitions resolve
+to pinned bootstrap imports rather than live turnover or foreign-seed targets.
+Higher-layer tools such as Ninja and Meson are normal native package
+derivations built on that sealed imported façade. Their immediate Python
+dependency is an explicitly reduced native build interpreter with `zlib`, not
+an addition to the foreign seed or pinned bootstrap closure and not a claim
+that full canonical Python has already been built. Meson consumers remain
+ordinary package recipes once those native layers pass their reproducibility
+gates.
 
 The remaining hardening work is an authenticated remote publication channel and
 stronger graph enforcement, such as a dedicated cell or visibility lint.
@@ -212,7 +221,9 @@ The Buck2 fork already has the right local foundation:
 - staged build outputs that carry a logical `/pkgs/store/...` path
 - materializer-driven publication into `/pkgs/store`
 - verification that an existing store path matches the recorded artifact value
-- atomic publication through a temporary path followed by rename
+- atomic publication through a temporary path followed by rename, preserving
+  and validating modes already sealed by the native package producer rather
+  than mutating either new or reused published paths
 
 The island design relies on that machinery, but it does not require ordinary
 consumer targets to know anything about bootstrap turnover.

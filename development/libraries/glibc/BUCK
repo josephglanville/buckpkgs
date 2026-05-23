@@ -35,7 +35,7 @@ pkgs_configure_make_install_package(
         "--disable-werror",
         "--enable-kernel=3.10.0",
         "--without-selinux",
-        pkgs_store_path("--with-headers=", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("--with-headers=", "//os-specific/linux/kernel-headers:out_final", "/include"),
     ],
     configure_env = [
         "CC=gcc",
@@ -49,7 +49,7 @@ pkgs_configure_make_install_package(
     ],
     native_build_inputs = _NATIVE_TOOLS,
     build_inputs = [
-        "//os-specific/linux/kernel-headers:out",
+        "//os-specific/linux/kernel-headers:out_final",
     ],
     visibility = ["PUBLIC"],
 )
@@ -62,4 +62,10 @@ pkgs_seed_free(
         "//bootstrap/foreign_seed:gettext",
         "//bootstrap/foreign_seed:python3",
     ],
+)
+
+alias(
+    name = "out",
+    actual = "//bootstrap/substitutes:glibc",
+    visibility = ["PUBLIC"],
 )

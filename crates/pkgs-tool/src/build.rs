@@ -24,6 +24,12 @@ pub(crate) enum Error {
 
     #[error("install prefix must be absolute: {0}")]
     InvalidInstallPrefix(PathBuf),
+
+    #[error("python bytecode directories require exactly one interpreter")]
+    InvalidPythonBytecodeInterpreter,
+
+    #[error("python bytecode optimization level must be in 0..=2: {0}")]
+    InvalidPythonBytecodeOptimization(u8),
 }
 
 pub(crate) fn parse_env_assignments(
@@ -99,6 +105,60 @@ pub(crate) fn copy_staged_prefix(
         .map_err(|_| Error::InvalidInstallPrefix(install_prefix.to_path_buf()))?;
     let staged_prefix = install_root.join(relative_prefix);
     common::copy_tree(&staged_prefix, output)?;
+    Ok(())
+}
+
+pub(crate) fn compile_python_bytecode(
+    output: &Path,
+    install_prefix: &Path,
+    interpreter: Option<&Path>,
+    self_interpreter: Option<&Path>,
+    directories: &[PathBuf],
+    optimization_levels: &[u8],
+) -> Result<(), Error> {
+    if directories.is_empty() {
+        return Ok(());
+    }
+
+    let interpreter = match (interpreter, self_interpreter) {
+        (Some(interpreter), None) => interpreter.to_path_buf(),
+        (None, Some(interpreter)) => {
+            validate_relative_path(interpreter)?;
+            output.join(interpreter)
+        }
+        _ => return Err(Error::InvalidPythonBytecodeInterpreter),
+    };
+
+    for level in optimization_levels {
+        if *level > 2 {
+            return Err(Error::InvalidPythonBytecodeOptimization(*level));
+        }
+    }
+
+    for directory in directories {
+        validate_relative_path(directory)?;
+        let directory = output.join(directory);
+        for level in optimization_levels {
+            common::run_command(
+                common::reproducible_command(&interpreter)
+                    .arg("-m")
+                    .arg("compileall")
+                    .arg("-q")
+                    .arg("-f")
+                    .arg("--invalidation-mode")
+                    .arg("checked-hash")
+                    .arg("-s")
+                    .arg(output)
+                    .arg("-p")
+                    .arg(install_prefix)
+                    .arg("-o")
+                    .arg(level.to_string())
+                    .arg(&directory),
+                &interpreter.display().to_string(),
+            )?;
+        }
+    }
+
     Ok(())
 }
 

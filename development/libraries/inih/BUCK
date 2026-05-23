@@ -1,0 +1,32 @@
+load("//rules:pkgs.bzl", "pkgs_http_archive_source", "pkgs_meson_install_package")
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "9c15fa751bb8093d042dae1b9f125eb45198c32c6704cd5481ccde460d4f8151",
+    strip_prefix = "inih-r62",
+    urls = ["https://github.com/benhoyt/inih/archive/refs/tags/r62.tar.gz"],
+)
+
+_NATIVE_TOOLS = [
+    "//development/compilers/gcc:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/tools/build-managers/meson:bin",
+    "//development/tools/build-managers/ninja:bin",
+]
+
+pkgs_meson_install_package(
+    name = "out",
+    package_name = "inih",
+    version = "62",
+    sources = [_SOURCE],
+    meson_args = [
+        "-Dtests=false",
+        "-Dwith_INIReader=false",
+    ],
+    native_build_inputs = _NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/compilers/gcc:out",
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)

@@ -20,7 +20,7 @@ _NATIVE_TOOLS = [
 ]
 
 pkgs_linux_headers_package(
-    name = "out",
+    name = "out_final",
     package_name = "linux-headers",
     version = "6.18.7",
     sources = [_SOURCE],
@@ -39,9 +39,15 @@ pkgs_linux_headers_package(
 )
 
 pkgs_seed_free(
-    name = "out_seed_free",
-    packages = [":out"],
+    name = "out_final_seed_free",
+    packages = [":out_final"],
     forbidden = [
         "//bootstrap/foreign_seed:gcc",
     ],
+)
+
+alias(
+    name = "out",
+    actual = "//bootstrap/substitutes:linux_headers",
+    visibility = ["PUBLIC"],
 )

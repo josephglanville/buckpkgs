@@ -23,6 +23,9 @@ pub(crate) struct Args {
     #[arg(long = "path-entry")]
     path_entries: Vec<PathBuf>,
 
+    #[arg(long = "link-input")]
+    link_inputs: Vec<PathBuf>,
+
     #[arg(long = "configure-arg")]
     configure_args: Vec<String>,
 
@@ -37,6 +40,18 @@ pub(crate) struct Args {
 
     #[arg(long = "install-arg")]
     install_args: Vec<String>,
+
+    #[arg(long = "python-bytecode-dir")]
+    python_bytecode_dirs: Vec<PathBuf>,
+
+    #[arg(long = "python-bytecode-interpreter")]
+    python_bytecode_interpreter: Option<PathBuf>,
+
+    #[arg(long = "python-bytecode-self-interpreter")]
+    python_bytecode_self_interpreter: Option<PathBuf>,
+
+    #[arg(long = "python-bytecode-optimize")]
+    python_bytecode_optimizations: Vec<u8>,
 
     #[arg(long = "patch")]
     patches: Vec<PathBuf>,
@@ -119,7 +134,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
 
     let path = std::env::join_paths(&args.path_entries)
         .map_err(|source| common::Error::JoinPath { source })?;
-    let path = common::compiler_wrapped_path(&path, work.path())?;
+    let path = common::compiler_wrapped_path(&path, work.path(), &args.link_inputs)?;
     let configure_args = expand_work_dir_placeholders(&args.configure_args, work.path());
     let configure_env = expand_work_dir_placeholders(&args.configure_env, work.path());
     let env = build::parse_env_assignments(&configure_env)?;
@@ -169,7 +184,16 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     build::sanitize_self_referential_linker_scripts(&args.output, &args.install_prefix)?;
     let output = common::canonicalize(&args.output)?;
     build::create_symlinks(&output, &args.symlinks)?;
+    build::compile_python_bytecode(
+        &output,
+        &args.install_prefix,
+        args.python_bytecode_interpreter.as_deref(),
+        args.python_bytecode_self_interpreter.as_deref(),
+        &args.python_bytecode_dirs,
+        &args.python_bytecode_optimizations,
+    )?;
     common::normalize_tree_mtimes(&output)?;
+    common::make_tree_read_only(&output)?;
     Ok(())
 }
 

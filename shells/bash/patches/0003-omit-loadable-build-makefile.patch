@@ -1,0 +1,12 @@
+diff --git a/examples/loadables/Makefile.in b/examples/loadables/Makefile.in
+index cd53d47..803c485 100644
+--- a/examples/loadables/Makefile.in
++++ b/examples/loadables/Makefile.in
+@@ -292,7 +292,6 @@ installdirs:
+ 	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(loadablesdir)
+ 
+ install-dev:	installdirs
+-	@$(INSTALL_DATA) Makefile.inc $(DESTDIR)$(loadablesdir)/Makefile.inc
+ 	@$(INSTALL_DATA) Makefile.sample $(DESTDIR)$(loadablesdir)/Makefile.sample
+ 	@$(INSTALL_DATA) $(srcdir)/loadables.h $(DESTDIR)$(loadablesdir)/loadables.h
+ 	@( cd $(BUILD_DIR) && ${MAKE} ${MFLAGS} DESTDIR="$(DESTDIR)" install-headers)

@@ -69,8 +69,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     let dynamic_linker = format!("-Wl,-dynamic-linker,{}", args.dynamic_linker.display());
     let libc_runtime_path = format!("-Wl,-rpath,{}/lib", args.libc.display());
     let compiler_runtime_lib_path = format!("-Wl,-rpath,{}/lib", args.compiler_root.display());
-    let compiler_runtime_lib64_path =
-        format!("-Wl,-rpath,{}/lib64", args.compiler_root.display());
+    let compiler_runtime_lib64_path = format!("-Wl,-rpath,{}/lib64", args.compiler_root.display());
 
     for (name, target) in [
         ("cc", &args.cc),
@@ -104,6 +103,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     )?;
 
     common::normalize_tree_mtimes(&args.output)?;
+    common::make_tree_read_only(&args.output)?;
     Ok(())
 }
 

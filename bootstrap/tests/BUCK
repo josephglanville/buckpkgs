@@ -5,6 +5,7 @@ load(
     "pkgs_export_store_substitute",
     "pkgs_export_store_tree_substitute",
     "pkgs_export_patch",
+    "pkgs_foreign_build_free",
     "pkgs_imported_store_output",
     "pkgs_make_install_package",
     "pkgs_package",
@@ -349,18 +350,18 @@ _FINAL_BASE = [
     "//development/libraries/glibc:out_stage1",
     "//development/tools/misc/binutils:bin_stage1",
     "//development/compilers/gcc:out_stage2",
-    "//development/tools/build-managers/gnumake:bin",
-    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin_final",
+    "//shells/bash:bin_final",
     "//tools/archivers/gnutar:bin",
     "//tools/compression/bzip2:bin",
     "//tools/compression/gzip:out",
-    "//tools/misc/coreutils:bin",
-    "//tools/misc/findutils:bin",
+    "//tools/misc/coreutils:bin_final",
+    "//tools/misc/findutils:bin_final",
     "//tools/text/diffutils:bin",
-    "//tools/text/gawk:bin",
-    "//tools/text/gnugrep:bin",
-    "//tools/text/gnupatch:bin",
-    "//tools/text/gnused:bin",
+    "//tools/text/gawk:bin_final",
+    "//tools/text/gnugrep:bin_final",
+    "//tools/text/gnupatch:bin_final",
+    "//tools/text/gnused:bin_final",
 ]
 
 _FOREIGN_SEED = [
@@ -382,6 +383,59 @@ _FOREIGN_SEED = [
     "//bootstrap/foreign_seed:diffutils",
     "//bootstrap/foreign_seed:findutils",
 ]
+
+pkgs_seed_free(
+    name = "zlib_out_seed_free",
+    packages = ["//development/libraries/zlib:out"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "gnugrep_bin_seed_free",
+    packages = ["//tools/text/gnugrep:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "gawk_bin_seed_free",
+    packages = ["//tools/text/gawk:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "gnupatch_bin_seed_free",
+    packages = ["//tools/text/gnupatch:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "python_build_interpreter_seed_free",
+    packages = ["//development/interpreters/python:build_interpreter"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "ninja_bin_seed_free",
+    packages = ["//development/tools/build-managers/ninja:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "meson_bin_seed_free",
+    packages = ["//development/tools/build-managers/meson:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "inih_out_seed_free",
+    packages = ["//development/libraries/inih:out"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_foreign_build_free(
+    name = "inih_native_graph_foreign_build_free",
+    packages = ["//development/libraries/inih:out"],
+)
 
 pkgs_seed_free(
     name = "final_base_seed_free",

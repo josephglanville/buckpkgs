@@ -252,11 +252,24 @@ builds fetch or derive the live bootstrap tower.
 
 The pinned bootstrap closure now contains final compiler wrappers plus Bash,
 GNU Make, Coreutils, Findutils, and GNU sed. This is sufficient for
-`development/libraries/zlib:out_pkgs`, a direct PostgreSQL dependency in
-nixpkgs, to build as an ordinary imported-bootstrap package and pass its
-foreign-seed reference check. The current local-only projection remains
-correct but costly because each imported tree is verified and copied into a
-Buck-declared output before it can be used.
+`development/libraries/zlib:out`, a direct PostgreSQL dependency in nixpkgs, to
+build as an ordinary imported-bootstrap package and pass its foreign-seed
+reference check. Ordinary package definitions depend on canonical labels such
+as `development/libraries/glibc:out` and `development/compilers/gcc:bin`;
+only those aliases expose the reviewed `bootstrap/substitutes` transport layer.
+The current local-only projection remains correct but costly because each
+imported tree is verified and copied into a Buck-declared output before use.
+That projection cost is separate from native store sealing: package finalizers
+seal new native staged outputs before hashing, and Buck2 preserves and validates
+those modes while already walking metadata for atomic publication. Existing
+store outputs are verified and trusted rather than repaired during use.
+Meson, Ninja, and Python are not in the pinned bootstrap closure. They are
+defined as native package derivations above the sealed imported façade. The
+immediate Meson path uses an explicitly reduced native Python build interpreter
+with `zlib`; canonical full Python remains reserved for the normal
+Nixpkgs-style feature profile. These targets must pass reproducibility and
+foreign-seed boundary checks before Meson-built consumers are treated as
+verified.
 
 ## Recommended Buck2 Integration
 
@@ -266,7 +279,8 @@ The Buck2 fork already has most of the local path semantics:
 - staged output artifacts carrying logical store paths
 - materializer-owned publication into `/pkgs/store`
 - verification of existing store outputs against recorded artifact values
-- atomic publication on first realization
+- source-sealed native outputs whose modes are preserved and validated during
+  atomic first publication, without a repair-on-reuse pass
 
 The BuckPkgs prototype now implements archive import as a normal verified action
 through `pkgs_imported_store_output(...)`. A native Buck2 store-import action is

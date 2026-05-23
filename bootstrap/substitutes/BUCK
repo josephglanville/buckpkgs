@@ -89,6 +89,7 @@ pkgs_hydrated_store_output(
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
     runtime_store_entries = ["a71279fad6ed78a2b843de2497590614-gmp-6.3.0"],
+    visibility = ["PUBLIC"],
 )
 
 pkgs_hydrated_store_output(
@@ -101,6 +102,7 @@ pkgs_hydrated_store_output(
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
     runtime_store_entries = ["049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2"],
+    visibility = ["PUBLIC"],
 )
 
 pkgs_hydrated_store_output(
@@ -113,6 +115,7 @@ pkgs_hydrated_store_output(
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
     runtime_store_entries = ["1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0"],
+    visibility = ["PUBLIC"],
 )
 
 pkgs_hydrated_store_output(
@@ -138,6 +141,7 @@ pkgs_hydrated_store_output(
     target_system = _TARGET_SYSTEM,
     missing_hint = _MISSING_HINT,
     runtime_store_entries = ["4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7"],
+    visibility = ["PUBLIC"],
 )
 
 pkgs_hydrated_store_output(
@@ -270,6 +274,7 @@ pkgs_hydrated_store_output(
         "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
     ],
     runtime_inputs = [":gmp", ":mpfr", ":libmpc", ":glibc"],
+    visibility = ["PUBLIC"],
 )
 
 pkgs_hydrated_store_output(

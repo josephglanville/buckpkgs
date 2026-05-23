@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_free")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_seed_cut", "pkgs_seed_free")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -30,6 +30,18 @@ _FINAL_NATIVE_TOOLS = [
     "//tools/text/gnugrep:bin_stage0",
     "//tools/text/gnupatch:bin_stage0",
     "//tools/text/gnused:bin_stage0",
+]
+
+_PKGS_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin_stage0",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnused:bin",
 ]
 
 pkgs_configure_make_install_package(
@@ -70,9 +82,24 @@ pkgs_configure_make_install_package(
     visibility = ["PUBLIC"],
 )
 
-alias(
+pkgs_configure_make_install_package(
+    name = "bin_promoted",
+    package_name = "gawk",
+    version = "5.4.0",
+    sources = [_SOURCE],
+    configure_args = ["--without-readline"],
+    configure_env = ["CC=cc"],
+    make_args = ["AR=ar"],
+    native_build_inputs = _PKGS_NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/compilers/gcc:out",
+        "//development/libraries/glibc:out",
+    ],
+)
+
+pkgs_seed_cut(
     name = "bin",
-    actual = ":bin_final",
+    package = ":bin_promoted",
     visibility = ["PUBLIC"],
 )
 

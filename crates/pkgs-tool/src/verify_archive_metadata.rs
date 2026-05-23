@@ -104,9 +104,15 @@ fn verify_ar_archive(path: &Path, bytes: &[u8]) -> Result<(), Error> {
             return Err(malformed_archive(path, "invalid member trailer"));
         }
 
-        require_zero_decimal(path, "timestamp", &header[16..28])?;
-        require_zero_decimal(path, "uid", &header[28..34])?;
-        require_zero_decimal(path, "gid", &header[34..40])?;
+        if &header[..16] == b"//              " {
+            require_empty(path, "timestamp", &header[16..28])?;
+            require_empty(path, "uid", &header[28..34])?;
+            require_empty(path, "gid", &header[34..40])?;
+        } else {
+            require_zero_decimal(path, "timestamp", &header[16..28])?;
+            require_zero_decimal(path, "uid", &header[28..34])?;
+            require_zero_decimal(path, "gid", &header[34..40])?;
+        }
 
         let payload_len = parse_decimal(path, "size", &header[48..58])?;
         cursor += AR_HEADER_LEN;
@@ -148,6 +154,19 @@ fn verify_gzip_header(path: &Path, bytes: &[u8]) -> Result<(), Error> {
 
 fn require_zero_decimal(path: &Path, field: &'static str, bytes: &[u8]) -> Result<(), Error> {
     if parse_decimal(path, field, bytes)? != 0 {
+        return Err(Error::NonCanonicalArchiveField {
+            path: path.to_path_buf(),
+            field,
+        });
+    }
+    Ok(())
+}
+
+fn require_empty(path: &Path, field: &'static str, bytes: &[u8]) -> Result<(), Error> {
+    let value = std::str::from_utf8(bytes)
+        .map_err(|_| malformed_archive(path, "non-UTF-8 numeric field"))?
+        .trim();
+    if !value.is_empty() {
         return Err(Error::NonCanonicalArchiveField {
             path: path.to_path_buf(),
             field,
@@ -202,6 +221,25 @@ mod tests {
     }
 
     #[test]
+    fn accepts_canonical_gnu_long_name_table_metadata() {
+        verify_ar_archive(Path::new("libexample.a"), &gnu_long_name_table_archive("")).unwrap();
+    }
+
+    #[test]
+    fn rejects_timestamped_gnu_long_name_table_metadata() {
+        assert!(matches!(
+            verify_ar_archive(
+                Path::new("libexample.a"),
+                &gnu_long_name_table_archive("123")
+            ),
+            Err(Error::NonCanonicalArchiveField {
+                field: "timestamp",
+                ..
+            })
+        ));
+    }
+
+    #[test]
     fn accepts_canonical_gzip_headers() {
         verify_gzip_header(
             Path::new("manual.gz"),
@@ -242,6 +280,26 @@ mod tests {
         let mut archive = AR_MAGIC.to_vec();
         archive.extend_from_slice(header.as_bytes());
         archive.extend_from_slice(payload);
+        archive
+    }
+
+    fn gnu_long_name_table_archive(timestamp: &str) -> Vec<u8> {
+        let payload = b"some-really-long-object-name.o/\n";
+        let header = format!(
+            "{:<16}{:<12}{:<6}{:<6}{:<8}{:<10}`\n",
+            "//",
+            timestamp,
+            "",
+            "",
+            "",
+            payload.len(),
+        );
+        let mut archive = AR_MAGIC.to_vec();
+        archive.extend_from_slice(header.as_bytes());
+        archive.extend_from_slice(payload);
+        if payload.len() % 2 == 1 {
+            archive.push(b'\n');
+        }
         archive
     }
 }

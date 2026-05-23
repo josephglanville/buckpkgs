@@ -1297,6 +1297,103 @@ EOF
 }
 
 #[test]
+fn declared_link_inputs_supply_runtime_lookup_for_linked_outputs() {
+    let temp = tempdir().unwrap();
+    let dependency = temp.path().join("dependency");
+    let dependency_lib = dependency.join("lib");
+    fs::create_dir_all(&dependency_lib).unwrap();
+    let dependency_source = temp.path().join("dependency.c");
+    fs::write(
+        &dependency_source,
+        r#"const char *pkgs_link_input_message(void) {
+    return "linked";
+}
+"#,
+    )
+    .unwrap();
+    let dependency_soname = "libpkgs_link_input_test.so.1";
+    let status = Command::new("cc")
+        .arg("-shared")
+        .arg("-fPIC")
+        .arg(&dependency_source)
+        .arg("-Wl,-soname,libpkgs_link_input_test.so.1")
+        .arg("-o")
+        .arg(dependency_lib.join(dependency_soname))
+        .status()
+        .unwrap();
+    assert!(status.success());
+    symlink(
+        dependency_soname,
+        dependency_lib.join("libpkgs_link_input_test.so"),
+    )
+    .unwrap();
+
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("artifact.c"),
+        r#"#include <stdio.h>
+const char *pkgs_link_input_message(void);
+int main(void) {
+    puts(pkgs_link_input_message());
+    return 0;
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+source_path=$PWD
+cat > Makefile <<EOF
+all:
+	cc "$source_path/artifact.c" -lpkgs_link_input_test -o artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+            "--link-input",
+            dependency.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let execution = Command::new(output.join("bin/artifact"))
+        .env_remove("LD_LIBRARY_PATH")
+        .output()
+        .unwrap();
+    assert!(execution.status.success());
+    assert_eq!(execution.stdout, b"linked\n");
+}
+
+#[test]
 fn does_not_install_prefix_map_flags_as_package_metadata() {
     let temp = tempdir().unwrap();
     let source = temp.path().join("source");
@@ -1346,6 +1443,81 @@ EOF
     assert_eq!(
         fs::read_to_string(output.join("share/artifact")).unwrap(),
         "\n"
+    );
+}
+
+#[test]
+fn compiles_declared_python_bytecode_with_logical_paths_before_sealing() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+cat > Makefile <<EOF
+all:
+	:
+install:
+	mkdir -p "\$(DESTDIR)$prefix/lib/python"
+	printf 'value = 1\n' > "\$(DESTDIR)$prefix/lib/python/example.py"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+            "--python-bytecode-interpreter",
+            "/usr/bin/python3",
+            "--python-bytecode-dir",
+            "lib/python",
+            "--python-bytecode-optimize",
+            "0",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let bytecode = fs::read_dir(output.join("lib/python/__pycache__"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| path.extension().and_then(|extension| extension.to_str()) == Some("pyc"))
+        .unwrap();
+    let bytecode = fs::read(bytecode).unwrap();
+    assert!(bytecode
+        .windows(b"/pkgs/store/example-package/lib/python/example.py".len())
+        .any(|window| window == b"/pkgs/store/example-package/lib/python/example.py"));
+    let transient_output = output.to_string_lossy();
+    assert!(!bytecode
+        .windows(transient_output.len())
+        .any(|window| window == transient_output.as_bytes()));
+    assert_eq!(
+        fs::metadata(output.join("lib/python/__pycache__"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o222,
+        0
     );
 }
 
@@ -1469,4 +1641,171 @@ EOF
         fs::read_to_string(second_output.join("bin/artifact")).unwrap(),
         "patched"
     );
+}
+
+#[test]
+fn invokes_meson_with_reproducible_policy_defaults() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("meson.build"), "project('unused', 'c')\n").unwrap();
+    let fake_meson = temp.path().join("meson");
+    fs::write(
+        &fake_meson,
+        r#"#!/bin/sh
+set -eu
+case "$1" in
+  setup)
+    shift
+    build_dir=$1
+    shift 2
+    mkdir -p "$build_dir"
+    printf '%s\n' "$@" > "$build_dir/setup-args"
+    prefix=
+    for arg in "$@"; do
+      case "$arg" in
+        --prefix=*) prefix=${arg#--prefix=} ;;
+      esac
+    done
+    printf '%s' "$prefix" > "$build_dir/prefix"
+    printf '%s:%s:%s:%s:%s:%s:%s:%s\n' "$LC_ALL" "$LANG" "$TZ" "$SOURCE_DATE_EPOCH" "$PYTHONHASHSEED" "$PERL_HASH_SEED" "${HOST_POLLUTION-unset}" "$PACKAGE_SETTING" > "$build_dir/environment"
+    ;;
+  compile)
+    shift
+    test "$1" = "-C"
+    build_dir=$2
+    shift 2
+    printf '%s\n' "$@" > "$build_dir/compile-args"
+    ;;
+  install)
+    shift
+    test "$1" = "-C"
+    build_dir=$2
+    shift 2
+    printf '%s\n' "$@" > "$build_dir/install-args"
+    destdir=
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --destdir) destdir=$2; shift ;;
+      esac
+      shift
+    done
+    prefix=$(cat "$build_dir/prefix")
+    mkdir -p "$destdir$prefix/share"
+    cp "$build_dir/setup-args" "$destdir$prefix/share/setup-args"
+    cp "$build_dir/compile-args" "$destdir$prefix/share/compile-args"
+    cp "$build_dir/install-args" "$destdir$prefix/share/install-args"
+    cp "$build_dir/environment" "$destdir$prefix/share/environment"
+    ;;
+esac
+"#,
+    )
+    .unwrap();
+    let mut permissions = fs::metadata(&fake_meson).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&fake_meson, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_meson_install"))
+        .env("HOST_POLLUTION", "should-not-leak")
+        .env("LC_ALL", "fr_FR.UTF-8")
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+            "--meson-program",
+            fake_meson.to_str().unwrap(),
+            "--meson-env",
+            "PACKAGE_SETTING=declared",
+            "--meson-jobs",
+            "7",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let setup_args = fs::read_to_string(output.join("share/setup-args")).unwrap();
+    for expected in [
+        "--libdir=lib",
+        "--backend=ninja",
+        "--buildtype=plain",
+        "--auto-features=disabled",
+        "--wrap-mode=nodownload",
+        "--install-umask=022",
+    ] {
+        assert!(setup_args.lines().any(|arg| arg == expected));
+    }
+    assert_eq!(
+        fs::read_to_string(output.join("share/compile-args")).unwrap(),
+        "--jobs\n7\n"
+    );
+    let install_args = fs::read_to_string(output.join("share/install-args")).unwrap();
+    assert!(install_args.lines().any(|arg| arg == "--destdir"));
+    assert!(install_args.lines().any(|arg| arg == "--no-rebuild"));
+    assert_eq!(
+        fs::read_to_string(output.join("share/environment")).unwrap(),
+        "C:C:UTC:1:0:0:unset:declared\n"
+    );
+    assert_eq!(
+        fs::metadata(output.join("share"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o222,
+        0
+    );
+}
+
+#[test]
+fn builds_a_real_meson_project_without_absolute_scratch_paths() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("meson.build"),
+        "project('artifact', 'c')\nexecutable('artifact', 'artifact.c', install: true)\n",
+    )
+    .unwrap();
+    fs::write(
+        source.join("artifact.c"),
+        r#"#include <stdio.h>
+int main(void) {
+    puts(__FILE__);
+    return 0;
+}
+"#,
+    )
+    .unwrap();
+
+    let scratch = temp.path().join("buck-scratch");
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_meson_install"))
+        .env("BUCK_SCRATCH_PATH", &scratch)
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let binary = fs::read(output.join("bin/artifact")).unwrap();
+    let leaked = scratch.to_string_lossy();
+    assert!(!binary
+        .windows(leaked.len())
+        .any(|window| window == leaked.as_bytes()));
+    assert!(binary
+        .windows("source/artifact.c".len())
+        .any(|window| window == b"source/artifact.c"));
 }

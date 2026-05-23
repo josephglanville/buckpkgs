@@ -71,6 +71,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     )?;
 
     common::normalize_tree_mtimes(&args.output)?;
+    common::make_tree_read_only(&args.output)?;
     Ok(())
 }
 

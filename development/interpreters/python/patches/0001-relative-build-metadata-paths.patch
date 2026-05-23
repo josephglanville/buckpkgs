@@ -1,0 +1,13 @@
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -30,8 +30,8 @@ VERSION=	@VERSION@
+ srcdir=		@srcdir@
+ VPATH=		@srcdir@
+-abs_srcdir=	@abs_srcdir@
+-abs_builddir=	@abs_builddir@
++abs_srcdir=	.
++abs_builddir=	.
+ 
+ 
+ CC=		@CC@

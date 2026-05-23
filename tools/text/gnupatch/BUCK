@@ -32,6 +32,18 @@ _FINAL_NATIVE_TOOLS = [
     "//tools/text/gnused:bin_stage0",
 ]
 
+_PKGS_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnused:bin",
+]
+
 pkgs_configure_make_install_package(
     name = "bin_stage0",
     package_name = "patch",
@@ -66,9 +78,17 @@ pkgs_configure_make_install_package(
     visibility = ["PUBLIC"],
 )
 
-alias(
+pkgs_configure_make_install_package(
     name = "bin",
-    actual = ":bin_final",
+    package_name = "patch",
+    version = "2.8",
+    sources = [_SOURCE],
+    configure_env = ["CC=cc"],
+    native_build_inputs = _PKGS_NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/compilers/gcc:out",
+        "//development/libraries/glibc:out",
+    ],
     visibility = ["PUBLIC"],
 )
 

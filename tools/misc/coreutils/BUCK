@@ -71,7 +71,7 @@ pkgs_configure_make_install_package(
 
 alias(
     name = "bin",
-    actual = ":bin_final",
+    actual = "//bootstrap/substitutes:coreutils",
     visibility = ["PUBLIC"],
 )
 

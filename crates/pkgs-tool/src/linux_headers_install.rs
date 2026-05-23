@@ -51,7 +51,7 @@ pub(crate) fn run(args: &Args) -> Result<(), common::Error> {
     let output = common::canonicalize(&args.output)?;
     let path = std::env::join_paths(&args.path_entries)
         .map_err(|source| common::Error::JoinPath { source })?;
-    let path = common::compiler_wrapped_path(&path, &work_path)?;
+    let path = common::compiler_wrapped_path(&path, &work_path, &[])?;
     let makeflags = common::makeflags(args.make_jobs)?;
 
     for target in ["mrproper", "headers"] {
@@ -86,7 +86,8 @@ pub(crate) fn run(args: &Args) -> Result<(), common::Error> {
         source,
     })?;
 
-    common::normalize_tree_mtimes(&output)
+    common::normalize_tree_mtimes(&output)?;
+    common::make_tree_read_only(&output)
 }
 
 fn remove_non_headers(path: &std::path::Path) -> Result<(), common::Error> {

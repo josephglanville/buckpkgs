@@ -1,0 +1,13 @@
+diff --git a/configure.py b/configure.py
+index b8b93c1..fa9ee09 100755
+--- a/configure.py
++++ b/configure.py
+@@ -806,6 +806,8 @@ if options.bootstrap:
+ 
+         rebuild_args.append(bootstrap_exe)
+ 
++    rebuild_args.extend(['-j', os.environ['NINJA_JOBS']])
++
+     if options.verbose:
+         rebuild_args.append('-v')
+ 

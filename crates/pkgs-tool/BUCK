@@ -37,6 +37,17 @@ pkgs_bootstrap_rust_binary(
 )
 
 pkgs_bootstrap_rust_binary(
+    name = "pkgs_meson_install",
+    srcs = _BUILD_SRCS + [
+        "src/bin/pkgs_meson_install.rs",
+        "src/meson_install.rs",
+    ],
+    crate_root = "src/bin/pkgs_meson_install.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
     name = "pkgs_make_install",
     srcs = _BUILD_SRCS + [
         "src/bin/pkgs_make_install.rs",

@@ -15,6 +15,15 @@
 - [x] Build a real PostgreSQL-path package dependency (`zlib`) using an
       imported final bootstrap tool profile rather than foreign-seed or live
       turnover targets.
+- [x] Re-prove deterministic Meson realization with real upstream `inih` `r62`
+      after the native Python build interpreter, Ninja, and Meson packages pass
+      reproducibility, archive-metadata, and foreign-seed boundary verification.
+- [x] Prove descriptor-backed installation values change package identity and
+      preserve reproducibility through the corrected Meson wrapper and `inih`.
+- [ ] Define canonical `root//development/interpreters/python:bin` only after
+      implementing a full native dependency profile comparable to Nixpkgs
+      `python3`: `bzip2`, `libffi`, `libuuid`, `ncurses`, `xz`, `zlib`,
+      `openssl`, `sqlite`, `mpdecimal`, `expat`, `gdbm`, and `readline`.
 
 ## Active
 
@@ -34,16 +43,17 @@
       `bootstrap-linux-x86_64` closure into a disposable store root, proving the
       bundle is complete and internally consistent before ordinary import use.
 - [x] `toolchains//tests:gcc_smoke` and `toolchains//tests:hello_world_c` build
-      through `toolchains//:cxx_pkgs` using
-      `root//bootstrap/substitutes:{gcc_wrapper,binutils_wrapper}`, and
+      through `toolchains//:cxx_pkgs` using canonical
+      `root//development/{compilers/gcc:bin,tools/misc/binutils:bin}` aliases
+      backed by pinned substitutes, and
       `cquery deps(toolchains//:cxx_pkgs)` contains no live GCC, Binutils,
       Bash, Glibc, or bootstrap export targets.
 - [x] Nixpkgs PostgreSQL lists `zlib` in direct `buildInputs`; the new
-      `root//development/libraries/zlib:out_pkgs` build consumes imported
+      `root//development/libraries/zlib:out` build consumes canonical imported
       `bash`, GNU Make, Binutils/GCC wrappers, Coreutils, Findutils, GNU sed,
       and Glibc, produces shared/static `libz` plus `zlib.pc`, passes
-      `out_pkgs_seed_free`, and has no live-bootstrap or foreign-seed labels in
-      `cquery deps(root//development/libraries/zlib:out_pkgs)`.
+      `root//bootstrap/tests:zlib_out_seed_free`, and its transport-only
+      substitute labels remain behind canonical package façades.
 - [x] The restarted full bootstrap rebuild after the host power loss completed
       successfully for
       `//bootstrap/tests:final_base_seed_free` and
@@ -87,6 +97,13 @@
       atomic temp tree; the local Buck2 fork now restores staged modified times
       for files, directories, and symlinks before the final rename, with focused
       materializer tests.
+- [x] Native package finalizers now seal staged package trees. Buck2 no longer
+      normalizes native store outputs writable while hashing or verifying them;
+      atomic publication preserves and validates producer-sealed modes during
+      its existing metadata pass, without repair on reuse.
+- [x] Republished and reverified the native path through `zlib`, Python, Ninja,
+      Meson, and `inih` under the immutable-publication identity bump; each
+      fresh store root contains no writable regular file or directory.
 - [x] The live bootstrap rebuild published new `gzip`, `gnugrep`, `bash`,
       `diffutils`, and `coreutils` store roots whose ctimes are current while
       their final mtimes remain normalized to epoch `1`, confirming the Buck2
@@ -134,7 +151,7 @@
       enumeration order does not perturb package contents or diagnostics.
 - [x] Package-local `make` parallelism is now an explicit declared input rather
       than `std::thread::available_parallelism()`: package rules default to a
-      fixed `make_jobs = 16`, pass `--make-jobs` into `pkgs-tool`, and fold that
+      fixed `make_jobs = 64`, pass `--make-jobs` into `pkgs-tool`, and fold that
       value into store identity.
 - [x] `pkgs-tool` rejects zero make jobs and integration coverage confirms an
       explicit `--make-jobs 7` reaches child `MAKEFLAGS` as `-j7`.
@@ -179,6 +196,16 @@
       published with epoch `1` mtimes, no final-store scratch/configure-state
       hits, and clean `libstdc++.a` plus `libstdc++fs.a` scans where the prior
       `d806...` store contained absolute Buck work roots.
+- [x] Native GNU grep, GNU awk, and GNU patch promote from the sealed imported
+      façade using only verified stage0 self-hosting bridges where required;
+      each normal target passes `[reproducible]`, `[archive_metadata]`, and
+      its `bootstrap/tests:*_seed_free` boundary assertion.
+- [x] CPython 3.13.10's installed scratch-root leak was fixed; the zlib-enabled
+      Meson-capable `python:build_interpreter` now passes `[reproducible]`,
+      `[archive_metadata]`, and its seed boundary with a sealed published root.
+- [x] Ordinary `zlib` and `inih` recipes name only canonical package/tool
+      labels; substitute and foreign-seed labels are limited to package façade
+      aliases plus `bootstrap/tests` boundary assertions.
 
 ## Next Checks
 
@@ -189,7 +216,7 @@
 - [ ] Random seeds: keep watching for packages that do not self-seed the way GCC
       already does when profile or coverage-style outputs are introduced.
 - [ ] Parallelism stress: compare representative package outputs at
-      `make_jobs = 1` versus the fixed default `make_jobs = 16` to catch
+      `make_jobs = 1` versus the fixed default `make_jobs = 64` to catch
       upstream dependency races. Host CPU availability is no longer an implicit
       graph input, but concurrency-sensitive package logic can still be broken
       on its own terms.
@@ -200,3 +227,10 @@
       part of the declared package ABI.
 - [ ] Bootstrap seed leakage: distinguish expected stage0 host debug paths from
       regressions that survive into the seed-free final package closures.
+- [x] Meson native closure: built and verified the explicitly reduced
+      `python:build_interpreter`, Ninja, and Meson on the sealed imported
+      bootstrap façade, then verified Meson-built `inih` including its
+      foreign-build graph boundary.
+- [ ] Compiler wrapper runtime closure: stop injecting GCC `RUNPATH` entries
+      into pure C outputs, then republish the wrapper substitute and correct
+      existing C consumers such as `zlib` and `inih`.

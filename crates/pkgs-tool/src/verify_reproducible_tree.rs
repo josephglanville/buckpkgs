@@ -8,6 +8,8 @@ use thiserror::Error;
 
 use crate::common;
 
+const STORE_PUBLICATION_PRESERVED_MODE_BITS: u32 = 0o7777 & !0o222;
+
 #[derive(Debug, Parser)]
 #[command(name = "pkgs-verify-reproducible-tree")]
 pub(crate) struct Args {
@@ -150,8 +152,8 @@ fn compare_modes(
     expected: &fs::Metadata,
     actual: &fs::Metadata,
 ) -> Result<(), Error> {
-    let expected = expected.permissions().mode() & 0o7777;
-    let actual = actual.permissions().mode() & 0o7777;
+    let expected = expected.permissions().mode() & STORE_PUBLICATION_PRESERVED_MODE_BITS;
+    let actual = actual.permissions().mode() & STORE_PUBLICATION_PRESERVED_MODE_BITS;
     if expected != actual {
         return Err(Error::PermissionModesDiffer {
             path: relative.to_path_buf(),
@@ -287,6 +289,45 @@ mod tests {
         assert!(matches!(
             compare_paths(&expected, &actual, Path::new(".")),
             Err(Error::FileBytesDiffer(path)) if path == PathBuf::from("./payload")
+        ));
+    }
+
+    #[test]
+    fn ignores_write_bits_removed_by_store_publication() {
+        let temp = tempfile::tempdir().unwrap();
+        let expected = temp.path().join("expected");
+        let actual = temp.path().join("actual");
+        fs::create_dir_all(&expected).unwrap();
+        fs::create_dir_all(&actual).unwrap();
+        fs::write(expected.join("payload"), "same\n").unwrap();
+        fs::write(actual.join("payload"), "same\n").unwrap();
+        fs::set_permissions(&expected, fs::Permissions::from_mode(0o555)).unwrap();
+        fs::set_permissions(expected.join("payload"), fs::Permissions::from_mode(0o444)).unwrap();
+        fs::set_permissions(&actual, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(actual.join("payload"), fs::Permissions::from_mode(0o644)).unwrap();
+        common::normalize_tree_mtimes(&expected).unwrap();
+        common::normalize_tree_mtimes(&actual).unwrap();
+
+        compare_paths(&expected, &actual, Path::new(".")).unwrap();
+    }
+
+    #[test]
+    fn rejects_execute_bits_not_removed_by_store_publication() {
+        let temp = tempfile::tempdir().unwrap();
+        let expected = temp.path().join("expected");
+        let actual = temp.path().join("actual");
+        fs::create_dir_all(&expected).unwrap();
+        fs::create_dir_all(&actual).unwrap();
+        fs::write(expected.join("payload"), "same\n").unwrap();
+        fs::write(actual.join("payload"), "same\n").unwrap();
+        fs::set_permissions(expected.join("payload"), fs::Permissions::from_mode(0o444)).unwrap();
+        fs::set_permissions(actual.join("payload"), fs::Permissions::from_mode(0o555)).unwrap();
+        common::normalize_tree_mtimes(&expected).unwrap();
+        common::normalize_tree_mtimes(&actual).unwrap();
+
+        assert!(matches!(
+            compare_paths(&expected, &actual, Path::new(".")),
+            Err(Error::PermissionModesDiffer { path, .. }) if path == PathBuf::from("./payload")
         ));
     }
 }

@@ -1,0 +1,56 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_store_path")
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "bc673c04375a1a3f0808c27ba8f0411ab811ad390a8740318ccb9c60fad8fd77",
+    strip_prefix = "Python-3.13.10",
+    urls = ["https://www.python.org/ftp/python/3.13.10/Python-3.13.10.tar.xz"],
+)
+
+_RELATIVE_BUILD_METADATA_PATHS_PATCH = pkgs_export_patch(
+    name = "relative_build_metadata_paths_patch",
+    src = "patches/0001-relative-build-metadata-paths.patch",
+    sha256 = "ce50aedbe62f0c099c7100b64032e76ea9cbcc41f7aefb752343b7080b89932b",
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnupatch:bin",
+    "//tools/text/gnused:bin",
+]
+
+pkgs_configure_make_install_package(
+    name = "build_interpreter",
+    package_name = "python3-build",
+    version = "3.13.10",
+    sources = [_SOURCE],
+    configure_args = [
+        "--without-ensurepip",
+        "--disable-test-modules",
+    ],
+    configure_env = [
+        "CC=cc",
+        "CXX=c++",
+        "AR=ar",
+        "RANLIB=ranlib",
+        pkgs_store_path("ZLIB_CFLAGS=-I", "//development/libraries/zlib:out", "/include"),
+        "ZLIB_LIBS=-lz",
+    ],
+    patches = [_RELATIVE_BUILD_METADATA_PATHS_PATCH],
+    native_build_inputs = _NATIVE_TOOLS,
+    link_inputs = ["//development/libraries/zlib:out"],
+    python_bytecode_dirs = ["lib/python3.13"],
+    python_bytecode_optimizations = [0, 1, 2],
+    runtime_inputs = [
+        "//development/compilers/gcc:out",
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)

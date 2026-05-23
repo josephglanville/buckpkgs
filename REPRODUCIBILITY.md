@@ -18,8 +18,10 @@ bootstrap tree and the rules that now exist because of them.
 
 Store publication must never leave a partial final tree behind. Buck2 stages the
 materialized store output under a temporary sibling name, restores the staged
-mtime metadata, then performs a final rename into place. If materialization or
-publication fails, the temporary tree is removed.
+mtime and permission metadata, verifies that a new native producer already
+sealed its regular files and directories, then performs a final rename into
+place. If materialization or publication fails, the temporary tree is removed.
+An existing store path is verified and reused; normal use does not repair it.
 
 Atomic publication prevents crash residue and stale partial outputs. It does not
 prove the bytes are deterministic. Content determinism and atomic realization
@@ -68,6 +70,13 @@ fixups are complete. This includes:
 
 Symlink mtimes need a distinct non-following update path. Normalizing only files
 and directories leaves wall-clock link creation times behind.
+
+Published store trees are read-only. Package finalizers seal their staged
+outputs before Buck hashes them. Buck2 does not apply ordinary writable-output
+normalization while hashing or verifying store outputs; during atomic
+publication it preserves and validates the producer's modes while already
+copying required metadata. Changing a defective published tree requires a new
+package identity; the ordinary materialization path does not rewrite it.
 
 ## Path Leakage Rules
 
@@ -234,6 +243,14 @@ cross-tool contract.
 - For packager-controlled builds, prefer Meson's plain build mode so BuckPkgs
   remains the authority for compiler and linker flags instead of merging them
   with Meson's convenience defaults.
+- `pkgs_meson_install_package(...)` enforces out-of-source setup with
+  `--buildtype=plain`, `--backend=ninja`, `--libdir=lib`,
+  `--auto-features=disabled`, `--wrap-mode=nodownload`, and
+  `--install-umask=022`; packages must declare any intentional override in
+  `meson_args`, which participates in store identity.
+- Meson builds receive an explicit `meson_jobs` input and installation runs
+  with `--no-rebuild`, so the install phase cannot silently schedule another
+  backend build outside the declared parallelism policy.
 - Audit `run_command()`, custom targets, generated configuration files, and any
   helper that reads the wall clock, the live source/build directory, `uname`, or
   other host identity.
@@ -315,6 +332,11 @@ file bytes, symlink targets, permission modes, and normalized mtimes. This keeps
 layer-by-layer byte reproducibility checks local to the package under review
 instead of forcing a whole-bootstrap rebuild for every proof point.
 
+The replay artifact remains an ordinary Buck output, so Buck may normalize its
+write bits even though the published store tree retains source-sealed modes.
+The permission comparison therefore excludes write bits only; it still checks
+executable and special mode bits so recipe-visible mode drift is not masked.
+
 Package targets also expose an `[archive_metadata]` subtarget. It scans the
 published tree for static archives and gzip streams, then rejects the common
 non-canonical metadata classes that otherwise survive into final bytes:
@@ -332,7 +354,7 @@ Examples:
 ```text
 buck2 build root//development/libraries/glibc:out_stage1[reproducible]
 buck2 build root//development/compilers/gcc:out_stage1[reproducible]
-buck2 build root//development/libraries/zlib:out_stage1[archive_metadata]
+buck2 build root//development/libraries/zlib:out[archive_metadata]
 ```
 
 For bootstrap-sensitive changes:
@@ -340,6 +362,11 @@ For bootstrap-sensitive changes:
 - rebuild the relevant ladder stage
 - inspect the newly published store tree for path, metadata, and host leaks
 - rebuild the final closure checks when the affected inputs flow into them
+
+For package-specific shared-library linkage, declare `link_inputs` rather than
+embedding ad hoc store `-L` or RUNPATH flags in package environment values.
+This keeps the dependency in package identity and runtime closure while the
+realization layer supplies deterministic store-backed link/runtime lookup.
 
 At minimum, final artifact review should answer:
 
@@ -351,3 +378,61 @@ At minimum, final artifact review should answer:
 - Did any stale older artifact get mistaken for a fresh regression?
 
 Passing tests are evidence, not a substitute for final artifact inspection.
+
+## Verified Package Checklist
+
+Mark a package complete only after its current recipe passes both
+`[reproducible]` and `[archive_metadata]`, plus any applicable bootstrap
+boundary check.
+
+- [x] `//shells/bash:bin_stage0` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and `bin_stage0_seed_free` after
+  replacing the host pipe-size probe and omitting installed build metadata.
+- [x] `//tools/text/gnused:bin_stage0` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and `bin_stage0_seed_free`.
+- [x] `//tools/text/gnugrep:bin_stage0` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and `bin_stage0_seed_free`.
+- [x] `//tools/text/gawk:bin_stage0` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and `bin_stage0_seed_free`.
+- [x] `//tools/text/gnugrep:bin` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:gnugrep_bin_seed_free`; verified stage0 `grep` supplies
+  its configure-time self-hosting dependency.
+- [x] `//tools/text/gawk:bin` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:gawk_bin_seed_free`; verified stage0 `awk` supplies
+  its configure-time self-hosting dependency.
+- [x] `//tools/text/gnupatch:bin` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:gnupatch_bin_seed_free`.
+- [x] `//development/libraries/zlib:out` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:zlib_out_seed_free`; fresh store publication at
+  `/pkgs/store/564432ae49f3f0832bec6104e0fd79f4-zlib-1.3.2` contains no
+  writable regular file or directory.
+- [x] `//development/interpreters/python:build_interpreter` — verified
+  2026-05-23 with `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:python_build_interpreter_seed_free`; direct execution of
+  `import zlib` without `LD_LIBRARY_PATH` resolves native `zlib` through the
+  declared package link input, and fresh publication at
+  `/pkgs/store/54cca85eea58801322f049bca8eef7a5-python3-build-3.13.10`
+  contains no writable regular file or directory.
+- [ ] `//development/interpreters/python:bin` — reserved for a normal full
+  Python contract; Nixpkgs' default CPython enables `bzip2`, `libffi`,
+  `libuuid`, `ncurses`, `xz`, `zlib`, `openssl`, `sqlite`, `mpdecimal`,
+  `expat`, `gdbm`, and `readline`, unlike `python3Minimal`.
+- [x] `//development/tools/build-managers/ninja:bin` — verified 2026-05-23
+  with `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:ninja_bin_seed_free`; fresh publication at
+  `/pkgs/store/f433e7df6f1fdfc1add24d4757760b96-ninja-1.13.2` is sealed.
+- [x] `//development/tools/build-managers/meson:bin` — verified 2026-05-23
+  with `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:meson_bin_seed_free`; its installed wrapper embeds declared
+  native Bash/Python paths via identity-bearing installation arguments, and
+  `/pkgs/store/ecdd319136967b9ee7aa5ed7e109074e-meson-1.9.1` is sealed.
+- [x] `//development/libraries/inih:out` — verified 2026-05-23 with
+  `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:inih_out_seed_free` plus
+  `bootstrap/tests:inih_native_graph_foreign_build_free`; built through
+  corrected native Meson and freshly sealed at
+  `/pkgs/store/fc69780306e906e62dde66970c719281-inih-62`.

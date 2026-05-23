@@ -53,9 +53,9 @@ _STAGE2_NATIVE_TOOLS = [
 ]
 
 _MATH_LIBS = [
-    "//development/libraries/gmp:out",
-    "//development/libraries/mpfr:out",
-    "//development/libraries/libmpc:out",
+    "//development/libraries/gmp:out_final",
+    "//development/libraries/mpfr:out_final",
+    "//development/libraries/libmpc:out_final",
 ]
 
 _DEBUG_PREFIX_MAP_ENV_PATCH = pkgs_export_patch(
@@ -86,9 +86,9 @@ pkgs_configure_make_install_package(
         "--without-included-gettext",
         "--with-zstd=no",
         "--enable-languages=c,c++",
-        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
-        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out"),
-        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out"),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_final"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_final"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_final"),
     ],
     configure_env = [
         "CC=cc",
@@ -141,9 +141,9 @@ pkgs_configure_make_install_package(
         "--with-zstd=no",
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
-        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
-        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out"),
-        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out"),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_final"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_final"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_final"),
         pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:out_stage1"),
     ],
     configure_env = [
@@ -155,9 +155,9 @@ pkgs_configure_make_install_package(
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
         "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
-        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
+        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
+        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
         pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
         pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
     ],
@@ -168,7 +168,7 @@ pkgs_configure_make_install_package(
     native_build_inputs = _STAGE1_NATIVE_TOOLS,
     build_inputs = _MATH_LIBS + [
         "//development/libraries/glibc:out_stage1",
-        "//os-specific/linux/kernel-headers:out",
+        "//os-specific/linux/kernel-headers:out_final",
     ],
     runtime_inputs = _MATH_LIBS + [
         "//development/libraries/glibc:out_stage1",
@@ -190,7 +190,7 @@ pkgs_cc_wrapper_package(
     version = "15.2.0",
     cc = ":out_stage1",
     bintools = "//development/tools/misc/binutils:bin_stage0_wrapped",
-    headers = "//os-specific/linux/kernel-headers:out",
+    headers = "//os-specific/linux/kernel-headers:out_final",
     libc = "//development/libraries/glibc:out_stage1",
     shell = "//shells/bash:bin_stage2",
     visibility = ["PUBLIC"],
@@ -223,9 +223,9 @@ pkgs_configure_make_install_package(
         "--with-zstd=no",
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
-        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
-        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out"),
-        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out"),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_final"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_final"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_final"),
         pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:out_stage1"),
     ],
     configure_env = [
@@ -237,9 +237,9 @@ pkgs_configure_make_install_package(
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
         "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
-        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
-        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out", "/include"),
+        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
+        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
+        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
         pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
         pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
     ],
@@ -250,7 +250,7 @@ pkgs_configure_make_install_package(
     native_build_inputs = _STAGE2_NATIVE_TOOLS,
     build_inputs = _MATH_LIBS + [
         "//development/libraries/glibc:out_stage1",
-        "//os-specific/linux/kernel-headers:out",
+        "//os-specific/linux/kernel-headers:out_final",
     ],
     runtime_inputs = _MATH_LIBS + [
         "//development/libraries/glibc:out_stage1",
@@ -272,7 +272,7 @@ pkgs_cc_wrapper_package(
     version = "15.2.0",
     cc = ":out_stage2",
     bintools = "//development/tools/misc/binutils:bin_stage1_wrapped",
-    headers = "//os-specific/linux/kernel-headers:out",
+    headers = "//os-specific/linux/kernel-headers:out_final",
     libc = "//development/libraries/glibc:out_stage1",
     shell = "//shells/bash:bin_stage2",
     visibility = ["PUBLIC"],
@@ -284,8 +284,20 @@ pkgs_cc_wrapper_package(
     version = "15.2.0",
     cc = ":out_stage2",
     bintools = "//development/tools/misc/binutils:bin_final_wrapped",
-    headers = "//os-specific/linux/kernel-headers:out",
+    headers = "//os-specific/linux/kernel-headers:out_final",
     libc = "//development/libraries/glibc:out_stage1",
-    shell = "//shells/bash:bin",
+    shell = "//shells/bash:bin_final",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "out",
+    actual = "//bootstrap/substitutes:gcc",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "bin",
+    actual = "//bootstrap/substitutes:gcc_wrapper",
     visibility = ["PUBLIC"],
 )

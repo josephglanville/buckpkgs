@@ -20,27 +20,33 @@ _NATIVE_TOOLS = [
 ]
 
 pkgs_configure_make_install_package(
-    name = "out",
+    name = "out_final",
     package_name = "libmpc",
     version = "1.4.0",
     sources = [_SOURCE],
     configure_args = [
-        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out"),
-        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out"),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_final"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_final"),
     ],
     configure_env = ["CC=cc"],
     native_build_inputs = _NATIVE_TOOLS,
     build_inputs = [
-        "//development/libraries/gmp:out",
-        "//development/libraries/mpfr:out",
+        "//development/libraries/gmp:out_final",
+        "//development/libraries/mpfr:out_final",
     ],
     visibility = ["PUBLIC"],
 )
 
 pkgs_seed_free(
-    name = "out_seed_free",
-    packages = [":out"],
+    name = "out_final_seed_free",
+    packages = [":out_final"],
     forbidden = [
         "//bootstrap/foreign_seed:gcc",
     ],
+)
+
+alias(
+    name = "out",
+    actual = "//bootstrap/substitutes:libmpc",
+    visibility = ["PUBLIC"],
 )

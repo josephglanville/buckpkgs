@@ -69,6 +69,18 @@ _RELATIVE_BUILD_DIR_PATCH = pkgs_export_patch(
     sha256 = "6ab9a0be8bed6470b13a2baf267e90fc0efc786cc8cedbd20d9a353dd284c236",
 )
 
+_DETERMINISTIC_PIPE_SIZE_PATCH = pkgs_export_patch(
+    name = "deterministic_pipe_size_patch",
+    src = "patches/0002-deterministic-pipe-size.patch",
+    sha256 = "79d61d96766c1583b596d5fe93f703813155bad8ed0295c7d40a46b974595ca8",
+)
+
+_OMIT_LOADABLE_BUILD_MAKEFILE_PATCH = pkgs_export_patch(
+    name = "omit_loadable_build_makefile_patch",
+    src = "patches/0003-omit-loadable-build-makefile.patch",
+    sha256 = "d483ed4afa1d08376c0c2df90980b3773925cac728fdae062e48bc0926d72f1f",
+)
+
 pkgs_configure_make_install_package(
     name = "bin_stage0",
     package_name = "bash",
@@ -80,7 +92,7 @@ pkgs_configure_make_install_package(
     ],
     configure_env = ["CC=cc"],
     make_args = ["SHELL=bash"],
-    patches = [_RELATIVE_BUILD_DIR_PATCH],
+    patches = [_RELATIVE_BUILD_DIR_PATCH, _DETERMINISTIC_PIPE_SIZE_PATCH, _OMIT_LOADABLE_BUILD_MAKEFILE_PATCH],
     symlinks = {"bin/sh": "bash"},
     native_build_inputs = _NATIVE_TOOLS,
     visibility = ["PUBLIC"],
@@ -97,7 +109,7 @@ pkgs_configure_make_install_package(
     ],
     configure_env = ["CC=cc"],
     make_args = ["SHELL=bash"],
-    patches = [_RELATIVE_BUILD_DIR_PATCH],
+    patches = [_RELATIVE_BUILD_DIR_PATCH, _DETERMINISTIC_PIPE_SIZE_PATCH, _OMIT_LOADABLE_BUILD_MAKEFILE_PATCH],
     symlinks = {"bin/sh": "bash"},
     native_build_inputs = _STAGE1_NATIVE_TOOLS,
     visibility = ["PUBLIC"],
@@ -114,7 +126,7 @@ pkgs_configure_make_install_package(
     ],
     configure_env = ["CC=cc"],
     make_args = ["SHELL=bash"],
-    patches = [_RELATIVE_BUILD_DIR_PATCH],
+    patches = [_RELATIVE_BUILD_DIR_PATCH, _DETERMINISTIC_PIPE_SIZE_PATCH, _OMIT_LOADABLE_BUILD_MAKEFILE_PATCH],
     symlinks = {"bin/sh": "bash"},
     native_build_inputs = _STAGE2_NATIVE_TOOLS,
     visibility = ["PUBLIC"],
@@ -131,7 +143,7 @@ pkgs_configure_make_install_package(
     ],
     configure_env = ["CC=cc"],
     make_args = ["SHELL=bash"],
-    patches = [_RELATIVE_BUILD_DIR_PATCH],
+    patches = [_RELATIVE_BUILD_DIR_PATCH, _DETERMINISTIC_PIPE_SIZE_PATCH, _OMIT_LOADABLE_BUILD_MAKEFILE_PATCH],
     symlinks = {"bin/sh": "bash"},
     native_build_inputs = _FINAL_NATIVE_TOOLS,
     runtime_inputs = ["//development/libraries/glibc:out_stage1"],
@@ -140,7 +152,7 @@ pkgs_configure_make_install_package(
 
 alias(
     name = "bin",
-    actual = ":bin_final",
+    actual = "//bootstrap/substitutes:bash",
     visibility = ["PUBLIC"],
 )
 

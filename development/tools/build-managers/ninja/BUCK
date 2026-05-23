@@ -1,0 +1,74 @@
+load("//rules:pkgs.bzl", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_make_install_package", "pkgs_source", "pkgs_store_path")
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "974d6b2f4eeefa25625d34da3cb36bdcebe7fbce40f4c16ac0835fd1c0cbae17",
+    strip_prefix = "ninja-1.13.2",
+    urls = ["https://github.com/ninja-build/ninja/archive/refs/tags/v1.13.2.tar.gz"],
+)
+
+_DECLARED_BOOTSTRAP_JOBS_PATCH = pkgs_export_patch(
+    name = "declared_bootstrap_jobs_patch",
+    src = "patches/0001-declare-bootstrap-rebuild-jobs.patch",
+    sha256 = "270b842a83e5027bad33c3d0352687e17c810499e8921f5cebf4ddd922fcd18e",
+)
+
+_MAKEFILE_CONTENT = [
+    "all:",
+    "\tNINJA_JOBS=$(NINJA_JOBS) python3 configure.py --bootstrap --with-python=$(PYTHON)",
+    "install:",
+    "\tmkdir -p \"$(DESTDIR)$(PREFIX)/bin\"",
+    "\tcp ninja \"$(DESTDIR)$(PREFIX)/bin/ninja\"",
+]
+
+write_file(
+    name = "makefile",
+    out = "Makefile",
+    content = _MAKEFILE_CONTENT,
+)
+
+filegroup(
+    name = "build_tree",
+    srcs = {
+        "Makefile": ":makefile",
+    },
+    copy = True,
+)
+
+_BUILD_SOURCE = pkgs_source(
+    dep = ":build_tree",
+    digests = ["sha256:" + sha256("\n".join(["Makefile"] + _MAKEFILE_CONTENT))],
+)
+
+_NATIVE_TOOLS = [
+    "//development/interpreters/python:build_interpreter",
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gnupatch:bin",
+    "//tools/text/gnused:bin",
+]
+
+pkgs_make_install_package(
+    name = "bin",
+    package_name = "ninja",
+    version = "1.13.2",
+    sources = [
+        _SOURCE,
+        _BUILD_SOURCE,
+    ],
+    make_args = [
+        "NINJA_JOBS=64",
+        pkgs_store_path("PYTHON=", "//development/interpreters/python:build_interpreter", "/bin/python3"),
+    ],
+    patches = [_DECLARED_BOOTSTRAP_JOBS_PATCH],
+    native_build_inputs = _NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/compilers/gcc:out",
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)

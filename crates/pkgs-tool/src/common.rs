@@ -242,7 +242,11 @@ pub(crate) fn reproducible_command(program: impl AsRef<OsStr>) -> ProcessCommand
     command
 }
 
-pub(crate) fn compiler_wrapped_path(path: &OsStr, work_dir: &Path) -> Result<OsString, Error> {
+pub(crate) fn compiler_wrapped_path(
+    path: &OsStr,
+    work_dir: &Path,
+    link_inputs: &[PathBuf],
+) -> Result<OsString, Error> {
     let wrapper_dir = work_dir.join(".pkgs-compiler-wrappers");
     fs::create_dir_all(&wrapper_dir).map_err(|source| Error::CreateDir {
         path: wrapper_dir.clone(),
@@ -253,6 +257,18 @@ pub(crate) fn compiler_wrapped_path(path: &OsStr, work_dir: &Path) -> Result<OsS
     let prefix_map = format!("-ffile-prefix-map={}=.", work_dir.display());
     for command in ["cc", "gcc", "c++", "g++", "cpp"] {
         let wrapper = wrapper_dir.join(command);
+        let mut arguments = vec![prefix_map.clone()];
+        if command != "cpp" {
+            for link_input in link_inputs {
+                arguments.push(format!("-L{}/lib", link_input.display()));
+                arguments.push(format!("-Wl,-rpath,{}/lib", link_input.display()));
+            }
+        }
+        let arguments = arguments
+            .iter()
+            .map(|argument| shell_quote(argument))
+            .collect::<Vec<_>>()
+            .join(" ");
         let script = format!(
             "#!/bin/sh\n\
              PATH={}\n\
@@ -260,7 +276,7 @@ pub(crate) fn compiler_wrapped_path(path: &OsStr, work_dir: &Path) -> Result<OsS
              exec {} {} \"$@\"\n",
             shell_quote(&inherited_path),
             shell_quote(command),
-            shell_quote(&prefix_map),
+            arguments,
         );
         fs::write(&wrapper, script).map_err(|source| Error::WriteFile {
             path: wrapper.clone(),
@@ -510,7 +526,8 @@ mod tests {
         fs::create_dir(&work_dir).unwrap();
         let path = std::env::join_paths(["/seed/bin", "/tools/bin"]).unwrap();
 
-        let wrapped = compiler_wrapped_path(&path, &work_dir).unwrap();
+        let wrapped =
+            compiler_wrapped_path(&path, &work_dir, &[PathBuf::from("/pkgs/store/zlib")]).unwrap();
         let wrapped_entries: Vec<_> = std::env::split_paths(&wrapped).collect();
         assert_eq!(wrapped_entries[0], work_dir.join(".pkgs-compiler-wrappers"));
         assert_eq!(wrapped_entries[1], PathBuf::from("/seed/bin"));
@@ -519,9 +536,11 @@ mod tests {
         let cc = fs::read_to_string(work_dir.join(".pkgs-compiler-wrappers/cc")).unwrap();
         assert!(cc.contains("PATH='/seed/bin:/tools/bin'"));
         assert!(cc.contains(&format!(
-            "exec 'cc' '-ffile-prefix-map={}=.' \"$@\"",
+            "exec 'cc' '-ffile-prefix-map={}=.' '-L/pkgs/store/zlib/lib' '-Wl,-rpath,/pkgs/store/zlib/lib' \"$@\"",
             work_dir.display()
         )));
+        let cpp = fs::read_to_string(work_dir.join(".pkgs-compiler-wrappers/cpp")).unwrap();
+        assert!(!cpp.contains("/pkgs/store/zlib"));
     }
 
     #[test]
