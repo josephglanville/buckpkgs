@@ -239,6 +239,7 @@ pub(crate) fn copy_split_staged_prefix(
     output: &Path,
     output_paths: &[PathBuf],
     split_outputs: &[SplitOutput],
+    relocate_split_metadata_prefix: bool,
 ) -> Result<(), Error> {
     let staged_prefix = staged_prefix(install_root, install_prefix)?;
     if output_paths.is_empty() {
@@ -298,7 +299,12 @@ pub(crate) fn copy_split_staged_prefix(
     for split_output in split_outputs {
         common::make_tree_user_writable(&split_output.output)?;
     }
-    rewrite_split_pkg_config_paths(output, install_prefix, split_outputs)?;
+    rewrite_split_pkg_config_paths(
+        output,
+        install_prefix,
+        split_outputs,
+        relocate_split_metadata_prefix,
+    )?;
     Ok(())
 }
 
@@ -492,14 +498,30 @@ fn rewrite_split_pkg_config_paths(
     primary_output: &Path,
     primary_install_prefix: &Path,
     split_outputs: &[SplitOutput],
+    relocate_split_metadata_prefix: bool,
 ) -> Result<(), Error> {
-    rewrite_pkg_config_paths_in_tree(primary_output, primary_install_prefix, split_outputs)?;
+    rewrite_pkg_config_paths_in_tree(
+        primary_output,
+        primary_install_prefix,
+        primary_install_prefix,
+        split_outputs,
+        false,
+    )?;
     for split_output in split_outputs {
         rewrite_pkg_config_paths_in_tree(
             &split_output.output,
             primary_install_prefix,
+            &split_output.install_prefix,
             split_outputs,
+            relocate_split_metadata_prefix,
         )?;
+        if relocate_split_metadata_prefix {
+            rewrite_libtool_paths_in_tree(
+                &split_output.output,
+                primary_install_prefix,
+                &split_output.install_prefix,
+            )?;
+        }
     }
     Ok(())
 }
@@ -507,7 +529,9 @@ fn rewrite_split_pkg_config_paths(
 fn rewrite_pkg_config_paths_in_tree(
     path: &Path,
     primary_install_prefix: &Path,
+    output_install_prefix: &Path,
     split_outputs: &[SplitOutput],
+    relocate_prefix: bool,
 ) -> Result<(), Error> {
     let metadata = fs::symlink_metadata(path).map_err(|source| common::Error::Metadata {
         path: path.to_path_buf(),
@@ -518,7 +542,13 @@ fn rewrite_pkg_config_paths_in_tree(
     }
     if metadata.is_dir() {
         for entry in common::sorted_dir_entries(path)? {
-            rewrite_pkg_config_paths_in_tree(&entry.path(), primary_install_prefix, split_outputs)?;
+            rewrite_pkg_config_paths_in_tree(
+                &entry.path(),
+                primary_install_prefix,
+                output_install_prefix,
+                split_outputs,
+                relocate_prefix,
+            )?;
         }
         return Ok(());
     }
@@ -530,7 +560,13 @@ fn rewrite_pkg_config_paths_in_tree(
         path: path.to_path_buf(),
         source,
     })?;
-    let rewritten = rewrite_pkg_config_variables(&contents, primary_install_prefix, split_outputs);
+    let rewritten = rewrite_pkg_config_variables(
+        &contents,
+        primary_install_prefix,
+        output_install_prefix,
+        split_outputs,
+        relocate_prefix,
+    );
     if rewritten == contents {
         return Ok(());
     }
@@ -545,7 +581,9 @@ fn rewrite_pkg_config_paths_in_tree(
 fn rewrite_pkg_config_variables(
     contents: &str,
     primary_install_prefix: &Path,
+    output_install_prefix: &Path,
     split_outputs: &[SplitOutput],
+    relocate_prefix: bool,
 ) -> String {
     let directories = [
         ("includedir=", "include"),
@@ -560,18 +598,74 @@ fn rewrite_pkg_config_variables(
             .strip_suffix('\n')
             .map(|body| (body, "\n"))
             .unwrap_or((line, ""));
-        let replacement = directories.iter().find_map(|(variable, relative)| {
-            body.strip_prefix(variable).and_then(|_| {
-                output_prefix_for_dir(Path::new(relative), split_outputs).and_then(|prefix| {
-                    (prefix != primary_install_prefix)
-                        .then(|| format!("{variable}{}/{}", prefix.display(), relative))
-                })
+        let replacement = body
+            .strip_prefix("prefix=")
+            .and_then(|value| {
+                (relocate_prefix
+                    && Path::new(value) == primary_install_prefix
+                    && output_install_prefix != primary_install_prefix)
+                    .then(|| format!("prefix={}", output_install_prefix.display()))
             })
-        });
+            .or_else(|| {
+                directories.iter().find_map(|(variable, relative)| {
+                    body.strip_prefix(variable).and_then(|_| {
+                        output_prefix_for_dir(Path::new(relative), split_outputs).and_then(
+                            |prefix| {
+                                (prefix != primary_install_prefix)
+                                    .then(|| format!("{variable}{}/{}", prefix.display(), relative))
+                            },
+                        )
+                    })
+                })
+            });
         rewritten.push_str(replacement.as_deref().unwrap_or(body));
         rewritten.push_str(newline);
     }
     rewritten
+}
+
+fn rewrite_libtool_paths_in_tree(
+    path: &Path,
+    primary_install_prefix: &Path,
+    output_install_prefix: &Path,
+) -> Result<(), Error> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| common::Error::Metadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+    if metadata.is_dir() {
+        for entry in common::sorted_dir_entries(path)? {
+            rewrite_libtool_paths_in_tree(
+                &entry.path(),
+                primary_install_prefix,
+                output_install_prefix,
+            )?;
+        }
+        return Ok(());
+    }
+    if path.extension().and_then(|extension| extension.to_str()) != Some("la") {
+        return Ok(());
+    }
+
+    let contents = fs::read_to_string(path).map_err(|source| common::Error::ReadFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let old = format!("libdir='{}/lib'", primary_install_prefix.display());
+    let new = format!("libdir='{}/lib'", output_install_prefix.display());
+    let rewritten = contents.replace(&old, &new);
+    if rewritten == contents {
+        return Ok(());
+    }
+    fs::write(path, rewritten).map_err(|source| common::Error::WriteFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    common::preserve_metadata(&metadata, path)?;
+    Ok(())
 }
 
 fn output_prefix_for_dir<'a>(

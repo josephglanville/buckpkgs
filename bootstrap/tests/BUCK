@@ -396,6 +396,17 @@ pkgs_validated_output(name = "ordinary_readline_lib", package = "//development/l
 pkgs_validated_output(name = "ordinary_readline_dev", package = "//development/libraries/readline:dev")
 pkgs_validated_output(name = "ordinary_perl_lib", package = "//development/interpreters/perl:lib")
 pkgs_validated_output(name = "ordinary_perl_bin", package = "//development/interpreters/perl:bin")
+pkgs_validated_output(
+    name = "ordinary_pkgconf_bin",
+    package = "//development/tools/pkg-config:bin",
+    allowed_runtime_paths = ["share/aclocal"],
+)
+pkgs_validated_output(name = "ordinary_pkgconf_static", package = "//development/tools/pkg-config:static")
+pkgs_validated_output(
+    name = "ordinary_bison_bin",
+    package = "//development/tools/parsing/bison:bin",
+    allowed_runtime_paths = ["share/bison"],
+)
 pkgs_validated_output(name = "ordinary_libcap_lib", package = "//development/libraries/libcap:lib")
 pkgs_validated_output(name = "ordinary_libcap_dev", package = "//development/libraries/libcap:dev")
 pkgs_validated_output(name = "ordinary_bubblewrap_bin", package = "//tools/sandboxing/bubblewrap:bin")
@@ -531,8 +542,17 @@ pkgs_seed_free(
 )
 
 pkgs_seed_free(
+    name = "pkgconf_bin_seed_free",
+    packages = [
+        ":ordinary_pkgconf_bin",
+        ":ordinary_pkgconf_static",
+    ],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
     name = "bison_bin_seed_free",
-    packages = ["//development/tools/parsing/bison:bin"],
+    packages = [":ordinary_bison_bin"],
     forbidden = _FOREIGN_SEED,
 )
 

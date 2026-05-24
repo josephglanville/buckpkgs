@@ -99,10 +99,16 @@ link_inputs = [
 
 The builder collects `PkgConfigInfo` from declared dependencies and
 sets the environment for actions that need pkg-config. `pkgconf` is packaged as
-the normal native `pkg-config` frontend with `:bin` and `:dev` outputs; the
-structured action environment supplies the wrapper semantics without shell
-hooks. Documentation-only named outputs are not part of the default package
-surface.
+the normal native `pkg-config` frontend with `:bin` and `:static` outputs. Its
+`pkg.m4` macro is tool-use data retained with `:bin`; this realization emits a
+real static `libpkgconf` API, so headers, `libpkgconf.a`, and its metadata are
+published as `:static` rather than mislabeled as a dynamic `:dev` interface.
+Because that metadata moves with the static interface, pkgconf explicitly
+enables identity-bearing split-prefix relocation for its `.pc` and `.la`
+installed prefixes; this is not a blanket rewrite of every split package.
+The structured action environment supplies the wrapper semantics without
+shell hooks. Documentation-only named outputs are not part of the default
+package surface.
 
 ## Implemented Surface
 
@@ -113,6 +119,8 @@ surface.
   environment variables.
 - `//development/tools/pkg-config:bin` supplies `pkg-config` through a native
   `pkgconf` installation.
+- `//development/tools/pkg-config:static` exposes the emitted static
+  `libpkgconf` API for consumers that embed pkgconf functionality.
 - `//development/libraries/zlib:dev` is the first split metadata provider;
   Python consumes it through `pkg-config` while linking against
   `zlib:lib`.

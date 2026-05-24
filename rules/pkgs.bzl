@@ -374,6 +374,8 @@ def _recipe_semantic_parts(ctx):
         parts.append("excluded_file_suffix={}".format(suffix))
     if getattr(ctx.attrs, "preserve_debug", False):
         parts.append("preserve_debug=true")
+    if getattr(ctx.attrs, "relocate_split_metadata_prefix", False):
+        parts.append("relocate_split_metadata_prefix=true")
     for path in sorted(getattr(ctx.attrs, "normalize_work_dir_text_paths", [])):
         parts.append("normalize_work_dir_text_path={}".format(path))
     for output, paths in sorted(getattr(ctx.attrs, "split_pkg_config_paths", {}).items()):
@@ -2086,6 +2088,7 @@ def _make_install_args(
     for suffix in ctx.attrs.excluded_file_suffixes:
         args.add("--exclude-file-suffix", suffix)
     _add_debug_policy_args(ctx, args)
+    _add_split_metadata_policy_args(ctx, args)
     _add_split_output_args(ctx, args, metadata, split_metadata, split_trees)
     for arg in ctx.attrs.make_args:
         args.add("--make-arg={}".format(arg))
@@ -2144,6 +2147,10 @@ def _add_python_bytecode_args(ctx, args):
 def _add_debug_policy_args(ctx, args):
     if getattr(ctx.attrs, "preserve_debug", False):
         args.add("--preserve-debug")
+
+def _add_split_metadata_policy_args(ctx, args):
+    if getattr(ctx.attrs, "relocate_split_metadata_prefix", False):
+        args.add("--relocate-split-metadata-prefix")
 
 def _pkgs_make_install_package_impl(ctx):
     source = ctx.attrs.source[DefaultInfo].default_outputs[0]
@@ -2319,6 +2326,7 @@ _pkgs_make_install_package = rule(
         "output_paths": attrs.list(attrs.string(), default = []),
         "excluded_file_suffixes": attrs.list(attrs.string(), default = []),
         "preserve_debug": attrs.bool(default = False),
+        "relocate_split_metadata_prefix": attrs.bool(default = False),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
         "patch_strip": attrs.int(default = 1),
@@ -2500,6 +2508,7 @@ def _configure_make_install_args(
     for suffix in ctx.attrs.excluded_file_suffixes:
         args.add("--exclude-file-suffix", suffix)
     _add_debug_policy_args(ctx, args)
+    _add_split_metadata_policy_args(ctx, args)
     for path in ctx.attrs.normalize_work_dir_text_paths:
         args.add("--normalize-work-dir-text-path", path)
     _add_split_output_args(ctx, args, metadata, split_metadata, split_trees)
@@ -2752,6 +2761,7 @@ _pkgs_configure_make_install_package = rule(
         "output_paths": attrs.list(attrs.string(), default = []),
         "excluded_file_suffixes": attrs.list(attrs.string(), default = []),
         "preserve_debug": attrs.bool(default = False),
+        "relocate_split_metadata_prefix": attrs.bool(default = False),
         "normalize_work_dir_text_paths": attrs.list(attrs.string(), default = []),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
@@ -2829,6 +2839,7 @@ def _meson_install_args(
     for suffix in ctx.attrs.excluded_file_suffixes:
         args.add("--exclude-file-suffix", suffix)
     _add_debug_policy_args(ctx, args)
+    _add_split_metadata_policy_args(ctx, args)
     _add_split_output_args(ctx, args, metadata, split_metadata, split_trees)
     for arg in ctx.attrs.meson_args:
         args.add("--meson-arg={}".format(arg))
@@ -3063,6 +3074,7 @@ _pkgs_meson_install_package = rule(
         "output_paths": attrs.list(attrs.string(), default = []),
         "excluded_file_suffixes": attrs.list(attrs.string(), default = []),
         "preserve_debug": attrs.bool(default = False),
+        "relocate_split_metadata_prefix": attrs.bool(default = False),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
         "patch_strip": attrs.int(default = 1),
@@ -3339,6 +3351,7 @@ def pkgs_make_install_package(
         output_paths = [],
         excluded_file_suffixes = [],
         preserve_debug = False,
+        relocate_split_metadata_prefix = False,
         native_build_inputs = [],
         build_inputs = [],
         link_inputs = [],
@@ -3374,6 +3387,7 @@ def pkgs_make_install_package(
         output_paths = output_paths,
         excluded_file_suffixes = excluded_file_suffixes,
         preserve_debug = preserve_debug,
+        relocate_split_metadata_prefix = relocate_split_metadata_prefix,
         builder = "make-install-v17",
         source = source.dep,
         make_args = lowered_make_args.strings,
@@ -3436,6 +3450,7 @@ def pkgs_configure_make_install_package(
         output_paths = [],
         excluded_file_suffixes = [],
         preserve_debug = False,
+        relocate_split_metadata_prefix = False,
         normalize_work_dir_text_paths = [],
         native_build_inputs = [],
         build_inputs = [],
@@ -3473,6 +3488,7 @@ def pkgs_configure_make_install_package(
         output_paths = output_paths,
         excluded_file_suffixes = excluded_file_suffixes,
         preserve_debug = preserve_debug,
+        relocate_split_metadata_prefix = relocate_split_metadata_prefix,
         normalize_work_dir_text_paths = normalize_work_dir_text_paths,
         builder = "configure-make-install-v18",
         source = source.dep,
@@ -3540,6 +3556,7 @@ def pkgs_meson_install_package(
         output_paths = [],
         excluded_file_suffixes = [],
         preserve_debug = False,
+        relocate_split_metadata_prefix = False,
         native_build_inputs = [],
         build_inputs = [],
         link_inputs = [],
@@ -3572,6 +3589,7 @@ def pkgs_meson_install_package(
         output_paths = output_paths,
         excluded_file_suffixes = excluded_file_suffixes,
         preserve_debug = preserve_debug,
+        relocate_split_metadata_prefix = relocate_split_metadata_prefix,
         builder = "meson-install-v13",
         source = source.dep,
         meson_args = lowered_meson_args.strings,

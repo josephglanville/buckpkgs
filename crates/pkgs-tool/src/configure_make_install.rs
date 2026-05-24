@@ -26,6 +26,9 @@ pub(crate) struct Args {
     #[arg(long)]
     preserve_debug: bool,
 
+    #[arg(long)]
+    relocate_split_metadata_prefix: bool,
+
     #[arg(long = "normalize-work-dir-text-path")]
     normalize_work_dir_text_paths: Vec<PathBuf>,
 
@@ -244,6 +247,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &output,
         &args.output_paths,
         &split_outputs,
+        args.relocate_split_metadata_prefix,
     )?;
     build::exclude_file_suffixes(&output, &args.exclude_file_suffixes)?;
     build::sanitize_libtool_archives(&output, work.path())?;

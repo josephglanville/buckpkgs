@@ -25,8 +25,8 @@
       preserve reproducibility through the corrected Meson wrapper and `inih`.
 - [x] Implement declared `PkgConfigInfo` roots and standard-builder
       `PKG_CONFIG_PATH`/`PKG_CONFIG_LIBDIR` lowering, including empty-root
-      isolation, with native `pkgconf` exported as code-bearing `:bin` and
-      metadata `:dev` outputs.
+      isolation, with native `pkgconf` exported as code-bearing `:bin` and its
+      emitted static library interface exported as `:static`.
 - [x] Implement one-realization named output splitting for the make/configure/
       Meson builders with output projections, per-output validation, and
       relocated `*.pc` repair; migrate `zlib` to runtime `:lib` plus metadata
@@ -76,6 +76,23 @@
       implement reference-backed `dev` projections, validate payload and ELF
       ownership, migrate producers, publish/pin the generation, and verify
       imported C/C++/Meson/PostgreSQL/Bubblewrap consumers.
+- [x] Audit completion records against the normalized output contract:
+      current guidance and prototype references now identify `bin`/`lib`/`dev`
+      plus optional `static` as the BuckPkgs policy, `inih` is documented as
+      `lib`/`dev`, and `libcap:dev` no longer claims an unpublished static
+      archive.
+- [x] Normalize Bison after the completion audit identified its executable
+      templates masquerading as `:lib`: `bison:bin` now retains its required
+      `share/bison` runtime data under an explicit payload-policy allowance
+      while excluding the incidental `README.md`, with its configured GNU m4
+      invocation modeled as tool-use rather than runtime closure.
+- [x] Preserve pkgconf's actual library surface after role audit: its
+      static-only `libpkgconf` archive, headers, and metadata are exported as
+      `pkgconf:static`, while `share/aclocal/pkg.m4` remains tool-use data in
+      `pkgconf:bin`.
+- [x] Validate opt-in split metadata relocation for moved interfaces:
+      `pkgconf:static` relocates `.pc` and `.la` installed prefixes under an
+      identity-bearing policy bit without changing default split semantics.
 - [x] Treat debug metadata as an explicit output-policy concern: generic
       Make/Configure/Meson realization now strips debug sections from ELF and
       archive outputs by default, `preserve_debug = True` is identity-bearing,

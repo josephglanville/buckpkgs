@@ -82,17 +82,20 @@ package identity; the ordinary materialization path does not rewrite it.
 
 For newly ported packages, `bin` contains runnable programs, `lib` contains
 runtime shared libraries plus indispensable loaded runtime data, and `dev`
-contains headers, static archives, and build metadata. Reserve `out` for a
-compound runtime payload that cannot yet be separated without losing a
-required runtime edge. A split `bin` output that loads sibling shared
-libraries must declare its dependency on the package's primary `lib` output.
+contains dynamic-development interfaces such as headers, link-name
+projections, and build metadata. Independently consumable existing static
+archives belong in optional `static`; only documented dynamic-development
+support archives remain in `dev`. Reserve `out` for a compound runtime
+payload that cannot yet be separated without losing a required runtime edge.
+A split `bin` output that loads sibling shared libraries must declare its
+dependency on the package's primary `lib` output.
 
 Do not create standalone `man`, `doc`, or `info` projections unless a package
 explicitly needs those outputs. Recipes with mixed upstream installations
 should use explicit primary output keep-lists so documentation does not fall
 into a catch-all runtime output; retain only runtime data directories that are
-actually required. Existing bootstrap-facing output labels remain stable
-during PostgreSQL bring-up and are tracked for a later alignment pass.
+actually required. Bootstrap-facing public labels now use the normalized
+`bin`/`lib`/`dev` roles and resolve through the pinned imported generation.
 
 ## Path Leakage Rules
 
@@ -437,9 +440,12 @@ boundary check.
   `/pkgs/store/3a75b89b0d616bf7b9c2782d42e28cea-zlib-1.3.2-dev` contain no
   writable regular file or directory. Native `pkg-config --cflags --libs
   zlib` resolves headers from `:dev` and libraries from `:lib`.
-- [x] `//development/tools/pkg-config:bin` and `:dev` — verified 2026-05-23
-  with `[reproducible]` and `[archive_metadata]` for each exported output;
-  native `pkgconf` supplies the successful isolated zlib metadata query.
+- [x] `//development/tools/pkg-config:bin` and `:static` — verified
+  2026-05-24 with `[reproducible]` and `[archive_metadata]` for each exported
+  output; native `pkgconf` supplies the successful isolated zlib metadata
+  query, `:bin` retains required `share/aclocal/pkg.m4`, and `:static`
+  exposes its actual static `libpkgconf` API with opt-in relocated installed
+  metadata prefixes.
 - [x] `//development/interpreters/python:build_interpreter` — verified
   2026-05-23 with `[reproducible]`, `[archive_metadata]`, and
   `bootstrap/tests:python_build_interpreter_seed_free`; the recipe discovers
@@ -461,9 +467,9 @@ boundary check.
   `bootstrap/tests:meson_bin_seed_free`; its installed wrapper embeds declared
   native Bash/Python paths via identity-bearing installation arguments, and
   `/pkgs/store/ecdd319136967b9ee7aa5ed7e109074e-meson-1.9.1` is sealed.
-- [x] `//development/libraries/inih:out` — verified 2026-05-23 with
-  `[reproducible]`, `[archive_metadata]`, and
-  `bootstrap/tests:inih_out_seed_free` plus
+- [x] `//development/libraries/inih:lib` and `:dev` — verified 2026-05-23
+  with `[reproducible]` and `[archive_metadata]` for the projected outputs,
+  plus `bootstrap/tests:inih_lib_seed_free` and
   `bootstrap/tests:inih_native_graph_foreign_build_free`; built through
   corrected native Meson, and revalidated 2026-05-24 after Meson
   `link_inputs` RUNPATH handling was generalized.
@@ -475,14 +481,17 @@ boundary check.
   seed-free checks for the runtime outputs used by PostgreSQL.
 - [x] `//development/tools/misc/gnum4:bin`,
   `//development/interpreters/perl:lib` and `:bin`,
-  `//development/tools/parsing/bison:lib` and `:bin`, and
+  `//development/tools/parsing/bison:bin`, and
   `//development/tools/parsing/flex:bin` — verified 2026-05-24 with
   `[reproducible]` and `[archive_metadata]`, plus seed-free checks for the
-  executable outputs used in PostgreSQL's build graph.
+  executable outputs used in PostgreSQL's build graph. Bison's `:bin`
+  explicitly retains required `share/bison` runtime templates while excluding
+  its incidental `README.md`, and declares its embedded GNU m4 invocation as
+  tool-use rather than runtime closure.
 - [x] `//development/libraries/libcap:lib` and `:dev` — verified 2026-05-24
   with `[reproducible]`, `[archive_metadata]`, and seed-free checks for both
   projections; `:lib` retains libraries only and `:dev` retains headers,
-  static archives, and pkg-config metadata only.
+  reference-backed link names, and pkg-config metadata only.
 - [x] `//tools/sandboxing/bubblewrap:bin` — verified 2026-05-24 with
   `[reproducible]`, `[archive_metadata]`, and
   `bootstrap/tests:bubblewrap_bin_seed_free`; `bwrap --version` runs using

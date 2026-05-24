@@ -64,12 +64,14 @@ Keep:
   content digests.
 - **Immutable outputs**: consumers depend on package instances, never on mutable
   install locations.
-- **Multiple outputs**: `out`, `dev`, `bin`, `doc`, and similar splits are often
-  useful and should survive.
+- **Multiple outputs**: canonical code-bearing roles are `bin`, `lib`, `dev`,
+  and optional `static`; `out` remains available only for deliberate compound
+  payloads, while documentation outputs are opt-in exceptions.
 - **Packaging knowledge**: nixpkgs contains years of hard-won recipes and build
   conventions worth porting.
-- **Names and output conventions**: keep nixpkgs naming and output splits unless
-  there is a concrete reason to diverge.
+- **Names and output conventions**: preserve useful nixpkgs recipe knowledge,
+  while using BuckPkgs' canonical role policy where its executable-code focus
+  deliberately differs.
 
 Do not keep:
 
@@ -332,7 +334,7 @@ builder = "autotools"
 tests = true
 
 [outputs]
-default = ["out"]
+default = ["bin"]
 ```
 
 A more interesting package can add:
@@ -354,8 +356,8 @@ configure = ["--enable-shared"]
 make = ["SHARED_MODE=1"]
 
 [outputs]
-default = ["out"]
-all = ["out", "dev", "static"]
+default = ["lib"]
+all = ["lib", "dev", "static"]
 ```
 
 Exact spelling can change before implementation. The key point is that the
@@ -409,16 +411,17 @@ in separate source files rather than embedded in package metadata.
 BuckPkgs should support named outputs from the start because the split is cheap to
 model early and expensive to retrofit later.
 
-Likely initial names:
+Canonical code-bearing names:
 
-- `out`
 - `bin`
-- `dev`
 - `lib`
-- `doc`
+- `dev`
 - `static`
 
-Manifests may declare only the outputs they actually use.
+`out` remains available for a deliberately compound payload that cannot yet be
+split without misrepresenting required runtime behavior. Documentation,
+manual, and info payloads are not default outputs; a package must declare an
+explicit exception when they are required.
 
 ### 7.6 Runtime Closure
 

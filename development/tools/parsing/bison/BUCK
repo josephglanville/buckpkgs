@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_package_output")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -22,11 +22,11 @@ _NATIVE_TOOLS = [
 ]
 
 pkgs_configure_make_install_package(
-    name = "lib",
+    name = "bin",
     package_name = "bison",
     version = "3.8.2",
     sources = [_SOURCE],
-    output = "lib",
+    output = "bin",
     configure_args = ["--disable-nls"],
     configure_env = [
         "CC=cc",
@@ -34,24 +34,15 @@ pkgs_configure_make_install_package(
         "RANLIB=ranlib",
         "MAKEINFO=:",
     ],
-    output_paths = ["share/bison"],
-    split_outputs = {
-        "bin": ["bin"],
-    },
-    split_runtime_outputs = {
-        "bin": ["lib"],
-    },
+    output_paths = [
+        "bin",
+        "share/bison",
+    ],
+    excluded_file_suffixes = [".md"],
     native_build_inputs = _NATIVE_TOOLS,
-    runtime_inputs = [
-        "//development/libraries/glibc:lib",
+    runtime_inputs = ["//development/libraries/glibc:lib"],
+    tool_inputs = [
         "//development/tools/misc/gnum4:bin",
     ],
-    visibility = ["PUBLIC"],
-)
-
-pkgs_package_output(
-    name = "bin",
-    package = ":lib",
-    output = "bin",
     visibility = ["PUBLIC"],
 )

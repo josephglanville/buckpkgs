@@ -23,6 +23,7 @@ pkgs_configure_make_install_package(
     name = "bin",
     package_name = "pkgconf",
     version = "2.5.1",
+    output = "bin",
     sources = [_SOURCE],
     configure_args = [
         "--disable-shared",
@@ -36,17 +37,26 @@ pkgs_configure_make_install_package(
     symlinks = {
         "bin/pkg-config": "pkgconf",
     },
-    output_paths = ["bin"],
+    output_paths = [
+        "bin",
+        "share/aclocal",
+    ],
     split_outputs = {
-        "dev": [
+        # This realization intentionally emits only libpkgconf.a.  Publish
+        # its consumable library API as a static interface, not as dynamic dev.
+        "static": [
             "include",
             "lib",
-            "share/aclocal",
         ],
     },
     split_pkg_config_paths = {
-        "dev": ["lib/pkgconfig"],
+        "static": ["lib/pkgconfig"],
     },
+    # libpkgconf records pkgconf's configured default metadata search prefix.
+    split_reference_outputs = {
+        "static": ["bin"],
+    },
+    relocate_split_metadata_prefix = True,
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
         "//development/libraries/glibc:lib",
@@ -55,8 +65,8 @@ pkgs_configure_make_install_package(
 )
 
 pkgs_package_output(
-    name = "dev",
+    name = "static",
     package = ":bin",
-    output = "dev",
+    output = "static",
     visibility = ["PUBLIC"],
 )

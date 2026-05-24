@@ -1,9 +1,13 @@
 # Buck2 Store Integration
 
+Normalized bootstrap and ordinary code-bearing packages follow
+[BOOTSTRAP_UPGRADE.md](./BOOTSTRAP_UPGRADE.md):
+`bin`, `lib`, `dev`, and optional `static`, with documentation payloads opt-in.
+
 Goal:
 
 ```text
-//pkgs/tools/compression/bzip2:out
+//pkgs/tools/compression/bzip2:bin
 ```
 
 should be an ordinary Buck2 graph node that can be depended on like any other
@@ -105,7 +109,7 @@ pkgs_package(
 and consume:
 
 ```python
-deps = ["//pkgs/tools/compression/bzip2:out"]
+deps = ["//pkgs/tools/compression/bzip2:bin"]
 ```
 
 The provider for the target should expose:
@@ -218,7 +222,7 @@ This keeps local and remote protocols mostly unchanged.
 - providers
 - CAS `ArtifactValue` handling
 
-`//pkgs/tools/compression/bzip2:out` should look like an ordinary configured
+`//pkgs/tools/compression/bzip2:bin` should look like an ordinary configured
 target whose
 actions produce ordinary `ArtifactValue`s. Only the final output namespace is
 special.

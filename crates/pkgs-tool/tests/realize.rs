@@ -1567,7 +1567,7 @@ EOF
 }
 
 #[test]
-fn splits_development_output_and_repairs_pkg_config_paths() {
+fn splits_development_output_and_repairs_metadata_paths_on_request() {
     let temp = tempdir().unwrap();
     let source = temp.path().join("source");
     fs::create_dir_all(&source).unwrap();
@@ -1591,6 +1591,7 @@ install:
 	printf documentation > "\$(DESTDIR)$prefix/lib/example.pod"
 	printf header > "\$(DESTDIR)$prefix/include/example.h"
 	printf manual > "\$(DESTDIR)$prefix/share/man/example.1"
+	printf "libdir='%s/lib'\n" "$prefix" > "\$(DESTDIR)$prefix/lib/libexample.la"
 	printf 'prefix=%s\nexec_prefix=\$\${prefix}\nlibdir=\$\${exec_prefix}/lib\nincludedir=\$\${prefix}/include\nName: example\n' "$prefix" > "\$(DESTDIR)$prefix/lib/pkgconfig/example.pc"
 EOF
 "#,
@@ -1601,10 +1602,9 @@ EOF
     permissions.set_mode(0o755);
     fs::set_permissions(&configure, permissions).unwrap();
 
-    let output = temp.path().join("out");
-    let dev_output = temp.path().join("dev");
-    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
-        .args([
+    let run_split_build = |output: &Path, dev_output: &Path, relocate: bool| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"));
+        command.args([
             "--source",
             source.to_str().unwrap(),
             "--output",
@@ -1621,15 +1621,39 @@ EOF
             "dev=include",
             "--split-path",
             "dev=lib/pkgconfig",
+            "--split-path",
+            "dev=lib/libexample.la",
+        ]);
+        if relocate {
+            command.arg("--relocate-split-metadata-prefix");
+        }
+        command.args([
             "--split-reference-symlink",
             "dev=lib/libexample.so=/pkgs/store/example-package/lib/libexample.so.1",
             "--install-prefix",
             "/pkgs/store/example-package",
             "--path-entry",
             "/usr/bin",
-        ])
-        .status()
-        .unwrap();
+        ]);
+        command.status().unwrap()
+    };
+
+    let default_output = temp.path().join("default-out");
+    let default_dev_output = temp.path().join("default-dev");
+    let default_status = run_split_build(&default_output, &default_dev_output, false);
+    assert!(default_status.success());
+    assert_eq!(
+        fs::read_to_string(default_dev_output.join("lib/pkgconfig/example.pc")).unwrap(),
+        "prefix=/pkgs/store/example-package\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=/pkgs/store/example-package-dev/include\nName: example\n"
+    );
+    assert_eq!(
+        fs::read_to_string(default_dev_output.join("lib/libexample.la")).unwrap(),
+        "libdir='/pkgs/store/example-package/lib'\n"
+    );
+
+    let output = temp.path().join("out");
+    let dev_output = temp.path().join("dev");
+    let status = run_split_build(&output, &dev_output, true);
     assert!(status.success());
     assert!(output.join("lib/libexample.so").exists());
     assert!(!output.join("lib/example.pod").exists());
@@ -1642,7 +1666,11 @@ EOF
     );
     assert_eq!(
         fs::read_to_string(dev_output.join("lib/pkgconfig/example.pc")).unwrap(),
-        "prefix=/pkgs/store/example-package\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=/pkgs/store/example-package-dev/include\nName: example\n"
+        "prefix=/pkgs/store/example-package-dev\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=/pkgs/store/example-package-dev/include\nName: example\n"
+    );
+    assert_eq!(
+        fs::read_to_string(dev_output.join("lib/libexample.la")).unwrap(),
+        "libdir='/pkgs/store/example-package-dev/lib'\n"
     );
 }
 

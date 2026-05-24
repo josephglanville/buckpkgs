@@ -106,7 +106,7 @@ Each substitutable output needs metadata at least like:
   "package": {
     "name": "gcc",
     "version": "...",
-    "output": "out"
+    "output": "lib"
   },
   "archive": {
     "encoding": "buckpkgs-tree-v1",

@@ -1,5 +1,10 @@
 # Bootstrap To Bash Spike
 
+This is the original spike proposal. Its nixpkgs-style label and output-policy
+examples are superseded by [BOOTSTRAP_UPGRADE.md](./BOOTSTRAP_UPGRADE.md):
+the normalized bootstrap uses `bin`, `lib`, `dev`, and optional `static`, and
+does not publish manual, documentation, or info payloads by default.
+
 The first implementation spike should prove one narrow path well:
 
 1. build or provide a foreign Buck2 seed
@@ -133,28 +138,23 @@ pkgs/
         gnumake/
 ```
 
-With a `BUCK` file in `pkgs/shells/bash/`, the package directory should export
-the same named outputs that the nixpkgs package does wherever practical:
+With a `BUCK` file in `pkgs/shells/bash/`, the package directory exports its
+executable payload using the canonical role:
 
 ```text
-//pkgs/shells/bash:out
-//pkgs/shells/bash:dev
-//pkgs/shells/bash:man
-//pkgs/shells/bash:doc
-//pkgs/shells/bash:info
+//pkgs/shells/bash:bin
 ```
 
-For a library package, use its nixpkgs output names as well:
+For a library package, separate runtime and development interfaces:
 
 ```text
 //pkgs/development/libraries/openssl:bin
-//pkgs/development/libraries/openssl:out
+//pkgs/development/libraries/openssl:lib
 //pkgs/development/libraries/openssl:dev
-//pkgs/development/libraries/openssl:man
 ```
 
-The directory names the upstream package. The target name names the nixpkgs
-output.
+The directory names the upstream package. The target name names the BuckPkgs
+consumption role.
 
 If we ever want `//pkgs/shells:bash`, that can exist as a convenience alias from
 a `pkgs/shells/BUCK` file, but it should not be the primary ownership model. If
@@ -182,14 +182,14 @@ logical package into many Buck packages just to chase evaluator parallelism.
 
 ## Label Policy
 
-Use direct nixpkgs-style output labels as the canonical form:
+Use direct role-specific output labels as the canonical form:
 
-- `//pkgs/shells/bash:out`
-- `//pkgs/tools/text/gnused:out`
-- `//pkgs/tools/text/gnugrep:out`
-- `//pkgs/development/tools/build-managers/gnumake:out`
+- `//pkgs/shells/bash:bin`
+- `//pkgs/tools/text/gnused:bin`
+- `//pkgs/tools/text/gnugrep:bin`
+- `//pkgs/development/tools/build-managers/gnumake:bin`
 - `//pkgs/development/libraries/openssl:bin`
-- `//pkgs/development/libraries/openssl:out`
+- `//pkgs/development/libraries/openssl:lib`
 - `//pkgs/development/libraries/openssl:dev`
 
 Add short aliases only where they improve human ergonomics materially:
@@ -203,17 +203,10 @@ recipes live.
 
 ## Output Policy
 
-Copy nixpkgs output names by default.
-
-That keeps manual ports direct:
-
-- nixpkgs `bash` has `out`, `dev`, `man`, `doc`, and `info`
-- BuckPkgs `bash` should expose `:out`, `:dev`, `:man`, `:doc`, and `:info`
-- nixpkgs `openssl` has `bin`, `dev`, `out`, and `man`
-- BuckPkgs `openssl` should expose `:bin`, `:dev`, `:out`, and `:man`
-
-Do not add a second BuckPkgs-specific facet vocabulary unless a later Buck2 consumer
-problem proves it is worth the extra translation layer.
+Use `bin`, `lib`, `dev`, and optional `static` as the package role vocabulary.
+Nixpkgs remains a recipe reference, but BuckPkgs deliberately does not publish
+manual, documentation, or info output roles by default. A runtime-data or
+development-support exception must be selected and documented explicitly.
 
 ## What This Spike Should Settle
 

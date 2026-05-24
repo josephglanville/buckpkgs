@@ -82,6 +82,10 @@ Runtime data may remain in a code-bearing output when its use is part of the
 declared behavior of that package. Examples include:
 
 - `share/awk` for installed awk programs used by `gawk`
+- `share/bison` for skeletons and templates consumed when the `bison`
+  executable generates parsers
+- `share/aclocal/pkg.m4` for Autoconf integration with the `pkgconf`
+  executable tool interface
 - glibc loader/runtime modules such as `gconv` data or NSS modules if retained
   by the selected libc feature contract
 
@@ -504,6 +508,18 @@ store-output and CAS-import action APIs.
 - [x] Model installed PostgreSQL PGXS tools as `dev` tool-use dependencies
       (`bison`, `flex`, `perl`, and Coreutils install helpers), without
       introducing them into `bin` or `lib` runtime closures.
+- [x] Normalize Bison as an executable tool output: its required
+      `share/bison` templates stay in `bison:bin` as an approved runtime-data
+      exception rather than being misrepresented as a `lib` interface; its
+      incidental `README.md` is excluded from that operational subtree, and
+      its configured GNU m4 invocation is a declared tool-use dependency.
+- [x] Preserve pkgconf's real library API while respecting output roles:
+      its static-only realization exports `pkgconf:static`, while tool-use
+      `share/aclocal/pkg.m4` remains with `pkgconf:bin`.
+- [x] Make relocated metadata in moved split interfaces explicit and
+      identity-bearing: `pkgconf:static` opts into relocation of its `.pc`
+      and `.la` installed prefixes while existing split outputs retain their
+      established metadata policy.
 - [x] Deduplicate pkg-config roots contributed through overlapping build and
       link-interface roles so generated compile metadata has one declared path
       per development dependency.

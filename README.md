@@ -41,7 +41,7 @@ should not grow into another programmable package language.
   bootstrapped Cargo tools.
 - [BUCK2_STORE_INTEGRATION.md](./BUCK2_STORE_INTEGRATION.md): the concrete Buck2
   changes needed to make `/pkgs/store/...` outputs first-class artifacts for
-  targets such as `//pkgs/tools/compression/bzip2:lib`.
+  targets such as `//pkgs/tools/compression/bzip2:bin`.
 - [BUCK2_CHANGES_PROPOSAL.md](./BUCK2_CHANGES_PROPOSAL.md): the consolidated
   Buck2 fork proposal, including first-class store outputs, symbolic identity,
   CAS interaction, store closures, and expected combined-system properties.
@@ -62,6 +62,8 @@ should not grow into another programmable package language.
   cross-repository cache-key portability.
 - [BOOTSTRAP_ISLAND.md](./BOOTSTRAP_ISLAND.md): the graph boundary that keeps
   ordinary builds from implicitly rebuilding bootstrap turnover.
+- [BOOTSTRAP_UPGRADE.md](./BOOTSTRAP_UPGRADE.md): the canonical output-role
+  contract and completed normalized bootstrap publication/cutover checklist.
 
 ## Current Position
 

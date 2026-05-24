@@ -46,10 +46,13 @@ hermetic library interfaces.
   libraries.
 - For newly ported packages, use `bin` for runnable programs, `lib` for
   runtime shared libraries plus indispensable loaded runtime data, `dev` for
-  headers/static archives/build metadata, and `out` only for compound runtime
-  payloads that cannot yet be separated without losing required runtime
-  closure modeling. The revised bootstrap-facing public surface uses the same
-  canonical roles.
+  dynamic-development interfaces such as headers, link-name projections, and
+  build metadata, optional `static` for independently consumable existing
+  static archives, and `out` only for compound runtime payloads that cannot
+  yet be separated without losing required runtime closure modeling.
+  Development-support archives needed for the dynamic interface require a
+  documented exception. The revised bootstrap-facing public surface uses the
+  same canonical roles.
 - Do not create `man`, `doc`, or `info` projections by default; those require
   an explicit package need.
 - Strip ELF and archive debug metadata from normal code-bearing outputs by
