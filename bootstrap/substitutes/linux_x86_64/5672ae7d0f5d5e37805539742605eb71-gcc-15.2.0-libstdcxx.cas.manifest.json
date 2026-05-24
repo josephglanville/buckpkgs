@@ -1,0 +1,48 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:077f5aa4a526a5b50dada0f994cc22c4f18620fa4a04528bf7aa2d8ccd255e40",
+    "download_size": 4180321,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:077f5aa4a526a5b50dada0f994cc22c4f18620fa4a04528bf7aa2d8ccd255e40",
+    "payload_size": 4180321
+  },
+  "canonical_tree_hash": "sha256:077f5aa4a526a5b50dada0f994cc22c4f18620fa4a04528bf7aa2d8ccd255e40",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "2f5d259b64175fe057ac799234c011f591953b33a410ff735b302dd0165abc15:80"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "gcc",
+    "output": "libstdcxx",
+    "version": "15.2.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+    "/pkgs/store/ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev",
+    "/pkgs/store/d79d3410372a81b85838dd003c664197-glibc-2.42-dev",
+    "/pkgs/store/dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev",
+    "/pkgs/store/e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev",
+    "/pkgs/store/e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib",
+    "/pkgs/store/f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/5672ae7d0f5d5e37805539742605eb71-gcc-15.2.0-libstdcxx",
+    "/pkgs/store/f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc"
+  ],
+  "store_entry": "5672ae7d0f5d5e37805539742605eb71-gcc-15.2.0-libstdcxx",
+  "store_path": "/pkgs/store/5672ae7d0f5d5e37805539742605eb71-gcc-15.2.0-libstdcxx",
+  "store_path_key": "5672ae7d0f5d5e37805539742605eb71",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/5672ae7d0f5d5e37805539742605eb71-gcc-15.2.0-libstdcxx",
+    "/pkgs/store/f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc"
+  ]
+}

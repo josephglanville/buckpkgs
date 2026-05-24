@@ -1,0 +1,37 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:7037ffc48b148f6b515a90834e807fe99c0db030489f9111366891b8710da7b8",
+    "download_size": 46110597,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:7037ffc48b148f6b515a90834e807fe99c0db030489f9111366891b8710da7b8",
+    "payload_size": 46110597
+  },
+  "canonical_tree_hash": "sha256:7037ffc48b148f6b515a90834e807fe99c0db030489f9111366891b8710da7b8",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "a561b6e2d3f638ff6c9cbf693ad08e30f33f9c47c393d9e0ab6abd9e9c610388:172"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "binutils",
+    "output": "bin",
+    "version": "2.46.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin"
+  ],
+  "store_entry": "cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin",
+  "store_path": "/pkgs/store/cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin",
+  "store_path_key": "cd9a36628544a7bfda54b75b593e4783",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin"
+  ]
+}

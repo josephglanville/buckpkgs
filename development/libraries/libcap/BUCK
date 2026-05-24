@@ -44,21 +44,30 @@ pkgs_make_install_package(
     output = "lib",
     make_args = ["-C", "libcap"] + _MAKE_VARIABLES,
     install_args = ["-C", "libcap"] + _MAKE_VARIABLES,
-    output_paths = ["lib"],
+    output_paths = [
+        "lib/libcap.so.2",
+        "lib/libcap.so.2.77",
+        "lib/libpsx.so.2",
+        "lib/libpsx.so.2.77",
+    ],
     split_outputs = {
         "dev": [
             "include",
-            "lib/libcap.a",
-            "lib/libpsx.a",
             "lib/pkgconfig",
         ],
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib/libcap.so": ("lib", "lib/libcap.so.2.77"),
+            "lib/libpsx.so": ("lib", "lib/libpsx.so.2.77"),
+        },
     },
     split_pkg_config_paths = {
         "dev": ["lib/pkgconfig"],
     },
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

@@ -1,0 +1,35 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+  "store_path_key": "aa4c9158de9347ee0c79055121405597",
+  "store_entry": "aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+  "package": {
+    "name": "mpfr",
+    "version": "4.2.2",
+    "output": "lib"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:2a38c37075f7cc47024d6bcdcde43b760482e1216724de93c9ff0cb7e8b9990b",
+    "download_size": 794747,
+    "payload_hash": "sha256:2a38c37075f7cc47024d6bcdcde43b760482e1216724de93c9ff0cb7e8b9990b",
+    "payload_size": 794747
+  },
+  "canonical_tree_hash": "sha256:2a38c37075f7cc47024d6bcdcde43b760482e1216724de93c9ff0cb7e8b9990b",
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib"
+  ],
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib"
+  ]
+}

@@ -38,6 +38,8 @@ pub(crate) struct StoreObjectManifest {
     canonical_tree_hash: String,
     references: Vec<String>,
     runtime_store_outputs: Vec<String>,
+    #[serde(default)]
+    tool_store_outputs: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -106,6 +108,9 @@ pub(crate) struct ExportArgs {
     #[arg(long = "runtime-store-output")]
     runtime_store_outputs: Vec<String>,
 
+    #[arg(long = "tool-store-output")]
+    tool_store_outputs: Vec<String>,
+
     #[arg(long)]
     archive: PathBuf,
 
@@ -124,6 +129,22 @@ pub(crate) struct HydrateArgs {
 
     #[arg(long, default_value = "/pkgs/store")]
     store_root: PathBuf,
+}
+
+#[derive(Debug, Parser)]
+#[command(name = "pkgs-add-cas-manifest")]
+pub(crate) struct CasManifestArgs {
+    #[arg(long)]
+    input: PathBuf,
+
+    #[arg(long)]
+    cas_root_digest: String,
+
+    #[arg(long)]
+    output: PathBuf,
+
+    #[arg(long)]
+    starlark_pin: Option<PathBuf>,
 }
 
 #[derive(Debug, Parser)]
@@ -155,6 +176,9 @@ pub(crate) struct ImportArgs {
 
     #[arg(long = "expected-runtime-store-output")]
     expected_runtime_store_outputs: Vec<String>,
+
+    #[arg(long = "expected-tool-store-output")]
+    expected_tool_store_outputs: Vec<String>,
 
     #[arg(long)]
     output: PathBuf,
@@ -225,6 +249,9 @@ pub(crate) struct ProjectHydratedArgs {
     #[arg(long = "expected-runtime-store-output")]
     expected_runtime_store_outputs: Vec<String>,
 
+    #[arg(long = "expected-tool-store-output")]
+    expected_tool_store_outputs: Vec<String>,
+
     #[arg(
         long,
         default_value = "hydrate the configured bootstrap substitute closure first"
@@ -265,6 +292,9 @@ pub(crate) struct VerifyHydratedArgs {
     #[arg(long = "expected-runtime-store-output")]
     expected_runtime_store_outputs: Vec<String>,
 
+    #[arg(long = "expected-tool-store-output")]
+    expected_tool_store_outputs: Vec<String>,
+
     #[arg(
         long,
         default_value = "hydrate the configured bootstrap substitute closure first"
@@ -283,6 +313,7 @@ struct ExpectedManifest<'a> {
     target_system: &'a str,
     references: &'a [String],
     runtime_store_outputs: &'a [String],
+    tool_store_outputs: &'a [String],
 }
 
 impl<'a> From<&'a ImportArgs> for ExpectedManifest<'a> {
@@ -295,6 +326,7 @@ impl<'a> From<&'a ImportArgs> for ExpectedManifest<'a> {
             target_system: &args.expected_target_system,
             references: &args.expected_references,
             runtime_store_outputs: &args.expected_runtime_store_outputs,
+            tool_store_outputs: &args.expected_tool_store_outputs,
         }
     }
 }
@@ -309,6 +341,7 @@ impl<'a> From<&'a ProjectHydratedArgs> for ExpectedManifest<'a> {
             target_system: &args.expected_target_system,
             references: &args.expected_references,
             runtime_store_outputs: &args.expected_runtime_store_outputs,
+            tool_store_outputs: &args.expected_tool_store_outputs,
         }
     }
 }
@@ -323,6 +356,7 @@ impl<'a> From<&'a VerifyHydratedArgs> for ExpectedManifest<'a> {
             target_system: &args.expected_target_system,
             references: &args.expected_references,
             runtime_store_outputs: &args.expected_runtime_store_outputs,
+            tool_store_outputs: &args.expected_tool_store_outputs,
         }
     }
 }
@@ -387,6 +421,9 @@ pub(crate) enum Error {
     #[error("invalid store path key: {0}")]
     InvalidStorePathKey(String),
 
+    #[error("invalid REAPI CAS root digest: {0}")]
+    InvalidCasRootDigest(String),
+
     #[error("store entry `{entry}` does not match key `{key}`")]
     InvalidStoreEntry { key: String, entry: String },
 
@@ -399,8 +436,11 @@ pub(crate) enum Error {
     #[error("manifest list `{field}` is not in canonical sorted unique form")]
     NonCanonicalManifestList { field: &'static str },
 
-    #[error("manifest runtime closure does not equal references plus its own store path")]
-    InvalidManifestClosure,
+    #[error("manifest list `{field}` must include its own store path")]
+    MissingOwnStorePath { field: &'static str },
+
+    #[error("manifest list `{field}` names object outside declared references: {path}")]
+    UndeclaredManifestReference { field: &'static str, path: String },
 
     #[error("manifest store path `{actual}` does not match expected path `{expected}`")]
     UnexpectedStorePath { expected: String, actual: String },
@@ -516,6 +556,13 @@ pub(crate) fn export_store_object(args: &ExportArgs) -> Result<(), Error> {
     let mut runtime_store_outputs = args.runtime_store_outputs.clone();
     runtime_store_outputs.sort();
     runtime_store_outputs.dedup();
+    let mut tool_store_outputs = if args.tool_store_outputs.is_empty() {
+        runtime_store_outputs.clone()
+    } else {
+        args.tool_store_outputs.clone()
+    };
+    tool_store_outputs.sort();
+    tool_store_outputs.dedup();
 
     let manifest = StoreObjectManifest {
         format: MANIFEST_FORMAT.to_owned(),
@@ -539,6 +586,7 @@ pub(crate) fn export_store_object(args: &ExportArgs) -> Result<(), Error> {
         canonical_tree_hash: digest,
         references,
         runtime_store_outputs,
+        tool_store_outputs,
     };
     validate_manifest(&manifest)?;
 
@@ -547,6 +595,49 @@ pub(crate) fn export_store_object(args: &ExportArgs) -> Result<(), Error> {
         serde_json::to_vec_pretty(&manifest).map_err(|source| Error::EncodeManifest { source })?;
     json.push(b'\n');
     write_file(&args.manifest, &json)
+}
+
+pub(crate) fn add_cas_manifest(args: &CasManifestArgs) -> Result<(), Error> {
+    let manifest = load_manifest(&args.input)?;
+    validate_cas_root_digest(&args.cas_root_digest)?;
+
+    let manifest_bytes = read_file(&args.input)?;
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&manifest_bytes).map_err(|source| Error::ParseManifest {
+            path: args.input.clone(),
+            source,
+        })?;
+    value
+        .as_object_mut()
+        .expect("validated store-object manifest must serialize as an object")
+        .insert(
+            "cas".to_owned(),
+            serde_json::json!({
+                "format": "reapi-directory-v1",
+                "digest_function": "sha256",
+                "root_digest": args.cas_root_digest,
+            }),
+        );
+    let mut json =
+        serde_json::to_vec_pretty(&value).map_err(|source| Error::EncodeManifest { source })?;
+    json.push(b'\n');
+    write_file(&args.output, &json)?;
+
+    if let Some(pin_path) = &args.starlark_pin {
+        let pin = format!(
+            concat!(
+                "# Generated by pkgs-add-cas-manifest; review before pinning.\n",
+                "PIN = {{\n",
+                "    \"canonical_tree_hash\": \"{}\",\n",
+                "    \"cas_root_digest\": \"{}\",\n",
+                "}}\n",
+            ),
+            manifest.canonical_tree_hash, args.cas_root_digest,
+        );
+        write_file(pin_path, pin.as_bytes())?;
+    }
+
+    Ok(())
 }
 
 pub(crate) fn hydrate_store_object(args: &HydrateArgs) -> Result<PathBuf, Error> {
@@ -811,6 +902,22 @@ fn load_manifest(manifest_path: &Path) -> Result<StoreObjectManifest, Error> {
     Ok(manifest)
 }
 
+fn validate_cas_root_digest(value: &str) -> Result<(), Error> {
+    let Some((hash, size)) = value.split_once(':') else {
+        return Err(Error::InvalidCasRootDigest(value.to_owned()));
+    };
+    if hash.len() != 64
+        || !hash
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        || size.is_empty()
+        || size.parse::<u64>().is_err()
+    {
+        return Err(Error::InvalidCasRootDigest(value.to_owned()));
+    }
+    Ok(())
+}
+
 fn load_closure_manifest(path: &Path) -> Result<StoreClosureManifest, Error> {
     let bytes = read_file(path)?;
     let manifest: StoreClosureManifest =
@@ -845,6 +952,7 @@ fn validate_manifest(manifest: &StoreObjectManifest) -> Result<(), Error> {
         .references
         .iter()
         .chain(manifest.runtime_store_outputs.iter())
+        .chain(manifest.tool_store_outputs.iter())
     {
         validate_store_reference(reference)?;
     }
@@ -853,14 +961,37 @@ fn validate_manifest(manifest: &StoreObjectManifest) -> Result<(), Error> {
             field: "references",
         });
     }
-    let mut expected_runtime_store_outputs = manifest.references.clone();
-    expected_runtime_store_outputs.push(manifest.store_path.clone());
-    expected_runtime_store_outputs.sort();
-    expected_runtime_store_outputs.dedup();
-    if manifest.runtime_store_outputs != expected_runtime_store_outputs {
-        return Err(Error::InvalidManifestClosure);
+    let allowed_references = manifest
+        .references
+        .iter()
+        .chain(std::iter::once(&manifest.store_path))
+        .collect::<BTreeSet<_>>();
+    for (field, paths) in [
+        ("runtime_store_outputs", &manifest.runtime_store_outputs),
+        ("tool_store_outputs", effective_tool_store_outputs(manifest)),
+    ] {
+        if canonical_store_paths(paths) != *paths {
+            return Err(Error::NonCanonicalManifestList { field });
+        }
+        if !paths.contains(&manifest.store_path) {
+            return Err(Error::MissingOwnStorePath { field });
+        }
+        if let Some(path) = paths.iter().find(|path| !allowed_references.contains(path)) {
+            return Err(Error::UndeclaredManifestReference {
+                field,
+                path: path.to_string(),
+            });
+        }
     }
     Ok(())
+}
+
+fn effective_tool_store_outputs(manifest: &StoreObjectManifest) -> &Vec<String> {
+    if manifest.tool_store_outputs.is_empty() {
+        &manifest.runtime_store_outputs
+    } else {
+        &manifest.tool_store_outputs
+    }
 }
 
 fn validate_identity(key: &str, entry: &str, store_path: &str) -> Result<(), Error> {
@@ -936,6 +1067,16 @@ fn validate_expected_manifest(
     if manifest.runtime_store_outputs != canonical_store_paths(expected.runtime_store_outputs) {
         return Err(Error::UnexpectedManifestMetadata {
             field: "runtime_store_outputs",
+        });
+    }
+    let expected_tool_store_outputs = if expected.tool_store_outputs.is_empty() {
+        canonical_store_paths(expected.runtime_store_outputs)
+    } else {
+        canonical_store_paths(expected.tool_store_outputs)
+    };
+    if effective_tool_store_outputs(manifest) != &expected_tool_store_outputs {
+        return Err(Error::UnexpectedManifestMetadata {
+            field: "tool_store_outputs",
         });
     }
     Ok(())

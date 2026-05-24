@@ -1,0 +1,35 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:000f69f8c4396f037f92b61f10a8f8efeb556f96c08b72baf6c0f4d1d73807b4",
+    "download_size": 2383401,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:000f69f8c4396f037f92b61f10a8f8efeb556f96c08b72baf6c0f4d1d73807b4",
+    "payload_size": 2383401
+  },
+  "canonical_tree_hash": "sha256:000f69f8c4396f037f92b61f10a8f8efeb556f96c08b72baf6c0f4d1d73807b4",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "cb508668c4eb3691720ea65bfd7ec4d3df5aeb452454fad513710204053be8d7:160"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "glibc",
+    "output": "dev",
+    "version": "2.42"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/d79d3410372a81b85838dd003c664197-glibc-2.42-dev"
+  ],
+  "store_entry": "d79d3410372a81b85838dd003c664197-glibc-2.42-dev",
+  "store_path": "/pkgs/store/d79d3410372a81b85838dd003c664197-glibc-2.42-dev",
+  "store_path_key": "d79d3410372a81b85838dd003c664197",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/d79d3410372a81b85838dd003c664197-glibc-2.42-dev"
+  ]
+}

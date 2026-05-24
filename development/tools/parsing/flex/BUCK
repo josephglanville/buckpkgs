@@ -35,6 +35,6 @@ pkgs_configure_make_install_package(
     ],
     output_paths = ["bin"],
     native_build_inputs = _NATIVE_TOOLS,
-    runtime_inputs = ["//development/libraries/glibc:out"],
+    runtime_inputs = ["//development/libraries/glibc:lib"],
     visibility = ["PUBLIC"],
 )

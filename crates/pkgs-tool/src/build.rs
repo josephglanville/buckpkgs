@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::fs;
+use std::io::Read;
 use std::os::unix::fs::{symlink, PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -35,6 +36,12 @@ pub(crate) enum Error {
 
     #[error("invalid named path assignment, expected NAME=PATH: {0}")]
     InvalidNamedPathAssignment(String),
+
+    #[error("invalid split reference symlink assignment, expected NAME=LINK=TARGET: {0}")]
+    InvalidSplitReferenceSymlinkAssignment(String),
+
+    #[error("split reference symlink target must be an absolute store path: {0}")]
+    InvalidSplitReferenceSymlinkTarget(PathBuf),
 
     #[error("split output {0} has no declared logical install prefix")]
     MissingSplitOutputPrefix(String),
@@ -72,6 +79,7 @@ pub(crate) struct SplitOutput {
     pub(crate) output: PathBuf,
     pub(crate) install_prefix: PathBuf,
     pub(crate) paths: Vec<PathBuf>,
+    pub(crate) reference_symlinks: Vec<(PathBuf, PathBuf)>,
 }
 
 pub(crate) fn parse_env_assignments(
@@ -151,6 +159,7 @@ pub(crate) fn parse_split_outputs(
     output_assignments: &[String],
     install_prefix_assignments: &[String],
     path_assignments: &[String],
+    reference_symlink_assignments: &[String],
 ) -> Result<Vec<SplitOutput>, Error> {
     let mut outputs = std::collections::BTreeMap::new();
     for assignment in output_assignments {
@@ -172,6 +181,32 @@ pub(crate) fn parse_split_outputs(
         paths.entry(name).or_default().push(path);
     }
 
+    let mut reference_symlinks: std::collections::BTreeMap<String, Vec<(PathBuf, PathBuf)>> =
+        std::collections::BTreeMap::new();
+    for assignment in reference_symlink_assignments {
+        let (name, assignment) = assignment
+            .split_once('=')
+            .ok_or_else(|| Error::InvalidSplitReferenceSymlinkAssignment(assignment.clone()))?;
+        let (link, target) = assignment
+            .split_once('=')
+            .ok_or_else(|| Error::InvalidSplitReferenceSymlinkAssignment(assignment.to_owned()))?;
+        if name.is_empty() || link.is_empty() || target.is_empty() {
+            return Err(Error::InvalidSplitReferenceSymlinkAssignment(
+                assignment.to_owned(),
+            ));
+        }
+        let link = PathBuf::from(link);
+        let target = PathBuf::from(target);
+        validate_relative_path(&link)?;
+        if !target.is_absolute() || !target.starts_with("/pkgs/store") {
+            return Err(Error::InvalidSplitReferenceSymlinkTarget(target));
+        }
+        reference_symlinks
+            .entry(name.to_owned())
+            .or_default()
+            .push((link, target));
+    }
+
     let mut split_outputs = Vec::new();
     for (name, output) in outputs {
         let install_prefix = install_prefixes
@@ -179,6 +214,7 @@ pub(crate) fn parse_split_outputs(
             .ok_or_else(|| Error::MissingSplitOutputPrefix(name.clone()))?;
         split_outputs.push(SplitOutput {
             paths: paths.remove(&name).unwrap_or_default(),
+            reference_symlinks: reference_symlinks.remove(&name).unwrap_or_default(),
             install_prefix,
             name,
             output,
@@ -188,6 +224,9 @@ pub(crate) fn parse_split_outputs(
         return Err(Error::MissingSplitOutput(name));
     }
     if let Some((name, _)) = install_prefixes.into_iter().next() {
+        return Err(Error::MissingSplitOutput(name));
+    }
+    if let Some((name, _)) = reference_symlinks.into_iter().next() {
         return Err(Error::MissingSplitOutput(name));
     }
     validate_split_paths(&split_outputs)?;
@@ -253,6 +292,11 @@ pub(crate) fn copy_split_staged_prefix(
                 remove_tree(&source)?;
             }
         }
+        create_absolute_reference_symlinks(&split_output.output, &split_output.reference_symlinks)?;
+    }
+    common::make_tree_user_writable(output)?;
+    for split_output in split_outputs {
+        common::make_tree_user_writable(&split_output.output)?;
     }
     rewrite_split_pkg_config_paths(output, install_prefix, split_outputs)?;
     Ok(())
@@ -311,6 +355,7 @@ pub(crate) fn staging_outputs(
             output: work_dir.join(format!("sealed-output-{}", split_output.name)),
             install_prefix: split_output.install_prefix.clone(),
             paths: split_output.paths.clone(),
+            reference_symlinks: split_output.reference_symlinks.clone(),
         })
         .collect();
     (output, split_outputs)
@@ -369,6 +414,27 @@ fn parse_named_path(assignment: &str) -> Result<(String, PathBuf), Error> {
         return Err(Error::InvalidNamedPathAssignment(assignment.to_owned()));
     }
     Ok((name.to_owned(), PathBuf::from(path)))
+}
+
+fn create_absolute_reference_symlinks(
+    output: &Path,
+    symlinks: &[(PathBuf, PathBuf)],
+) -> Result<(), Error> {
+    for (link, target) in symlinks {
+        let link_path = output.join(link);
+        if let Some(parent) = link_path.parent() {
+            fs::create_dir_all(parent).map_err(|source| common::Error::CreateDir {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+        symlink(target, &link_path).map_err(|source| common::Error::CreateSymlink {
+            from: target.clone(),
+            to: link_path,
+            source,
+        })?;
+    }
+    Ok(())
 }
 
 fn validate_split_paths(split_outputs: &[SplitOutput]) -> Result<(), Error> {
@@ -579,6 +645,10 @@ pub(crate) fn sanitize_libtool_archives(output: &Path, work_dir: &Path) -> Resul
     sanitize_libtool_archives_in_tree(output, work_dir)
 }
 
+pub(crate) fn strip_debug_sections(output: &Path, path: &std::ffi::OsStr) -> Result<(), Error> {
+    strip_debug_sections_in_tree(output, path)
+}
+
 pub(crate) fn normalize_work_dir_text_paths(
     output: &Path,
     work_dir: &Path,
@@ -621,9 +691,17 @@ pub(crate) fn normalize_work_dir_text_paths(
 
 pub(crate) fn sanitize_self_referential_linker_scripts(
     output: &Path,
-    install_prefix: &Path,
+    primary_install_prefix: &Path,
+    output_install_prefix: &Path,
+    split_outputs: &[SplitOutput],
 ) -> Result<(), Error> {
-    sanitize_self_referential_linker_scripts_in_tree(output, output, install_prefix)
+    sanitize_self_referential_linker_scripts_in_tree(
+        output,
+        output,
+        primary_install_prefix,
+        output_install_prefix,
+        split_outputs,
+    )
 }
 
 fn sanitize_libtool_archives_in_tree(path: &Path, work_dir: &Path) -> Result<(), Error> {
@@ -663,10 +741,58 @@ fn sanitize_libtool_archives_in_tree(path: &Path, work_dir: &Path) -> Result<(),
     Ok(())
 }
 
+fn strip_debug_sections_in_tree(path: &Path, tool_path: &std::ffi::OsStr) -> Result<(), Error> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| common::Error::Metadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    if metadata.is_dir() {
+        for entry in common::sorted_dir_entries(path)? {
+            strip_debug_sections_in_tree(&entry.path(), tool_path)?;
+        }
+        return Ok(());
+    }
+
+    let mut header = [0_u8; 8];
+    let mut file = fs::File::open(path).map_err(|source| common::Error::ReadFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let read = file
+        .read(&mut header)
+        .map_err(|source| common::Error::ReadFile {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    if !is_strippable_code_object(&header[..read]) {
+        return Ok(());
+    }
+
+    common::run_command(
+        common::reproducible_command("strip")
+            .env("PATH", tool_path)
+            .arg("--strip-debug")
+            .arg(path),
+        "strip",
+    )?;
+    Ok(())
+}
+
+fn is_strippable_code_object(header: &[u8]) -> bool {
+    header.starts_with(b"\x7fELF") || header.starts_with(b"!<arch>\n")
+}
+
 fn sanitize_self_referential_linker_scripts_in_tree(
     path: &Path,
     output: &Path,
-    install_prefix: &Path,
+    primary_install_prefix: &Path,
+    output_install_prefix: &Path,
+    split_outputs: &[SplitOutput],
 ) -> Result<(), Error> {
     let metadata = fs::symlink_metadata(path).map_err(|source| common::Error::Metadata {
         path: path.to_path_buf(),
@@ -682,7 +808,9 @@ fn sanitize_self_referential_linker_scripts_in_tree(
             sanitize_self_referential_linker_scripts_in_tree(
                 &entry.path(),
                 output,
-                install_prefix,
+                primary_install_prefix,
+                output_install_prefix,
+                split_outputs,
             )?;
         }
         return Ok(());
@@ -699,9 +827,14 @@ fn sanitize_self_referential_linker_scripts_in_tree(
     let Ok(contents) = String::from_utf8(bytes) else {
         return Ok(());
     };
-    let Some(rewritten) =
-        rewrite_self_referential_linker_script(&contents, path, output, install_prefix)
-    else {
+    let Some(rewritten) = rewrite_self_referential_linker_script(
+        &contents,
+        path,
+        output,
+        primary_install_prefix,
+        output_install_prefix,
+        split_outputs,
+    ) else {
         return Ok(());
     };
 
@@ -772,7 +905,9 @@ fn rewrite_self_referential_linker_script(
     contents: &str,
     script_path: &Path,
     output: &Path,
-    install_prefix: &Path,
+    primary_install_prefix: &Path,
+    output_install_prefix: &Path,
+    split_outputs: &[SplitOutput],
 ) -> Option<String> {
     if !contents.trim_start().starts_with("/* GNU ld script") {
         return None;
@@ -780,15 +915,111 @@ fn rewrite_self_referential_linker_script(
 
     let script_dir = script_path.parent()?;
     let relative_script_dir = script_dir.strip_prefix(output).ok()?;
-    let install_dir = install_prefix.join(relative_script_dir);
-    let install_dir = install_dir.to_string_lossy();
-    // Implicit linker scripts resolve bare filenames from the script directory,
-    // which works both inside a sysroot and during non-sysroot bootstrap links.
-    let sibling_prefix = format!("{install_dir}/");
+    let mut rewritten = contents.to_owned();
+    for split_output in split_outputs {
+        for path in &split_output.paths {
+            let original = primary_install_prefix.join(path);
+            let projected = split_output.install_prefix.join(path);
+            rewritten = rewrite_linker_script_projected_path(
+                &rewritten,
+                &original,
+                &projected,
+                split_output.output.join(path).is_dir(),
+            );
+        }
+    }
 
-    contents
-        .contains(&sibling_prefix)
-        .then(|| contents.replace(&sibling_prefix, ""))
+    let install_dir = output_install_prefix.join(relative_script_dir);
+    let sibling_prefix = format!("{}/", install_dir.to_string_lossy());
+    // Implicit linker scripts resolve relative filenames from the script
+    // directory. Keep links usable under --sysroot by making references to
+    // sibling outputs relative as well as stripping same-directory prefixes.
+    rewritten = rewritten.replace(&sibling_prefix, "");
+    for other_prefix in std::iter::once(primary_install_prefix).chain(
+        split_outputs
+            .iter()
+            .map(|output| output.install_prefix.as_path()),
+    ) {
+        if other_prefix == output_install_prefix {
+            continue;
+        }
+        let Some(relative_prefix) = relative_path_from_directory(&install_dir, other_prefix) else {
+            continue;
+        };
+        rewritten =
+            rewrite_linker_script_projected_path(&rewritten, other_prefix, &relative_prefix, true);
+    }
+
+    (rewritten != contents).then_some(rewritten)
+}
+
+fn relative_path_from_directory(from: &Path, to: &Path) -> Option<PathBuf> {
+    if !from.is_absolute() || !to.is_absolute() {
+        return None;
+    }
+    let from_components: Vec<_> = from.components().collect();
+    let to_components: Vec<_> = to.components().collect();
+    let common = from_components
+        .iter()
+        .zip(&to_components)
+        .take_while(|(from, to)| from == to)
+        .count();
+    if common == 0 {
+        return None;
+    }
+
+    let mut relative = PathBuf::new();
+    for _ in common..from_components.len() {
+        relative.push("..");
+    }
+    for component in &to_components[common..] {
+        relative.push(component.as_os_str());
+    }
+    Some(relative)
+}
+
+fn rewrite_linker_script_projected_path(
+    contents: &str,
+    original: &Path,
+    projected: &Path,
+    moves_descendants: bool,
+) -> String {
+    let original = original.to_string_lossy();
+    let projected = projected.to_string_lossy();
+    let (needle, replacement) = if moves_descendants {
+        (format!("{original}/"), format!("{projected}/"))
+    } else {
+        (original.into_owned(), projected.into_owned())
+    };
+    let mut rewritten = String::with_capacity(contents.len());
+    let mut cursor = 0;
+
+    for (start, _) in contents.match_indices(&needle) {
+        let end = start + needle.len();
+        let has_token_start = start == 0
+            || contents[..start]
+                .chars()
+                .next_back()
+                .is_some_and(is_linker_script_token_boundary);
+        let has_token_end = moves_descendants
+            || end == contents.len()
+            || contents[end..]
+                .chars()
+                .next()
+                .is_some_and(is_linker_script_token_boundary);
+        if !has_token_start || !has_token_end {
+            continue;
+        }
+        rewritten.push_str(&contents[cursor..start]);
+        rewritten.push_str(&replacement);
+        cursor = end;
+    }
+    rewritten.push_str(&contents[cursor..]);
+    rewritten
+}
+
+fn is_linker_script_token_boundary(character: char) -> bool {
+    character.is_ascii_whitespace() || matches!(character, '(' | ')' | ',' | ';')
 }
 
 fn validate_relative_path(path: &Path) -> Result<(), Error> {
@@ -924,7 +1155,13 @@ mod tests {
         )
         .unwrap();
 
-        sanitize_self_referential_linker_scripts(&output, Path::new("/pkgs/store/glibc")).unwrap();
+        sanitize_self_referential_linker_scripts(
+            &output,
+            Path::new("/pkgs/store/glibc"),
+            Path::new("/pkgs/store/glibc"),
+            &[],
+        )
+        .unwrap();
 
         assert_eq!(
             fs::read_to_string(&libc).unwrap(),
@@ -937,6 +1174,44 @@ mod tests {
         assert_eq!(
             fs::read_to_string(&libm_archive).unwrap(),
             "/* GNU ld script */\nGROUP ( libm-2.42.a libmvec.a )\n",
+        );
+    }
+
+    #[test]
+    fn makes_cross_output_linker_script_references_sysroot_safe() {
+        let temp = tempfile::tempdir().unwrap();
+        let output = temp.path().join("glibc-dev");
+        let libdir = output.join("lib");
+        fs::create_dir_all(&libdir).unwrap();
+
+        let libc = libdir.join("libc.so");
+        fs::write(
+            &libc,
+            "/* GNU ld script */\nGROUP ( /pkgs/store/glibc-lib/lib/libc.so.6 /pkgs/store/glibc-lib/lib/libc_nonshared.a )\n",
+        )
+        .unwrap();
+        let split_outputs = [SplitOutput {
+            install_prefix: PathBuf::from("/pkgs/store/glibc-dev"),
+            name: "dev".to_owned(),
+            output: output.clone(),
+            paths: vec![
+                PathBuf::from("lib/libc.so"),
+                PathBuf::from("lib/libc_nonshared.a"),
+            ],
+            reference_symlinks: vec![],
+        }];
+
+        sanitize_self_referential_linker_scripts(
+            &output,
+            Path::new("/pkgs/store/glibc-lib"),
+            Path::new("/pkgs/store/glibc-dev"),
+            &split_outputs,
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&libc).unwrap(),
+            "/* GNU ld script */\nGROUP ( ../../glibc-lib/lib/libc.so.6 libc_nonshared.a )\n",
         );
     }
 }

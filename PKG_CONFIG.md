@@ -93,7 +93,7 @@ build_inputs = [
     "//development/libraries/zlib:dev",
 ]
 link_inputs = [
-    "//development/libraries/zlib:out",
+    "//development/libraries/zlib:lib",
 ]
 ```
 
@@ -115,7 +115,7 @@ surface.
   `pkgconf` installation.
 - `//development/libraries/zlib:dev` is the first split metadata provider;
   Python consumes it through `pkg-config` while linking against
-  `zlib:out`.
+  `zlib:lib`.
 
 This is one of the first places where BuckPkgs should deliberately keep nixpkgs'
 package semantics while changing the implementation model.

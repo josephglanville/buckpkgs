@@ -1,0 +1,37 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:1918678cf0e8d5c62ce1b7dd7b45577d71ae367853d722168e19017537659c69",
+    "download_size": 189103,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:1918678cf0e8d5c62ce1b7dd7b45577d71ae367853d722168e19017537659c69",
+    "payload_size": 189103
+  },
+  "canonical_tree_hash": "sha256:1918678cf0e8d5c62ce1b7dd7b45577d71ae367853d722168e19017537659c69",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "fe8d2e7b3476c38ce9fe3eb8fdb26441eec647584b4cea30f19f2c415fd08a4a:77"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "patch",
+    "output": "bin",
+    "version": "2.8"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin"
+  ],
+  "store_entry": "81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin",
+  "store_path": "/pkgs/store/81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin",
+  "store_path_key": "81d1a96fa6c5b97e8f2ccbb042ef6429",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin"
+  ]
+}

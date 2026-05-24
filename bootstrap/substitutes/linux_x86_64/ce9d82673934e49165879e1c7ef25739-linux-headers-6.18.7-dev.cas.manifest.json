@@ -1,0 +1,33 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:679814efc9f5febfa035f8a99efc87a207914627fab9e518b778d3433bb52f5e",
+    "download_size": 7162923,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:679814efc9f5febfa035f8a99efc87a207914627fab9e518b778d3433bb52f5e",
+    "payload_size": 7162923
+  },
+  "canonical_tree_hash": "sha256:679814efc9f5febfa035f8a99efc87a207914627fab9e518b778d3433bb52f5e",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "baac80a2790f6b0861891c7d9296b1c1ab16bdf632c6424d90fa2c9c707cc02c:82"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "linux-headers",
+    "output": "dev",
+    "version": "6.18.7"
+  },
+  "references": [],
+  "runtime_store_outputs": [
+    "/pkgs/store/ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev"
+  ],
+  "store_entry": "ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev",
+  "store_path": "/pkgs/store/ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev",
+  "store_path_key": "ce9d82673934e49165879e1c7ef25739",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev"
+  ]
+}

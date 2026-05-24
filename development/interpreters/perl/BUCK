@@ -18,7 +18,7 @@ _SOURCE = pkgs_http_archive_source(
 _NO_SYSTEM_PATHS_PATCH = pkgs_export_patch(
     name = "no_system_paths_patch",
     src = "patches/0001-no-system-paths-and-stable-config.patch",
-    sha256 = "d88b5ebca3f074c9f31a6ca2ae82eac4222cf7e2d67041826c49af34f81a3288",
+    sha256 = "0df8ab097e55696a94a1486a9329705f86b791c82bbdf717e3053b4518c87a4e",
 )
 
 _NATIVE_TOOLS = [
@@ -54,15 +54,21 @@ pkgs_configure_make_install_package(
         "-Dman1dir=none",
         "-Dman3dir=none",
         pkgs_self_store_path("-Dprefix=", ""),
-        pkgs_store_path("-Dlocincpth=", "//development/libraries/glibc:out", "/include"),
-        pkgs_store_path("-Dloclibpth=", "//development/libraries/glibc:out", "/lib"),
-        pkgs_store_path("-Dglibpth=", "//development/libraries/glibc:out", "/lib"),
-        pkgs_store_path("-Dplibpth=", "//development/libraries/glibc:out", "/lib"),
+        "-Dlocincpth=",
+        pkgs_store_path("-Dloclibpth=", "//development/libraries/glibc:lib", "/lib"),
+        pkgs_store_path("-Dglibpth=", "//development/libraries/glibc:lib", "/lib"),
+        pkgs_store_path("-Dplibpth=", "//development/libraries/glibc:lib", "/lib"),
     ],
     install_args = ["INSTALLFLAGS=-p"],
     patches = [_NO_SYSTEM_PATHS_PATCH],
     output_paths = ["lib"],
-    excluded_file_suffixes = [".pod"],
+    # Perl is consumed here as an interpreter; embedding interfaces belong in
+    # a future dev output only when a declared consumer needs them.
+    excluded_file_suffixes = [
+        ".a",
+        ".h",
+        ".pod",
+    ],
     split_outputs = {
         "bin": [
             "bin/perl",
@@ -74,8 +80,7 @@ pkgs_configure_make_install_package(
     },
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/compilers/gcc:out",
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

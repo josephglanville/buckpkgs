@@ -73,23 +73,33 @@ pkgs_configure_make_install_package(
         _PATCH_003,
     ],
     patch_strip = 0,
-    output_paths = ["lib"],
+    output_paths = [
+        "lib/libhistory.so.8",
+        "lib/libhistory.so.8.3",
+        "lib/libreadline.so.8",
+        "lib/libreadline.so.8.3",
+    ],
     split_outputs = {
         "dev": [
             "include",
-            "lib/libhistory.a",
-            "lib/libreadline.a",
             "lib/pkgconfig",
         ],
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib/libhistory.so": ("lib", "lib/libhistory.so.8.3"),
+            "lib/libreadline.so": ("lib", "lib/libreadline.so.8.3"),
+        },
     },
     split_pkg_config_paths = {
         "dev": ["lib/pkgconfig"],
     },
     native_build_inputs = _NATIVE_TOOLS,
     build_inputs = ["//development/libraries/ncurses:dev"],
+    link_interface_inputs = ["//development/libraries/ncurses:dev"],
     link_inputs = ["//development/libraries/ncurses:lib"],
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

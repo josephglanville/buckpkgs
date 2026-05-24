@@ -27,6 +27,8 @@ pkgs_make_install_package(
     name = "bin_stage0",
     package_name = "bzip2",
     version = "1.0.8",
+    output = "bin",
+    output_paths = ["bin"],
     sources = [_SOURCE],
     make_args = [
         "CC=cc",
@@ -62,6 +64,8 @@ pkgs_make_install_package(
     name = "bin_final",
     package_name = "bzip2",
     version = "1.0.8",
+    output = "bin",
+    output_paths = ["bin"],
     sources = [_SOURCE],
     make_args = [
         "CC=cc",
@@ -72,7 +76,7 @@ pkgs_make_install_package(
     ],
     patches = [_DESTDIR_AND_PATH_SHELL_PATCH],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
-    runtime_inputs = ["//development/libraries/glibc:out_stage1"],
+    runtime_inputs = ["//development/libraries/glibc:lib_stage1"],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 

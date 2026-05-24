@@ -26,10 +26,25 @@ pub(crate) struct Args {
     cpp: PathBuf,
 
     #[arg(long)]
-    compiler_root: PathBuf,
+    libc_runtime: PathBuf,
 
     #[arg(long)]
-    libc: PathBuf,
+    libc_dev: PathBuf,
+
+    #[arg(long)]
+    gcc_dev: PathBuf,
+
+    #[arg(long)]
+    cxx_include_dir: Vec<PathBuf>,
+
+    #[arg(long)]
+    libgcc_runtime: PathBuf,
+
+    #[arg(long)]
+    libstdcxx_runtime: PathBuf,
+
+    #[arg(long)]
+    suppress_cxx_runtime_rpaths: bool,
 
     #[arg(long)]
     bintools: PathBuf,
@@ -61,30 +76,64 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         source,
     })?;
 
-    let sysroot = format!("--sysroot={}", args.libc.display());
+    let sysroot = format!("--sysroot={}", args.libc_dev.display());
     let bintools = format!("-B{}/bin/", args.bintools.display());
-    let crt = format!("-B{}/lib/", args.libc.display());
+    let crt = format!("-B{}/lib/", args.libc_dev.display());
     let headers_flag = "-idirafter".to_owned();
     let headers_dir = format!("{}/include", args.headers.display());
     let dynamic_linker = format!("-Wl,-dynamic-linker,{}", args.dynamic_linker.display());
-    let libc_runtime_path = format!("-Wl,-rpath,{}/lib", args.libc.display());
-    let compiler_runtime_lib_path = format!("-Wl,-rpath,{}/lib", args.compiler_root.display());
-    let compiler_runtime_lib64_path = format!("-Wl,-rpath,{}/lib64", args.compiler_root.display());
+    let libc_runtime_path = format!("-Wl,-rpath,{}/lib", args.libc_runtime.display());
+    let gcc_dev_search_path = format!("-L{}/lib", args.gcc_dev.display());
+    let gcc_dev_search_path64 = format!("-L{}/lib64", args.gcc_dev.display());
+    let libgcc_runtime_path = format!("-Wl,-rpath,{}/lib", args.libgcc_runtime.display());
+    let libgcc_runtime_path64 = format!("-Wl,-rpath,{}/lib64", args.libgcc_runtime.display());
+    let libstdcxx_runtime_path = format!("-Wl,-rpath,{}/lib", args.libstdcxx_runtime.display());
+    let libstdcxx_runtime_path64 = format!("-Wl,-rpath,{}/lib64", args.libstdcxx_runtime.display());
+    let split_gcc_interface = !args.cc.starts_with(&args.gcc_dev);
+    let mut c_flags = vec![
+        &sysroot,
+        &bintools,
+        &crt,
+        &headers_flag,
+        &headers_dir,
+        &dynamic_linker,
+        &libc_runtime_path,
+    ];
+    if split_gcc_interface {
+        c_flags.extend([&gcc_dev_search_path, &gcc_dev_search_path64]);
+    }
+    let mut cxx_flags = vec![
+        &sysroot,
+        &bintools,
+        &crt,
+        &headers_flag,
+        &headers_dir,
+        &dynamic_linker,
+        &libc_runtime_path,
+        &gcc_dev_search_path,
+        &gcc_dev_search_path64,
+    ];
+    if !args.suppress_cxx_runtime_rpaths {
+        cxx_flags.extend([
+            &libgcc_runtime_path,
+            &libgcc_runtime_path64,
+            &libstdcxx_runtime_path,
+            &libstdcxx_runtime_path64,
+        ]);
+    }
+    let cxx_include_flags: Vec<String> = args
+        .cxx_include_dir
+        .iter()
+        .flat_map(|path| ["-isystem".to_owned(), path.display().to_string()])
+        .collect();
+    cxx_flags.extend(cxx_include_flags.iter());
 
     for name in ["cc", "gcc"] {
         write_wrapper(
             &bin_dir.join(name),
             &args.shell,
             &args.cc,
-            [
-                &sysroot,
-                &bintools,
-                &crt,
-                &headers_flag,
-                &headers_dir,
-                &dynamic_linker,
-                &libc_runtime_path,
-            ],
+            c_flags.iter().copied(),
         )?;
     }
 
@@ -93,17 +142,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
             &bin_dir.join(name),
             &args.shell,
             &args.cxx,
-            [
-                &sysroot,
-                &bintools,
-                &crt,
-                &headers_flag,
-                &headers_dir,
-                &dynamic_linker,
-                &libc_runtime_path,
-                &compiler_runtime_lib_path,
-                &compiler_runtime_lib64_path,
-            ],
+            cxx_flags.iter().copied(),
         )?;
     }
 
@@ -179,30 +218,63 @@ mod tests {
             cc: PathBuf::from("/pkgs/store/gcc/bin/gcc"),
             cxx: PathBuf::from("/pkgs/store/gcc/bin/g++"),
             cpp: PathBuf::from("/pkgs/store/gcc/bin/cpp"),
-            compiler_root: PathBuf::from("/pkgs/store/gcc"),
-            libc: PathBuf::from("/pkgs/store/glibc"),
+            libc_runtime: PathBuf::from("/pkgs/store/glibc-lib"),
+            libc_dev: PathBuf::from("/pkgs/store/glibc-dev"),
+            gcc_dev: PathBuf::from("/pkgs/store/gcc-dev"),
+            cxx_include_dir: vec![PathBuf::from("/pkgs/store/gcc-dev/include/c++/15.2.0")],
+            libgcc_runtime: PathBuf::from("/pkgs/store/libgcc-lib"),
+            libstdcxx_runtime: PathBuf::from("/pkgs/store/libstdcxx-lib"),
+            suppress_cxx_runtime_rpaths: false,
             bintools: PathBuf::from("/pkgs/store/binutils-wrapper"),
             headers: PathBuf::from("/pkgs/store/linux-headers"),
-            dynamic_linker: PathBuf::from("/pkgs/store/glibc/lib/ld-linux-x86-64.so.2"),
+            dynamic_linker: PathBuf::from("/pkgs/store/glibc-lib/lib/ld-linux-x86-64.so.2"),
         };
 
         run(&args).unwrap();
 
         let gcc = fs::read_to_string(output.join("bin/gcc")).unwrap();
-        assert!(gcc.contains("--sysroot=/pkgs/store/glibc"));
+        assert!(gcc.contains("--sysroot=/pkgs/store/glibc-dev"));
         assert!(gcc.contains("-B/pkgs/store/binutils-wrapper/bin/"));
         assert!(gcc.contains("'-idirafter' '/pkgs/store/linux-headers/include'"));
-        assert!(gcc.contains("-Wl,-dynamic-linker,/pkgs/store/glibc/lib/ld-linux-x86-64.so.2"));
-        assert!(gcc.contains("-Wl,-rpath,/pkgs/store/glibc/lib"));
-        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/gcc/lib"));
-        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/gcc/lib64"));
+        assert!(gcc.contains("-Wl,-dynamic-linker,/pkgs/store/glibc-lib/lib/ld-linux-x86-64.so.2"));
+        assert!(gcc.contains("-Wl,-rpath,/pkgs/store/glibc-lib/lib"));
+        assert!(gcc.contains("-L/pkgs/store/gcc-dev/lib"));
+        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/libgcc-lib/lib"));
+        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/libstdcxx-lib/lib"));
 
         let gxx = fs::read_to_string(output.join("bin/g++")).unwrap();
-        assert!(gxx.contains("-Wl,-rpath,/pkgs/store/gcc/lib"));
-        assert!(gxx.contains("-Wl,-rpath,/pkgs/store/gcc/lib64"));
+        assert!(gxx.contains("-L/pkgs/store/gcc-dev/lib"));
+        assert!(!gxx.contains("-L/pkgs/store/libgcc-lib/lib"));
+        assert!(gxx.contains("-Wl,-rpath,/pkgs/store/libgcc-lib/lib"));
+        assert!(!gxx.contains("-L/pkgs/store/libstdcxx-lib/lib"));
+        assert!(gxx.contains("-Wl,-rpath,/pkgs/store/libstdcxx-lib/lib"));
+        assert!(gxx.contains("'-isystem' '/pkgs/store/gcc-dev/include/c++/15.2.0'"));
 
         let cpp = fs::read_to_string(output.join("bin/cpp")).unwrap();
-        assert!(cpp.contains("--sysroot=/pkgs/store/glibc"));
+        assert!(cpp.contains("--sysroot=/pkgs/store/glibc-dev"));
         assert!(!cpp.contains("-Wl,-dynamic-linker"));
+
+        let mut args = args;
+        args.output = temp.path().join("build-only");
+        args.suppress_cxx_runtime_rpaths = true;
+        run(&args).unwrap();
+
+        let gxx = fs::read_to_string(args.output.join("bin/g++")).unwrap();
+        assert!(gxx.contains("-L/pkgs/store/gcc-dev/lib"));
+        assert!(!gxx.contains("-Wl,-rpath,/pkgs/store/libgcc-lib/lib"));
+        assert!(!gxx.contains("-Wl,-rpath,/pkgs/store/libstdcxx-lib/lib"));
+
+        let gcc = fs::read_to_string(args.output.join("bin/gcc")).unwrap();
+        assert!(gcc.contains("-L/pkgs/store/gcc-dev/lib"));
+        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/libgcc-lib/lib"));
+
+        args.output = temp.path().join("monolithic");
+        args.gcc_dev = PathBuf::from("/pkgs/store/gcc");
+        args.suppress_cxx_runtime_rpaths = false;
+        run(&args).unwrap();
+
+        let gcc = fs::read_to_string(args.output.join("bin/gcc")).unwrap();
+        assert!(!gcc.contains("-L/pkgs/store/gcc-dev/lib"));
+        assert!(!gcc.contains("-Wl,-rpath,/pkgs/store/libgcc-lib/lib"));
     }
 }

@@ -1,0 +1,38 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:02332f09bd8e0f72eeb9dd5c6c78682e05031e8e9dcf779fd74a4ee4eaae6c80",
+    "download_size": 18355,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:02332f09bd8e0f72eeb9dd5c6c78682e05031e8e9dcf779fd74a4ee4eaae6c80",
+    "payload_size": 18355
+  },
+  "canonical_tree_hash": "sha256:02332f09bd8e0f72eeb9dd5c6c78682e05031e8e9dcf779fd74a4ee4eaae6c80",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "319ac5c1b19df08faeecbcc4e67036772cf555bfe3df21cefba7afdc1eaeea93:159"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "libmpc",
+    "output": "dev",
+    "version": "1.4.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+    "/pkgs/store/e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev"
+  ],
+  "store_entry": "e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev",
+  "store_path": "/pkgs/store/e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev",
+  "store_path_key": "e124ac1287a1d20190a36a83c5e2017f",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev"
+  ]
+}

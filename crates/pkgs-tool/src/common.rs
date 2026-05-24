@@ -271,6 +271,7 @@ pub(crate) fn compiler_wrapped_path(
     path: &OsStr,
     work_dir: &Path,
     link_inputs: &[PathBuf],
+    link_interface_inputs: &[PathBuf],
 ) -> Result<OsString, Error> {
     let wrapper_dir = work_dir.join(".pkgs-compiler-wrappers");
     fs::create_dir_all(&wrapper_dir).map_err(|source| Error::CreateDir {
@@ -284,6 +285,9 @@ pub(crate) fn compiler_wrapped_path(
         let wrapper = wrapper_dir.join(command);
         let mut arguments = vec![prefix_map.clone()];
         if command != "cpp" {
+            for link_interface_input in link_interface_inputs {
+                arguments.push(format!("-L{}/lib", link_interface_input.display()));
+            }
             for link_input in link_inputs {
                 arguments.push(format!("-L{}/lib", link_input.display()));
                 arguments.push(format!("-Wl,-rpath,{}/lib", link_input.display()));
@@ -413,6 +417,33 @@ pub(crate) fn make_tree_read_only(path: &Path) -> Result<(), Error> {
         path: path.to_path_buf(),
         source,
     })
+}
+
+pub(crate) fn make_tree_user_writable(path: &Path) -> Result<(), Error> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| Error::Metadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    let mut permissions = metadata.permissions();
+    let owner_permissions = if metadata.is_dir() { 0o300 } else { 0o200 };
+    permissions.set_mode(permissions.mode() | owner_permissions);
+    fs::set_permissions(path, permissions).map_err(|source| Error::SetPermissions {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if metadata.is_dir() {
+        for entry in sorted_dir_entries(path)? {
+            make_tree_user_writable(&entry.path())?;
+        }
+    }
+
+    Ok(())
 }
 
 pub(crate) fn normalize_tree_mtimes(path: &Path) -> Result<(), Error> {
@@ -551,8 +582,13 @@ mod tests {
         fs::create_dir(&work_dir).unwrap();
         let path = std::env::join_paths(["/seed/bin", "/tools/bin"]).unwrap();
 
-        let wrapped =
-            compiler_wrapped_path(&path, &work_dir, &[PathBuf::from("/pkgs/store/zlib")]).unwrap();
+        let wrapped = compiler_wrapped_path(
+            &path,
+            &work_dir,
+            &[PathBuf::from("/pkgs/store/zlib-lib")],
+            &[PathBuf::from("/pkgs/store/zlib-dev")],
+        )
+        .unwrap();
         let wrapped_entries: Vec<_> = std::env::split_paths(&wrapped).collect();
         assert_eq!(wrapped_entries[0], work_dir.join(".pkgs-compiler-wrappers"));
         assert_eq!(wrapped_entries[1], PathBuf::from("/seed/bin"));
@@ -561,11 +597,12 @@ mod tests {
         let cc = fs::read_to_string(work_dir.join(".pkgs-compiler-wrappers/cc")).unwrap();
         assert!(cc.contains("PATH='/seed/bin:/tools/bin'"));
         assert!(cc.contains(&format!(
-            "exec 'cc' '-ffile-prefix-map={}=.' '-L/pkgs/store/zlib/lib' '-Wl,-rpath,/pkgs/store/zlib/lib' \"$@\"",
+            "exec 'cc' '-ffile-prefix-map={}=.' '-L/pkgs/store/zlib-dev/lib' '-L/pkgs/store/zlib-lib/lib' '-Wl,-rpath,/pkgs/store/zlib-lib/lib' \"$@\"",
             work_dir.display()
         )));
         let cpp = fs::read_to_string(work_dir.join(".pkgs-compiler-wrappers/cpp")).unwrap();
-        assert!(!cpp.contains("/pkgs/store/zlib"));
+        assert!(!cpp.contains("/pkgs/store/zlib-dev"));
+        assert!(!cpp.contains("/pkgs/store/zlib-lib"));
     }
 
     #[test]
@@ -586,6 +623,27 @@ mod tests {
         assert_eq!(
             fs::symlink_metadata(&link).unwrap().modified().unwrap(),
             expected,
+        );
+    }
+
+    #[test]
+    fn makes_copied_read_only_trees_writable_for_finalization() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("tree");
+        let child = root.join("artifact");
+        fs::create_dir(&root).unwrap();
+        fs::write(&child, "artifact\n").unwrap();
+        fs::set_permissions(&child, fs::Permissions::from_mode(0o444)).unwrap();
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o555)).unwrap();
+
+        make_tree_user_writable(&root).unwrap();
+        fs::write(&child, "updated\n").unwrap();
+
+        assert_eq!(fs::read_to_string(&child).unwrap(), "updated\n");
+        assert_ne!(fs::metadata(&root).unwrap().permissions().mode() & 0o200, 0);
+        assert_ne!(
+            fs::metadata(&child).unwrap().permissions().mode() & 0o200,
+            0
         );
     }
 

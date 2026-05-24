@@ -45,12 +45,12 @@ pkgs_configure_make_install_package(
     patches = [_RELATIVE_BUILD_METADATA_PATHS_PATCH],
     native_build_inputs = _NATIVE_TOOLS,
     build_inputs = ["//development/libraries/zlib:dev"],
-    link_inputs = ["//development/libraries/zlib:out"],
+    link_interface_inputs = ["//development/libraries/zlib:dev"],
+    link_inputs = ["//development/libraries/zlib:lib"],
     python_bytecode_dirs = ["lib/python3.13"],
     python_bytecode_optimizations = [0, 1, 2],
     runtime_inputs = [
-        "//development/compilers/gcc:out",
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

@@ -67,8 +67,8 @@ pkgs_make_install_package(
     patches = [_DECLARED_BOOTSTRAP_JOBS_PATCH],
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/compilers/gcc:out",
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
+        "//development/compilers/gcc:libstdcxx",
     ],
     visibility = ["PUBLIC"],
 )

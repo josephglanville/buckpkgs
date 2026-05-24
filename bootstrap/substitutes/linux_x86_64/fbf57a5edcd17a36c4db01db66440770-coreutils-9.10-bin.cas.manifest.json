@@ -1,0 +1,37 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:9444d7a8c6755114d0c7736aee59c337af9d4c983c90183883ba560d392bbed8",
+    "download_size": 7905678,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:9444d7a8c6755114d0c7736aee59c337af9d4c983c90183883ba560d392bbed8",
+    "payload_size": 7905678
+  },
+  "canonical_tree_hash": "sha256:9444d7a8c6755114d0c7736aee59c337af9d4c983c90183883ba560d392bbed8",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "eef90316e5f7557266a5e9abfd9e6e3695b81e9265856a4a873986222ed93538:159"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "coreutils",
+    "output": "bin",
+    "version": "9.10"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/fbf57a5edcd17a36c4db01db66440770-coreutils-9.10-bin"
+  ],
+  "store_entry": "fbf57a5edcd17a36c4db01db66440770-coreutils-9.10-bin",
+  "store_path": "/pkgs/store/fbf57a5edcd17a36c4db01db66440770-coreutils-9.10-bin",
+  "store_path_key": "fbf57a5edcd17a36c4db01db66440770",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/fbf57a5edcd17a36c4db01db66440770-coreutils-9.10-bin"
+  ]
+}

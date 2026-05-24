@@ -1,0 +1,36 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:699542bc103c5225db93456549142a663472dd4c7ea08938bcadb28166497685",
+    "download_size": 84823,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:699542bc103c5225db93456549142a663472dd4c7ea08938bcadb28166497685",
+    "payload_size": 84823
+  },
+  "canonical_tree_hash": "sha256:699542bc103c5225db93456549142a663472dd4c7ea08938bcadb28166497685",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "1db2a90b46caad7f9d2c36f889b0e4aa5218b05d928f6b54e7be2ebbc1aa8333:159"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "gmp",
+    "output": "dev",
+    "version": "6.3.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev"
+  ],
+  "store_entry": "6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev",
+  "store_path": "/pkgs/store/6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev",
+  "store_path_key": "6df76e5d5fa7584ff65282adf489f80d",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev"
+  ]
+}

@@ -29,10 +29,10 @@
       metadata `:dev` outputs.
 - [x] Implement one-realization named output splitting for the make/configure/
       Meson builders with output projections, per-output validation, and
-      relocated `*.pc` repair; migrate `zlib` to runtime `:out` plus metadata
+      relocated `*.pc` repair; migrate `zlib` to runtime `:lib` plus metadata
       `:dev`.
 - [x] Revalidate reduced Python through pkgconf-discovered `zlib:dev` and its
-      declared `zlib:out` link input; use the same pattern for PostgreSQL
+      declared `zlib:lib` link input; use the same pattern for PostgreSQL
       dependencies.
 - [x] Build and replay PostgreSQL's initial dependency slice: `zstd`, `lz4`,
       `ncurses`, and patched `readline`, projecting only runtime/development
@@ -56,10 +56,9 @@
       `pcre2 -> libsepol -> libselinux -> bubblewrap`; reuse the existing Flex
       build for `libsepol` and continue excluding man/documentation outputs by
       default.
-- [ ] After PostgreSQL bring-up, audit and align established bootstrap-facing
-      output labels with the runtime/development output vocabulary; do not
-      churn the sealed substitute/toolchain interface during this dependency
-      port.
+- [x] After PostgreSQL bring-up, audit and align bootstrap-facing output labels
+      with the `bin`/`lib`/`dev` vocabulary, publishing a normalized pinned
+      generation and routing public aliases/toolchains through it.
 - [ ] Define canonical `root//development/interpreters/python:bin` only after
       implementing a full native dependency profile comparable to Nixpkgs
       `python3`: `bzip2`, `libffi`, `libuuid`, `ncurses`, `xz`, `zlib`,
@@ -72,16 +71,83 @@
       `-fdebug-prefix-map=@PKGS_WORK_DIR@=.` target-library remaps, then verify
       `libstdc++.a` and `libstdc++fs.a` no longer serialize Buck scratch include
       paths.
+- [x] Normalize the bootstrap output generation described in
+      `BOOTSTRAP_UPGRADE.md`: separate object/runtime/tool-use closure,
+      implement reference-backed `dev` projections, validate payload and ELF
+      ownership, migrate producers, publish/pin the generation, and verify
+      imported C/C++/Meson/PostgreSQL/Bubblewrap consumers.
+- [x] Treat debug metadata as an explicit output-policy concern: generic
+      Make/Configure/Meson realization now strips debug sections from ELF and
+      archive outputs by default, `preserve_debug = True` is identity-bearing,
+      and `root//validation:elf_debug_strip_contract` proves debug-only store
+      references do not escape into ordinary code outputs.
+- [x] Rebuild and validate normalized `glibc:lib_stage1`/`:dev_stage1` after
+      default stripping: the prior stage0 GCC include-directory reference in
+      `lib/gconv/ANSI_X3.110.so` is absent from the new `lib` output, and both
+      live validated projections pass.
+- [x] Revalidate the tightened glibc `dev` projection after replacing static
+      compatibility/resolver archives with reference-backed shared link names;
+      only `libc_nonshared.a` remains as a required dynamic-link support
+      archive.
+- [x] Validate `link_interface_inputs` using `readline`/`ncurses`, Python/
+      `zlib`, PostgreSQL, and Bubblewrap so split `dev` link-name symlinks
+      never force development trees into installed RUNPATH or runtime closure.
+- [x] Revalidate PostgreSQL after passing LZ4 its logical `PREFIX` during the
+      build phase; its previously installed `liblz4.pc` kept `/usr/local`,
+      which leaked through pkgconf into PGXS and `libpq.pc`.
+- [x] Revalidate Perl/PostgreSQL/Bubblewrap after making copied read-only
+      installed files writable during builder finalization; Perl installs
+      `libperl.a` as `0444`, which previously prevented default debug stripping.
+- [x] Revalidate Perl as a native interpreter after excluding unconsumed
+      embedding headers and `libperl.a` from its code-bearing `lib` payload.
+- [x] Revalidate Perl after normalizing installed `Config_heavy.pl` away from
+      Coreutils probe paths and undeclared compiler/header search metadata.
+- [x] Revalidate Perl and PostgreSQL after the normalized glibc split exposed
+      persisted `glibc:dev` probe paths in `Config_heavy.pl`; Perl now stores
+      runtime libc locations only, while its compiler wrapper supplies headers
+      during realization.
+- [x] Revalidate PostgreSQL after adopting the server-side empty `pg_config`
+      view patch and keeping intended dependency `dev` references on its
+      `dev` output only.
+- [x] Revalidate PostgreSQL `dev` with PGXS's installed Bison, Flex, Perl,
+      and Coreutils helper paths represented as tool-use dependencies only.
+- [x] Keep PostgreSQL's now-explicit source patch reproducible by providing
+      `gnupatch:bin` as a declared native build tool.
+- [x] Confirm deduplicated pkg-config path emission removes repeated
+      development roots from PostgreSQL's installed compile metadata.
+- [x] Account for final GMP configure's pre-final tool requirements: final
+      math recipes now receive stage-0 `diff`/`cmp`, and normalized
+      `gnum4:bin_stage1` provides `m4` without introducing a final-GCC cycle.
+- [x] Validate the corrected pre-final math chain: normalized `gnum4`, GMP,
+      MPFR, and libmpc live split projections and seed-free checks now pass.
+- [x] Remove final-GCC stage leakage exposed by live validation: its build-only
+      stage wrapper suppresses C++ runtime `RUNPATH` injection and remaps stage
+      header diagnostics; its selected compiler payload excludes installed
+      `fixincludes` helpers while projecting plugin development data into
+      `dev`, with a reference-only edge back to `bin` for generated plugin
+      configuration headers that record the compiler prefix.
+- [x] Fix the split final C-wrapper link contract exposed by GNU Patch:
+      `gcc:dev` now supplies the `libgcc_s.so` link name without adding an
+      unused `gcc:libgcc` runtime `RUNPATH`; the validated Patch binary needs
+      only normalized glibc at runtime.
+- [x] Normalize final command-tool helper closure surfaced by live validation:
+      Diffutils declares Coreutils because `diff --paginate` runs `pr`, and
+      Findutils publishes only `find`/`xargs` rather than the out-of-contract
+      `updatedb` script with its embedded `sort` invocation.
+- [x] Fix split glibc linker-script handling exposed by imported toolchain
+      validation: projected `dev` scripts now rewrite sibling `lib` references
+      relatively, and a live `ld --sysroot=<glibc-dev> -lm` probe resolves
+      the new separate runtime object without sysroot re-rooting failure.
 
 ## Checked
 
-- [x] `root//bootstrap/exports:linux_x86_64_bundle` exported finalized wrapper
-      roots for GCC and Binutils, and the checked-in
-      `bootstrap/substitutes/linux_x86_64/` closure/object manifests compare
-      byte-for-byte with that generated bundle metadata.
-- [x] `pkgs_hydrate_store_closure` hydrated the pinned fourteen-object
-      `bootstrap-linux-x86_64` closure into a disposable store root, proving the
-      bundle is complete and internally consistent before ordinary import use.
+- [x] `root//bootstrap/exports:linux_x86_64_bundle` exported the normalized
+      24-object role-specific generation; its closure/object manifests were
+      uploaded to Foundry CAS and checked in with generated pin modules under
+      `bootstrap/substitutes/linux_x86_64_pins/`.
+- [x] An earlier fourteen-object hydration proof established the archive path;
+      the normalized 24-object generation now imports directly through its
+      reviewed CAS overlays and canonical public aliases.
 - [x] `toolchains//tests:gcc_smoke` and `toolchains//tests:hello_world_c` build
       through `toolchains//:cxx_pkgs` using canonical
       `root//development/{compilers/gcc:bin,tools/misc/binutils:bin}` aliases
@@ -89,10 +155,10 @@
       `cquery deps(toolchains//:cxx_pkgs)` contains no live GCC, Binutils,
       Bash, Glibc, or bootstrap export targets.
 - [x] Nixpkgs PostgreSQL lists `zlib` in direct `buildInputs`; the new
-      `root//development/libraries/zlib:out` build consumes canonical imported
+      `root//development/libraries/zlib:lib` build consumes canonical imported
       `bash`, GNU Make, Binutils/GCC wrappers, Coreutils, Findutils, GNU sed,
-      and Glibc, produces shared/static `libz` plus `zlib.pc`, passes
-      `root//bootstrap/tests:zlib_out_seed_free`, and its transport-only
+      and Glibc, publishes shared `libz` plus a separate `zlib.pc` development
+      interface, passes `root//bootstrap/tests:zlib_lib_seed_free`, and its transport-only
       substitute labels remain behind canonical package façades.
 - [x] The restarted full bootstrap rebuild after the host power loss completed
       successfully for
@@ -258,17 +324,14 @@
       exact visibility allowlist; hydrated substitute targets are visible only
       to canonical public aliases and bootstrap tests. Unpublished bootstrap
       convenience façades are no longer public ordinary APIs.
-- [x] The corrected GCC wrapper is now generated by
-      `gcc:bin_imported_final` over imported substitute inputs only, pinned as
-      `/pkgs/store/bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin`,
-      and exposed to ordinary packages through native `store_import`. The C
-      launchers omit GCC runtime RUNPATHs, so `zlib` and `inih` now declare
+- [x] The normalized GCC wrapper is pinned in the current imported generation
+      with separate `gcc:dev`, `gcc:libgcc`, and `gcc:libstdcxx` interfaces.
+      Its C launchers omit GCC runtime RUNPATHs, so `zlib` and `inih` declare
       only Glibc in their runtime closures.
-- [x] A local assembled seventeen-object bundle containing promoted GNU
-      grep/awk/patch and the imported-base GCC wrapper replacement passes
-      `pkgs_hydrate_store_closure` into an independent disposable store root
-      without executing live bootstrap derivations. Its closure manifest is
-      byte-for-byte identical to the reviewed pinned closure metadata.
+- [x] The normalized 24-object bundle containing role-specific library,
+      compiler, wrapper, and GNU command-tool outputs was exported, uploaded
+      to Foundry CAS, pinned, and imported through canonical aliases without
+      executing live bootstrap derivations during ordinary builds.
 - [x] The live `bootstrap/exports:linux_x86_64_bundle` target is no longer a
       public dependency surface: ordinary targets cannot depend on the
       publication graph, while bootstrap tests can still consume it and a
@@ -307,7 +370,7 @@
       separately by native Python and Ninja rebuilds invalidated by corrected
       package identities.
 - [x] CAS-backed store imports: local Foundry retains reviewed REAPI directory
-      graphs for all 17 published substitute objects, Buck2's store-aware CAS
+      graphs for all 24 published normalized substitute objects, Buck2's store-aware CAS
       importer normalizes and seals fetched or legacy pre-seal physical trees,
       and all normal substitute façades route through
       `pkgs_cas_store_output(...)` without changing the archive hydration
@@ -328,12 +391,11 @@
       part of the declared package ABI.
 - [ ] Bootstrap seed leakage: distinguish expected stage0 host debug paths from
       regressions that survive into the seed-free final package closures.
-- [ ] Expanded pinned closure distribution: publish the locally
-      hydrate-verified seventeen-object bundle containing repaired `gnugrep`,
-      `gawk`, `patch`, and the imported-base GCC wrapper through an
-      authenticated substitute channel, then rerun the Python/Ninja/Meson/
-      `inih` gates from a clean consumer against that distributed path.
+- [x] Expanded pinned closure distribution: publish the normalized 24-object
+      bundle through Foundry CAS and rerun C/C++, Python/Meson/`inih`,
+      Bubblewrap, Perl, and PostgreSQL validation through canonical imported
+      aliases; graph-boundary queries are empty for live/foreign ancestry.
 - [x] Compiler wrapper runtime closure: the wrapper source and semantic builder
-      identity stop injecting GCC `RUNPATH` entries into pure C outputs; an
-      imported-base wrapper replacement is pinned, and the obsolete GCC
-      runtime edges are removed from `zlib` and `inih`.
+      identity stop injecting GCC `RUNPATH` entries into pure C outputs; the
+      normalized wrapper generation is pinned, and obsolete GCC runtime edges
+      are removed from `zlib` and `inih`.

@@ -264,6 +264,183 @@ fn exports_hydrates_and_imports_store_objects() {
 }
 
 #[test]
+fn store_manifests_separate_reference_runtime_and_tool_use_closures() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(source.join("lib")).unwrap();
+    fs::write(
+        source.join("lib/libexample.so"),
+        "/pkgs/store/11111111111111111111111111111111-example-lib-1.0/lib/libexample.so.1\n",
+    )
+    .unwrap();
+
+    let key = "22222222222222222222222222222222";
+    let entry = format!("{key}-example-dev-1.0");
+    let store_path = format!("/pkgs/store/{entry}");
+    let runtime_path = "/pkgs/store/11111111111111111111111111111111-example-lib-1.0";
+    let tool_path = "/pkgs/store/33333333333333333333333333333333-compiler-bin-1.0";
+    let archive = temp.path().join("example-dev.bpkgs-tree");
+    let manifest = temp.path().join("example-dev.manifest.json");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_object"))
+        .args([
+            "--input",
+            source.to_str().unwrap(),
+            "--store-path",
+            &store_path,
+            "--store-path-key",
+            key,
+            "--store-entry",
+            &entry,
+            "--package-name",
+            "example",
+            "--version",
+            "1.0",
+            "--output",
+            "dev",
+            "--target-system",
+            "x86_64-linux",
+            "--reference",
+            runtime_path,
+            "--reference",
+            tool_path,
+            "--runtime-store-output",
+            &store_path,
+            "--tool-store-output",
+            &store_path,
+            "--tool-store-output",
+            tool_path,
+            "--archive",
+            archive.to_str().unwrap(),
+            "--manifest",
+            manifest.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let imported = temp.path().join("imported");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_import_store_object"))
+        .args([
+            "--manifest",
+            manifest.to_str().unwrap(),
+            "--archive",
+            archive.to_str().unwrap(),
+            "--expected-store-path",
+            &store_path,
+            "--expected-package-name",
+            "example",
+            "--expected-version",
+            "1.0",
+            "--expected-output",
+            "dev",
+            "--expected-target-system",
+            "x86_64-linux",
+            "--expected-reference",
+            runtime_path,
+            "--expected-reference",
+            tool_path,
+            "--expected-runtime-store-output",
+            &store_path,
+            "--expected-tool-store-output",
+            &store_path,
+            "--expected-tool-store-output",
+            tool_path,
+            "--output",
+            imported.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
+#[test]
+fn generates_cas_transport_manifest_and_starlark_pin() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(source.join("share/locale/C")).unwrap();
+    fs::write(source.join("share/locale/C/messages"), "runtime data\n").unwrap();
+
+    let key = "00000000000000000000000000000001";
+    let entry = format!("{key}-cas-smoke-0-lib");
+    let store_path = format!("/pkgs/store/{entry}");
+    let archive = temp.path().join("cas-smoke.bpkgs-tree");
+    let manifest = temp.path().join("cas-smoke.manifest.json");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_export_store_object"))
+        .args([
+            "--input",
+            source.to_str().unwrap(),
+            "--store-path",
+            &store_path,
+            "--store-path-key",
+            key,
+            "--store-entry",
+            &entry,
+            "--package-name",
+            "cas-smoke",
+            "--version",
+            "0",
+            "--output",
+            "lib",
+            "--target-system",
+            "x86_64-linux",
+            "--runtime-store-output",
+            &store_path,
+            "--archive",
+            archive.to_str().unwrap(),
+            "--manifest",
+            manifest.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let root_digest = format!("{}:17", "a".repeat(64));
+    let cas_manifest = temp.path().join("cas-smoke.cas.manifest.json");
+    let pin = temp.path().join("cas-smoke.pin.bzl");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_add_cas_manifest"))
+        .args([
+            "--input",
+            manifest.to_str().unwrap(),
+            "--cas-root-digest",
+            &root_digest,
+            "--output",
+            cas_manifest.to_str().unwrap(),
+            "--starlark-pin",
+            pin.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let base_manifest: Value = serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+    let cas_manifest: Value = serde_json::from_slice(&fs::read(&cas_manifest).unwrap()).unwrap();
+    assert_eq!(
+        cas_manifest["canonical_tree_hash"],
+        base_manifest["canonical_tree_hash"]
+    );
+    assert_eq!(cas_manifest["cas"]["format"], "reapi-directory-v1");
+    assert_eq!(cas_manifest["cas"]["digest_function"], "sha256");
+    assert_eq!(cas_manifest["cas"]["root_digest"], root_digest);
+    let pin_contents = fs::read_to_string(pin).unwrap();
+    assert!(pin_contents.contains(base_manifest["canonical_tree_hash"].as_str().unwrap()));
+    assert!(pin_contents.contains(&root_digest));
+
+    let invalid_output = temp.path().join("invalid.cas.manifest.json");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_add_cas_manifest"))
+        .args([
+            "--input",
+            manifest.to_str().unwrap(),
+            "--cas-root-digest",
+            "not-a-digest",
+            "--output",
+            invalid_output.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(!status.success());
+}
+
+#[test]
 fn rejects_tampered_store_object_archives() {
     let temp = tempdir().unwrap();
     let source = temp.path().join("source");
@@ -1409,7 +1586,8 @@ all:
 	:
 install:
 	mkdir -p "\$(DESTDIR)$prefix/lib/pkgconfig" "\$(DESTDIR)$prefix/include" "\$(DESTDIR)$prefix/share/man"
-	printf library > "\$(DESTDIR)$prefix/lib/libexample.so"
+		printf library > "\$(DESTDIR)$prefix/lib/libexample.so"
+		printf runtime > "\$(DESTDIR)$prefix/lib/libexample.so.1"
 	printf documentation > "\$(DESTDIR)$prefix/lib/example.pod"
 	printf header > "\$(DESTDIR)$prefix/include/example.h"
 	printf manual > "\$(DESTDIR)$prefix/share/man/example.1"
@@ -1443,6 +1621,8 @@ EOF
             "dev=include",
             "--split-path",
             "dev=lib/pkgconfig",
+            "--split-reference-symlink",
+            "dev=lib/libexample.so=/pkgs/store/example-package/lib/libexample.so.1",
             "--install-prefix",
             "/pkgs/store/example-package",
             "--path-entry",
@@ -1456,6 +1636,10 @@ EOF
     assert!(!output.join("include/example.h").exists());
     assert!(!output.join("share/man/example.1").exists());
     assert!(dev_output.join("include/example.h").exists());
+    assert_eq!(
+        fs::read_link(dev_output.join("lib/libexample.so")).unwrap(),
+        Path::new("/pkgs/store/example-package/lib/libexample.so.1")
+    );
     assert_eq!(
         fs::read_to_string(dev_output.join("lib/pkgconfig/example.pc")).unwrap(),
         "prefix=/pkgs/store/example-package\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=/pkgs/store/example-package-dev/include\nName: example\n"
@@ -1535,11 +1719,87 @@ EOF
 }
 
 #[test]
-fn declared_link_inputs_supply_runtime_lookup_for_linked_outputs() {
+fn strips_debug_store_references_by_default_and_preserves_them_only_when_requested() {
     let temp = tempdir().unwrap();
-    let dependency = temp.path().join("dependency");
-    let dependency_lib = dependency.join("lib");
-    fs::create_dir_all(&dependency_lib).unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("artifact.c"), "int main(void) { return 0; }\n").unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+source_path=$PWD
+cat > Makefile <<EOF
+all:
+	cc -g -fdebug-prefix-map="$source_path=/pkgs/store/dddddddddddddddddddddddddddddddd-undeclared-debug" "$source_path/artifact.c" -o artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let marker = b"/pkgs/store/dddddddddddddddddddddddddddddddd-undeclared-debug";
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let binary = fs::read(output.join("bin/artifact")).unwrap();
+    assert!(!binary.windows(marker.len()).any(|window| window == marker));
+
+    let debug_output = temp.path().join("debug-out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            debug_output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-debug-package",
+            "--path-entry",
+            "/usr/bin",
+            "--preserve-debug",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let debug_binary = fs::read(debug_output.join("bin/artifact")).unwrap();
+    assert!(debug_binary
+        .windows(marker.len())
+        .any(|window| window == marker));
+}
+
+#[test]
+fn declared_link_interface_inputs_separate_link_lookup_from_runtime_lookup() {
+    let temp = tempdir().unwrap();
+    let runtime = temp.path().join("runtime");
+    let runtime_lib = runtime.join("lib");
+    let link_interface = temp.path().join("link-interface");
+    let link_interface_lib = link_interface.join("lib");
+    fs::create_dir_all(&runtime_lib).unwrap();
+    fs::create_dir_all(&link_interface_lib).unwrap();
     let dependency_source = temp.path().join("dependency.c");
     fs::write(
         &dependency_source,
@@ -1556,13 +1816,13 @@ fn declared_link_inputs_supply_runtime_lookup_for_linked_outputs() {
         .arg(&dependency_source)
         .arg("-Wl,-soname,libpkgs_link_input_test.so.1")
         .arg("-o")
-        .arg(dependency_lib.join(dependency_soname))
+        .arg(runtime_lib.join(dependency_soname))
         .status()
         .unwrap();
     assert!(status.success());
     symlink(
-        dependency_soname,
-        dependency_lib.join("libpkgs_link_input_test.so"),
+        runtime_lib.join(dependency_soname),
+        link_interface_lib.join("libpkgs_link_input_test.so"),
     )
     .unwrap();
 
@@ -1617,7 +1877,9 @@ EOF
             "--path-entry",
             "/usr/bin",
             "--link-input",
-            dependency.to_str().unwrap(),
+            runtime.to_str().unwrap(),
+            "--link-interface-input",
+            link_interface.to_str().unwrap(),
         ])
         .status()
         .unwrap();
@@ -1629,6 +1891,13 @@ EOF
         .unwrap();
     assert!(execution.status.success());
     assert_eq!(execution.stdout, b"linked\n");
+    let binary = fs::read(output.join("bin/artifact")).unwrap();
+    assert!(binary
+        .windows(runtime.to_str().unwrap().len())
+        .any(|window| window == runtime.to_str().unwrap().as_bytes()));
+    assert!(!binary
+        .windows(link_interface.to_str().unwrap().len())
+        .any(|window| window == link_interface.to_str().unwrap().as_bytes()));
 }
 
 #[test]
@@ -2049,11 +2318,14 @@ int main(void) {
 }
 
 #[test]
-fn declared_link_inputs_supply_runtime_lookup_for_meson_outputs() {
+fn meson_link_interface_inputs_separate_link_lookup_from_runtime_lookup() {
     let temp = tempdir().unwrap();
-    let dependency = temp.path().join("dependency");
-    let dependency_lib = dependency.join("lib");
-    fs::create_dir_all(&dependency_lib).unwrap();
+    let runtime = temp.path().join("runtime");
+    let runtime_lib = runtime.join("lib");
+    let link_interface = temp.path().join("link-interface");
+    let link_interface_lib = link_interface.join("lib");
+    fs::create_dir_all(&runtime_lib).unwrap();
+    fs::create_dir_all(&link_interface_lib).unwrap();
     let dependency_source = temp.path().join("dependency.c");
     fs::write(
         &dependency_source,
@@ -2070,13 +2342,13 @@ fn declared_link_inputs_supply_runtime_lookup_for_meson_outputs() {
         .arg(&dependency_source)
         .arg("-Wl,-soname,libpkgs_meson_link_input_test.so.1")
         .arg("-o")
-        .arg(dependency_lib.join(dependency_soname))
+        .arg(runtime_lib.join(dependency_soname))
         .status()
         .unwrap();
     assert!(status.success());
     symlink(
-        dependency_soname,
-        dependency_lib.join("libpkgs_meson_link_input_test.so"),
+        runtime_lib.join(dependency_soname),
+        link_interface_lib.join("libpkgs_meson_link_input_test.so"),
     )
     .unwrap();
 
@@ -2111,7 +2383,9 @@ int main(void) {
             "--path-entry",
             "/usr/bin",
             "--link-input",
-            dependency.to_str().unwrap(),
+            runtime.to_str().unwrap(),
+            "--link-interface-input",
+            link_interface.to_str().unwrap(),
         ])
         .status()
         .unwrap();
@@ -2120,4 +2394,11 @@ int main(void) {
     let executed = Command::new(output.join("bin/artifact")).output().unwrap();
     assert!(executed.status.success());
     assert_eq!(String::from_utf8(executed.stdout).unwrap(), "linked\n");
+    let binary = fs::read(output.join("bin/artifact")).unwrap();
+    assert!(binary
+        .windows(runtime.to_str().unwrap().len())
+        .any(|window| window == runtime.to_str().unwrap().as_bytes()));
+    assert!(!binary
+        .windows(link_interface.to_str().unwrap().len())
+        .any(|window| window == link_interface.to_str().unwrap().as_bytes()));
 }

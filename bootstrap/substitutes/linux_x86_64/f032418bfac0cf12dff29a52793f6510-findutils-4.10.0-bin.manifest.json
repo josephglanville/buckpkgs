@@ -1,0 +1,32 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/f032418bfac0cf12dff29a52793f6510-findutils-4.10.0-bin",
+  "store_path_key": "f032418bfac0cf12dff29a52793f6510",
+  "store_entry": "f032418bfac0cf12dff29a52793f6510-findutils-4.10.0-bin",
+  "package": {
+    "name": "findutils",
+    "version": "4.10.0",
+    "output": "bin"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:2791a25f02c58b6bb4fa08545bfaaf51ce8537bea5cf302b24cb638c5e6aff87",
+    "download_size": 342221,
+    "payload_hash": "sha256:2791a25f02c58b6bb4fa08545bfaaf51ce8537bea5cf302b24cb638c5e6aff87",
+    "payload_size": 342221
+  },
+  "canonical_tree_hash": "sha256:2791a25f02c58b6bb4fa08545bfaaf51ce8537bea5cf302b24cb638c5e6aff87",
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/f032418bfac0cf12dff29a52793f6510-findutils-4.10.0-bin"
+  ],
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/f032418bfac0cf12dff29a52793f6510-findutils-4.10.0-bin"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:c9a4ad4828a7da0060e0b59dea1793fc84aa9058da8b03c59c05ae5d49d01b30",
+    "download_size": 24947374,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:c9a4ad4828a7da0060e0b59dea1793fc84aa9058da8b03c59c05ae5d49d01b30",
+    "payload_size": 24947374
+  },
+  "canonical_tree_hash": "sha256:c9a4ad4828a7da0060e0b59dea1793fc84aa9058da8b03c59c05ae5d49d01b30",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "0e3dd125767c78ab0f4db31c92f7baf6e3efcd1489072f87cf639bf20ffd610d:238"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "gcc",
+    "output": "dev",
+    "version": "15.2.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/5672ae7d0f5d5e37805539742605eb71-gcc-15.2.0-libstdcxx",
+    "/pkgs/store/6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+    "/pkgs/store/bc149dc88ef9a5064ae6e2017a6349cf-gcc-15.2.0-bin",
+    "/pkgs/store/ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev",
+    "/pkgs/store/d79d3410372a81b85838dd003c664197-glibc-2.42-dev",
+    "/pkgs/store/dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev",
+    "/pkgs/store/e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev",
+    "/pkgs/store/e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib",
+    "/pkgs/store/f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/dfbc9c5e12b63f3fbd059a09dd1e4f6c-gcc-15.2.0-dev"
+  ],
+  "store_entry": "dfbc9c5e12b63f3fbd059a09dd1e4f6c-gcc-15.2.0-dev",
+  "store_path": "/pkgs/store/dfbc9c5e12b63f3fbd059a09dd1e4f6c-gcc-15.2.0-dev",
+  "store_path_key": "dfbc9c5e12b63f3fbd059a09dd1e4f6c",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/dfbc9c5e12b63f3fbd059a09dd1e4f6c-gcc-15.2.0-dev"
+  ]
+}

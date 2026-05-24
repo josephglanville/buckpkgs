@@ -1,0 +1,38 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib",
+  "store_path_key": "e731f775a0217593bc1c6bc2d921fd9b",
+  "store_entry": "e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib",
+  "package": {
+    "name": "libmpc",
+    "version": "1.4.0",
+    "output": "lib"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:29e99c11d0c686af3d99b81018d836f4401f986bbc8f2d16c6b5465c52f78934",
+    "download_size": 156936,
+    "payload_hash": "sha256:29e99c11d0c686af3d99b81018d836f4401f986bbc8f2d16c6b5465c52f78934",
+    "payload_size": 156936
+  },
+  "canonical_tree_hash": "sha256:29e99c11d0c686af3d99b81018d836f4401f986bbc8f2d16c6b5465c52f78934",
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+    "/pkgs/store/e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib"
+  ],
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+    "/pkgs/store/e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib"
+  ]
+}

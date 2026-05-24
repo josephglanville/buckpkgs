@@ -132,9 +132,20 @@ new file mode 100644
 index 0000000000..18811eb524
 --- /dev/null
 +++ b/config.over
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,16 @@
 +osvers="gnulinux"
 +myuname="buckpkgs"
 +myhostname="buckpkgs"
 +cf_by="buckpkgs"
 +cf_time="Thu Jan  1 00:00:01 UTC 1970"
++aphostname='uname -n'
++lns='ln -s'
++rm_try='rm -f try try a.out .out try.[cho] try..o core core.try* try.core*'
++locincpth=''
++incpth=''
++libpth="$loclibpth"
++plibpth="$loclibpth"
++libsdirs=''
++libsfound=''
++libspath="$loclibpth"
++timeincl=''

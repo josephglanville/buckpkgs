@@ -1,0 +1,32 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/b0ff6860dbd901389437553b076f5500-gnumake-4.4.1-bin",
+  "store_path_key": "b0ff6860dbd901389437553b076f5500",
+  "store_entry": "b0ff6860dbd901389437553b076f5500-gnumake-4.4.1-bin",
+  "package": {
+    "name": "gnumake",
+    "version": "4.4.1",
+    "output": "bin"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:5f7fc65e20b0a8520c89bc59fa3e221ab90279a01debb947790c89faf2184cc5",
+    "download_size": 280390,
+    "payload_hash": "sha256:5f7fc65e20b0a8520c89bc59fa3e221ab90279a01debb947790c89faf2184cc5",
+    "payload_size": 280390
+  },
+  "canonical_tree_hash": "sha256:5f7fc65e20b0a8520c89bc59fa3e221ab90279a01debb947790c89faf2184cc5",
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/b0ff6860dbd901389437553b076f5500-gnumake-4.4.1-bin"
+  ],
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/b0ff6860dbd901389437553b076f5500-gnumake-4.4.1-bin"
+  ]
+}

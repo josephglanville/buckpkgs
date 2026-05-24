@@ -239,10 +239,18 @@ adds:
 ```
 
 `foundryctl cas upload-tree /pkgs/store/<entry>` uploads file, directory, and
-symlink nodes and returns this root digest. All 17 objects in the current
-published bootstrap substitute closure now have parallel `.cas.manifest.json`
-overlays, so the existing archive closure manifest and hydration bundle remain
-valid while normal consumers use the CAS representation.
+symlink nodes and returns this root digest. All 24 role-specific objects in the
+current normalized bootstrap substitute closure have parallel
+`.cas.manifest.json` overlays, so the archive closure manifest and hydration
+bundle remain valid while normal consumers use the CAS representation.
+
+After upload, `pkgs_add_cas_manifest` accepts the exported store-object
+manifest and returned root digest, validates both, and produces the
+`.cas.manifest.json` overlay plus a Starlark pin record containing
+`canonical_tree_hash` and `cas_root_digest`. `BUCK` files load that generated
+record when declaring `pkgs_cas_store_output(...)`; publication review compares
+the checked-in files byte-for-byte with regenerated output rather than
+transcribing digests by hand.
 
 An REAPI directory commits to contents, executable bits, and symlink targets,
 but not BuckPkgs' sealed write bits or normalized mtimes. The Buck2 CAS
@@ -299,14 +307,15 @@ toolchains share the imported tool action nodes in the usual host-build case.
 This keeps the bootstrap seed graph islanded and does not make ordinary builds
 fetch or derive the live bootstrap tower.
 
-The pinned bootstrap closure now contains final compiler wrappers plus Bash,
-GNU Make, Coreutils, Findutils, GNU sed, GNU grep, GNU awk, and GNU patch. This is sufficient for
-`development/libraries/zlib:out`, a direct PostgreSQL dependency in nixpkgs, to
-build as an ordinary imported-bootstrap package and pass its foreign-seed
-reference check, and for the reduced Python/Meson path to avoid live text-tool
-promotion ancestry. Ordinary package definitions depend on canonical labels
-such as `development/libraries/glibc:out`, `development/compilers/gcc:bin`,
-and `tools/text/gawk:bin`; only those aliases may consume the reviewed
+The pinned normalized bootstrap closure contains role-specific GMP, MPFR,
+libmpc, glibc, Linux-header, GCC, and Binutils objects plus Bash, GNU Make,
+Coreutils, Findutils, GNU sed, GNU grep, GNU awk, and GNU patch. This is
+sufficient for `development/libraries/zlib:lib`, the reduced Python/Meson
+path, Bubblewrap, and PostgreSQL to build as ordinary imported-bootstrap
+packages. Ordinary package definitions depend on canonical labels such as
+`development/libraries/glibc:lib`, `development/libraries/glibc:dev`,
+`development/compilers/gcc:{bin,dev,libgcc,libstdcxx}`, and
+`tools/text/gawk:bin`; only those aliases may consume the reviewed
 `bootstrap/substitutes` transport layer. Live publication producers are
 restricted to bootstrap producers, exports, and validation targets through an
 explicit visibility allowlist. Producer-side seed checks and individual export
@@ -331,32 +340,25 @@ ordinary `zlib` plus C toolchain-smoke build performed one imported GCC
 validation in `3.9s`; an immediate repeat completed in `0.0s`, without
 building any live bootstrap producer.
 Meson, Ninja, and Python are not in the pinned bootstrap closure. They are
-defined as native package derivations above the sealed imported façade. The
+defined as native package derivations above the sealed imported facade. The
 immediate Meson path uses an explicitly reduced native Python build interpreter
 with `zlib` and imported GNU awk/grep/patch; canonical full Python remains
-reserved for the normal Nixpkgs-style feature profile. The corrected GCC
-wrapper is republished by a small producer whose inputs are themselves
-canonical imported substitutes, so wrapper-policy changes do not re-enter the
-live bootstrap graph. Its C launchers no longer inject GCC runtime-library
-RUNPATHs, allowing C-only `zlib` and `inih` outputs to retain only Glibc in
-their runtime closure. A locally assembled seventeen-object bundle containing
-the new text tools and wrapper passes closure hydration into an independent
-disposable store root. Local ordinary builds of `zlib`, toolchain smoke
-targets, and the Meson-built `inih` package pass through the imported aliases;
-after pinning the repaired text tools, their public alias import completed in
-`0.1s`. Both C-only libraries have Glibc-only runtime closures and no
-GCC-wrapper references.
-Publication through the configured distribution channel and a clean-consumer
-rerun against that external path remain to be run.
+reserved for the normal Nixpkgs-style feature profile. The normalized GCC
+wrapper consumes imported role-specific inputs. Its C launchers no longer
+inject GCC runtime-library RUNPATHs, allowing C-only `zlib` and `inih`
+outputs to retain only Glibc in their runtime closure, while C++ consumers
+declare `libstdcxx` and `libgcc` explicitly. The 24-object live export was
+uploaded to the configured Foundry CAS, pinned as generated overlay and
+Starlark pin records, and imported through public aliases. Toolchain C/C++
+smoke and ELF gates, Bubblewrap runtime integration, Perl, and PostgreSQL
+`lib`/`bin`/`dev` validation pass through this generation; boundary queries
+for toolchains, Python, Meson, `inih`, Bubblewrap, and PostgreSQL contain no
+live bootstrap producer, export, or foreign-seed ancestry.
 
-The promoted GNU awk and GNU grep recipes now use their published `:bin`
-façades, together with the imported final tool profile, instead of stage-zero
-self-hosting inputs. The first repaired generation is pinned as
-`b060b888...-gawk`, `d23256b4...-gnugrep`, and
-`f8debe78...-patch`, exported in isolation from the published baseline and
-hydrated successfully from a newly assembled seventeen-object bundle into a
-fresh store root. Advancing the public aliases makes the private recipes
-describe the next candidate generation; this is intentional publication flow,
+The promoted GNU awk and GNU grep recipes use their published `:bin` facades,
+together with the imported final tool profile, instead of stage-zero
+self-hosting inputs. Advancing public aliases makes private producer targets
+describe a next candidate generation; this is intentional publication flow,
 not a dependency from ordinary consumers back into the producer island.
 
 The observed cold costs separate two issues. Under the prior two-walk importer,

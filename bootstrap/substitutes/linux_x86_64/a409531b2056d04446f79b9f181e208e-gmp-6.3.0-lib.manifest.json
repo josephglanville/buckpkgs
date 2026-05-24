@@ -1,0 +1,32 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+  "store_path_key": "a409531b2056d04446f79b9f181e208e",
+  "store_entry": "a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+  "package": {
+    "name": "gmp",
+    "version": "6.3.0",
+    "output": "lib"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:f13e3f6e8995d774ed8fc4c18c6b37e9fd5a986eb4894641a5c433ebcbde15ce",
+    "download_size": 686123,
+    "payload_hash": "sha256:f13e3f6e8995d774ed8fc4c18c6b37e9fd5a986eb4894641a5c433ebcbde15ce",
+    "payload_size": 686123
+  },
+  "canonical_tree_hash": "sha256:f13e3f6e8995d774ed8fc4c18c6b37e9fd5a986eb4894641a5c433ebcbde15ce",
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib"
+  ],
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib"
+  ]
+}

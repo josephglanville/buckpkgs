@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_http_archive_source", "pkgs_meson_install_package")
+load("//rules:pkgs.bzl", "pkgs_http_archive_source", "pkgs_meson_install_package", "pkgs_package_output")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -15,17 +15,40 @@ _NATIVE_TOOLS = [
 ]
 
 pkgs_meson_install_package(
-    name = "out",
+    name = "lib",
     package_name = "inih",
     version = "62",
+    output = "lib",
     sources = [_SOURCE],
     meson_args = [
         "-Dtests=false",
         "-Dwith_INIReader=false",
     ],
+    output_paths = ["lib/libinih.so.0"],
+    split_outputs = {
+        "dev": [
+            "include",
+            "lib/pkgconfig",
+        ],
+    },
+    split_pkg_config_paths = {
+        "dev": ["lib/pkgconfig"],
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib/libinih.so": ("lib", "lib/libinih.so.0"),
+        },
+    },
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_package_output(
+    name = "dev",
+    package = ":lib",
+    output = "dev",
     visibility = ["PUBLIC"],
 )

@@ -1,0 +1,32 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/3c3820f85558680b8b2ffd0c0b64e138-gnused-4.9-bin",
+  "store_path_key": "3c3820f85558680b8b2ffd0c0b64e138",
+  "store_entry": "3c3820f85558680b8b2ffd0c0b64e138-gnused-4.9-bin",
+  "package": {
+    "name": "gnused",
+    "version": "4.9",
+    "output": "bin"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:30d1f651e792e66b293dd7ce41425a61c815e0f6cf7de6b25c5617fdd5378c5e",
+    "download_size": 143653,
+    "payload_hash": "sha256:30d1f651e792e66b293dd7ce41425a61c815e0f6cf7de6b25c5617fdd5378c5e",
+    "payload_size": 143653
+  },
+  "canonical_tree_hash": "sha256:30d1f651e792e66b293dd7ce41425a61c815e0f6cf7de6b25c5617fdd5378c5e",
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/3c3820f85558680b8b2ffd0c0b64e138-gnused-4.9-bin"
+  ],
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/3c3820f85558680b8b2ffd0c0b64e138-gnused-4.9-bin"
+  ]
+}

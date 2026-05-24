@@ -21,6 +21,9 @@ pub(crate) struct Args {
     #[arg(long = "exclude-file-suffix", value_name = "SUFFIX")]
     exclude_file_suffixes: Vec<String>,
 
+    #[arg(long)]
+    preserve_debug: bool,
+
     #[arg(long = "split-output", value_name = "NAME=PATH")]
     split_outputs: Vec<String>,
 
@@ -30,6 +33,9 @@ pub(crate) struct Args {
     #[arg(long = "split-path", value_name = "NAME=PATH")]
     split_paths: Vec<String>,
 
+    #[arg(long = "split-reference-symlink", value_name = "NAME=LINK=TARGET")]
+    split_reference_symlinks: Vec<String>,
+
     #[arg(long, value_name = "PATH")]
     install_prefix: PathBuf,
 
@@ -38,6 +44,9 @@ pub(crate) struct Args {
 
     #[arg(long = "link-input", value_name = "PATH")]
     link_inputs: Vec<PathBuf>,
+
+    #[arg(long = "link-interface-input", value_name = "PATH")]
+    link_interface_inputs: Vec<PathBuf>,
 
     #[arg(long = "pkg-config-path", value_name = "PATH")]
     pkg_config_paths: Vec<PathBuf>,
@@ -106,9 +115,14 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
 
     let path = std::env::join_paths(&args.path_entries)
         .map_err(|source| common::Error::JoinPath { source })?;
-    let path = common::compiler_wrapped_path(&path, work.path(), &args.link_inputs)?;
+    let path = common::compiler_wrapped_path(
+        &path,
+        work.path(),
+        &args.link_inputs,
+        &args.link_interface_inputs,
+    )?;
     let mut env = build::parse_env_assignments(&args.meson_env)?;
-    add_link_input_ldflags(&mut env, &args.link_inputs);
+    add_link_input_ldflags(&mut env, &args.link_inputs, &args.link_interface_inputs);
 
     build::apply_patches(&source_dir, &path, &args.patches, args.patch_strip)?;
 
@@ -151,6 +165,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &args.split_outputs,
         &args.split_output_prefixes,
         &args.split_paths,
+        &args.split_reference_symlinks,
     )?;
     let (output, split_outputs) = build::staging_outputs(work.path(), &split_destinations);
     build::copy_split_staged_prefix(
@@ -160,11 +175,29 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &args.output_paths,
         &split_outputs,
     )?;
-    for output in std::iter::once(&output).chain(split_outputs.iter().map(|output| &output.output))
-    {
-        build::exclude_file_suffixes(output, &args.exclude_file_suffixes)?;
-        build::sanitize_libtool_archives(output, work.path())?;
-        build::sanitize_self_referential_linker_scripts(output, &args.install_prefix)?;
+    build::exclude_file_suffixes(&output, &args.exclude_file_suffixes)?;
+    build::sanitize_libtool_archives(&output, work.path())?;
+    build::sanitize_self_referential_linker_scripts(
+        &output,
+        &args.install_prefix,
+        &args.install_prefix,
+        &split_outputs,
+    )?;
+    for split_output in &split_outputs {
+        build::exclude_file_suffixes(&split_output.output, &args.exclude_file_suffixes)?;
+        build::sanitize_libtool_archives(&split_output.output, work.path())?;
+        build::sanitize_self_referential_linker_scripts(
+            &split_output.output,
+            &args.install_prefix,
+            &split_output.install_prefix,
+            &split_outputs,
+        )?;
+    }
+    if !args.preserve_debug {
+        build::strip_debug_sections(&output, &path)?;
+        for split_output in &split_outputs {
+            build::strip_debug_sections(&split_output.output, &path)?;
+        }
     }
     let output = common::canonicalize(&output)?;
     build::create_symlinks(&output, &args.symlinks)?;
@@ -195,19 +228,24 @@ fn reproducible_meson_command<'a>(
     Ok(command)
 }
 
-fn add_link_input_ldflags(env: &mut Vec<(String, String)>, link_inputs: &[PathBuf]) {
-    if link_inputs.is_empty() {
+fn add_link_input_ldflags(
+    env: &mut Vec<(String, String)>,
+    link_inputs: &[PathBuf],
+    link_interface_inputs: &[PathBuf],
+) {
+    if link_inputs.is_empty() && link_interface_inputs.is_empty() {
         return;
     }
 
-    let flags = link_inputs
+    let flags = link_interface_inputs
         .iter()
-        .flat_map(|link_input| {
+        .map(|link_interface_input| format!("-L{}/lib", link_interface_input.display()))
+        .chain(link_inputs.iter().flat_map(|link_input| {
             [
                 format!("-L{}/lib", link_input.display()),
                 format!("-Wl,-rpath,{}/lib", link_input.display()),
             ]
-        })
+        }))
         .collect::<Vec<_>>()
         .join(" ");
 

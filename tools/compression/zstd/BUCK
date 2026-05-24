@@ -30,20 +30,27 @@ pkgs_make_install_package(
         "ZSTD_LEGACY_SUPPORT=0",
     ],
     install_args = ["ZSTD_LEGACY_SUPPORT=0"],
-    output_paths = ["lib"],
+    output_paths = [
+        "lib/libzstd.so.1",
+        "lib/libzstd.so.1.5.7",
+    ],
     split_outputs = {
         "dev": [
             "include",
-            "lib/libzstd.a",
             "lib/pkgconfig",
         ],
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib/libzstd.so": ("lib", "lib/libzstd.so.1.5.7"),
+        },
     },
     split_pkg_config_paths = {
         "dev": ["lib/pkgconfig"],
     },
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

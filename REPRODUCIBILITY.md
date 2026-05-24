@@ -370,7 +370,7 @@ Examples:
 ```text
 buck2 build root//development/libraries/glibc:out_stage1[reproducible]
 buck2 build root//development/compilers/gcc:out_stage1[reproducible]
-buck2 build root//development/libraries/zlib:out[archive_metadata]
+buck2 build root//development/libraries/zlib:lib[archive_metadata]
 ```
 
 For bootstrap-sensitive changes:
@@ -430,13 +430,13 @@ boundary check.
 - [x] `//tools/text/gnupatch:bin` — verified 2026-05-23 with
   `[reproducible]`, `[archive_metadata]`, and
   `bootstrap/tests:gnupatch_bin_seed_free`.
-- [x] `//development/libraries/zlib:out` and `:dev` — verified 2026-05-23
+- [x] `//development/libraries/zlib:lib` and `:dev` — verified 2026-05-23
   with `[reproducible]` and `[archive_metadata]` for both projected outputs;
   fresh store publications at
   `/pkgs/store/1ba90ca09655453e4ef3cc5e30a7b5ad-zlib-1.3.2` and
   `/pkgs/store/3a75b89b0d616bf7b9c2782d42e28cea-zlib-1.3.2-dev` contain no
   writable regular file or directory. Native `pkg-config --cflags --libs
-  zlib` resolves headers from `:dev` and libraries from `:out`.
+  zlib` resolves headers from `:dev` and libraries from `:lib`.
 - [x] `//development/tools/pkg-config:bin` and `:dev` — verified 2026-05-23
   with `[reproducible]` and `[archive_metadata]` for each exported output;
   native `pkgconf` supplies the successful isolated zlib metadata query.
@@ -444,7 +444,7 @@ boundary check.
   2026-05-23 with `[reproducible]`, `[archive_metadata]`, and
   `bootstrap/tests:python_build_interpreter_seed_free`; the recipe discovers
   zlib through native `pkgconf` and declared `zlib:dev` metadata while
-  retaining `zlib:out` as its link/runtime input. Direct execution of
+  retaining `zlib:lib` as its link/runtime input. Direct execution of
   `import zlib` without `LD_LIBRARY_PATH` succeeds, and fresh publication at
   `/pkgs/store/65dcb17645c644175972966c5150d8ff-python3-build-3.13.10`
   contains no writable regular file or directory.

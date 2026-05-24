@@ -1,0 +1,33 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:4e3627f9a8f6e52152ff238d96a99c8eb55789a9a94c9bd29bffbe9d421bf2e7",
+    "download_size": 137,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:4e3627f9a8f6e52152ff238d96a99c8eb55789a9a94c9bd29bffbe9d421bf2e7",
+    "payload_size": 137
+  },
+  "canonical_tree_hash": "sha256:4e3627f9a8f6e52152ff238d96a99c8eb55789a9a94c9bd29bffbe9d421bf2e7",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "7023ce78169ae2fe5526976e0bc22b53e885c33715e9614bef69c411bc9995e9:79"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "cas-smoke",
+    "output": "lib",
+    "version": "0"
+  },
+  "references": [],
+  "runtime_store_outputs": [
+    "/pkgs/store/00000000000000000000000000000001-cas-smoke-0-lib"
+  ],
+  "store_entry": "00000000000000000000000000000001-cas-smoke-0-lib",
+  "store_path": "/pkgs/store/00000000000000000000000000000001-cas-smoke-0-lib",
+  "store_path_key": "00000000000000000000000000000001",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/00000000000000000000000000000001-cas-smoke-0-lib"
+  ]
+}

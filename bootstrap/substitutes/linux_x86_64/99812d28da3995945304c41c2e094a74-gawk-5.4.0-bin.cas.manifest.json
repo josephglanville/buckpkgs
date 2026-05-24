@@ -1,0 +1,37 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:425b4902ceaadeaf978c71445cb67ca79e3c151c6b5e88b7f24d4675102c61a2",
+    "download_size": 2825318,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:425b4902ceaadeaf978c71445cb67ca79e3c151c6b5e88b7f24d4675102c61a2",
+    "payload_size": 2825318
+  },
+  "canonical_tree_hash": "sha256:425b4902ceaadeaf978c71445cb67ca79e3c151c6b5e88b7f24d4675102c61a2",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "572e9e8b6a5c27eb73de72f8309233123472c183fade827ed58873bd82c84352:315"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "gawk",
+    "output": "bin",
+    "version": "5.4.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/99812d28da3995945304c41c2e094a74-gawk-5.4.0-bin"
+  ],
+  "store_entry": "99812d28da3995945304c41c2e094a74-gawk-5.4.0-bin",
+  "store_path": "/pkgs/store/99812d28da3995945304c41c2e094a74-gawk-5.4.0-bin",
+  "store_path_key": "99812d28da3995945304c41c2e094a74",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/99812d28da3995945304c41c2e094a74-gawk-5.4.0-bin"
+  ]
+}

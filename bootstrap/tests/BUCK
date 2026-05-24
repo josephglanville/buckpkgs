@@ -12,6 +12,7 @@ load(
     "pkgs_seed_free",
     "pkgs_self_store_path",
     "pkgs_source",
+    "pkgs_validated_output",
 )
 
 _PAYLOAD_FILE_CONTENT = ["built with a foreign input, but does not retain it"]
@@ -346,22 +347,122 @@ pkgs_make_install_package(
     ],
 )
 
+pkgs_validated_output(name = "live_gmp_lib", package = "//development/libraries/gmp:lib_final")
+pkgs_validated_output(name = "live_gmp_dev", package = "//development/libraries/gmp:dev_final")
+pkgs_validated_output(name = "live_mpfr_lib", package = "//development/libraries/mpfr:lib_final")
+pkgs_validated_output(name = "live_mpfr_dev", package = "//development/libraries/mpfr:dev_final")
+pkgs_validated_output(name = "live_libmpc_lib", package = "//development/libraries/libmpc:lib_final")
+pkgs_validated_output(name = "live_libmpc_dev", package = "//development/libraries/libmpc:dev_final")
+pkgs_validated_output(name = "live_glibc_lib", package = "//development/libraries/glibc:lib_stage1")
+pkgs_validated_output(name = "live_glibc_dev", package = "//development/libraries/glibc:dev_stage1")
+pkgs_validated_output(name = "live_linux_headers_dev", package = "//os-specific/linux/kernel-headers:dev_final")
+pkgs_validated_output(name = "live_binutils", package = "//development/tools/misc/binutils:bin_stage1")
+pkgs_validated_output(name = "live_gcc_bin", package = "//development/compilers/gcc:compiler_final")
+pkgs_validated_output(name = "live_gcc_dev", package = "//development/compilers/gcc:dev_final")
+pkgs_validated_output(name = "live_gcc_libgcc", package = "//development/compilers/gcc:libgcc_final")
+pkgs_validated_output(name = "live_gcc_libstdcxx", package = "//development/compilers/gcc:libstdcxx_final")
+pkgs_validated_output(name = "live_gcc_wrapper", package = "//development/compilers/gcc:bin_final")
+pkgs_validated_output(name = "live_gnumake", package = "//development/tools/build-managers/gnumake:bin_final")
+pkgs_validated_output(name = "live_gnum4", package = "//development/tools/misc/gnum4:bin_stage1")
+pkgs_validated_output(name = "live_bash", package = "//shells/bash:bin_final")
+pkgs_validated_output(name = "live_gnutar", package = "//tools/archivers/gnutar:bin")
+pkgs_validated_output(name = "live_bzip2", package = "//tools/compression/bzip2:bin")
+pkgs_validated_output(name = "live_gzip", package = "//tools/compression/gzip:bin")
+pkgs_validated_output(name = "live_coreutils", package = "//tools/misc/coreutils:bin_final")
+pkgs_validated_output(name = "live_findutils", package = "//tools/misc/findutils:bin_final")
+pkgs_validated_output(name = "live_diffutils", package = "//tools/text/diffutils:bin")
+pkgs_validated_output(
+    name = "live_gawk",
+    package = "//tools/text/gawk:bin_final",
+    allowed_runtime_paths = ["share/awk"],
+)
+pkgs_validated_output(name = "live_gnugrep", package = "//tools/text/gnugrep:bin_final")
+pkgs_validated_output(name = "live_gnupatch", package = "//tools/text/gnupatch:bin_final")
+pkgs_validated_output(name = "live_gnused", package = "//tools/text/gnused:bin_final")
+
+pkgs_validated_output(name = "ordinary_zlib_lib", package = "//development/libraries/zlib:lib")
+pkgs_validated_output(name = "ordinary_zlib_dev", package = "//development/libraries/zlib:dev")
+pkgs_validated_output(name = "ordinary_zstd_lib", package = "//tools/compression/zstd:lib")
+pkgs_validated_output(name = "ordinary_zstd_dev", package = "//tools/compression/zstd:dev")
+pkgs_validated_output(name = "ordinary_lz4_lib", package = "//tools/compression/lz4:lib")
+pkgs_validated_output(name = "ordinary_lz4_dev", package = "//tools/compression/lz4:dev")
+pkgs_validated_output(
+    name = "ordinary_ncurses_lib",
+    package = "//development/libraries/ncurses:lib",
+    allowed_runtime_paths = ["share/terminfo"],
+)
+pkgs_validated_output(name = "ordinary_ncurses_dev", package = "//development/libraries/ncurses:dev")
+pkgs_validated_output(name = "ordinary_readline_lib", package = "//development/libraries/readline:lib")
+pkgs_validated_output(name = "ordinary_readline_dev", package = "//development/libraries/readline:dev")
+pkgs_validated_output(name = "ordinary_perl_lib", package = "//development/interpreters/perl:lib")
+pkgs_validated_output(name = "ordinary_perl_bin", package = "//development/interpreters/perl:bin")
+pkgs_validated_output(name = "ordinary_libcap_lib", package = "//development/libraries/libcap:lib")
+pkgs_validated_output(name = "ordinary_libcap_dev", package = "//development/libraries/libcap:dev")
+pkgs_validated_output(name = "ordinary_bubblewrap_bin", package = "//tools/sandboxing/bubblewrap:bin")
+pkgs_validated_output(
+    name = "ordinary_postgresql_lib",
+    package = "//servers/sql/postgresql:lib",
+    allowed_runtime_paths = [
+        "share/errcodes.txt",
+        "share/extension",
+        "share/information_schema.sql",
+        "share/pg_hba.conf.sample",
+        "share/pg_ident.conf.sample",
+        "share/pg_service.conf.sample",
+        "share/postgres.bki",
+        "share/postgresql.conf.sample",
+        "share/psqlrc.sample",
+        "share/snowball_create.sql",
+        "share/sql_features.txt",
+        "share/system_constraints.sql",
+        "share/system_functions.sql",
+        "share/system_views.sql",
+        "share/timezone",
+        "share/timezonesets",
+        "share/tsearch_data",
+    ],
+)
+pkgs_validated_output(name = "ordinary_postgresql_bin", package = "//servers/sql/postgresql:bin")
+pkgs_validated_output(name = "ordinary_postgresql_dev", package = "//servers/sql/postgresql:dev")
+
 _FINAL_BASE = [
-    "//development/libraries/glibc:out_stage1",
-    "//development/tools/misc/binutils:bin_stage1",
-    "//development/compilers/gcc:out_stage2",
-    "//development/tools/build-managers/gnumake:bin_final",
-    "//shells/bash:bin_final",
-    "//tools/archivers/gnutar:bin",
-    "//tools/compression/bzip2:bin",
-    "//tools/compression/gzip:out",
-    "//tools/misc/coreutils:bin_final",
-    "//tools/misc/findutils:bin_final",
-    "//tools/text/diffutils:bin",
-    "//tools/text/gawk:bin_final",
-    "//tools/text/gnugrep:bin_final",
-    "//tools/text/gnupatch:bin_final",
-    "//tools/text/gnused:bin_final",
+    ":live_gmp_lib",
+    ":live_gmp_dev",
+    ":live_mpfr_lib",
+    ":live_mpfr_dev",
+    ":live_libmpc_lib",
+    ":live_libmpc_dev",
+    ":live_glibc_lib",
+    ":live_glibc_dev",
+    ":live_linux_headers_dev",
+    ":live_binutils",
+    ":live_gcc_bin",
+    ":live_gcc_dev",
+    ":live_gcc_libgcc",
+    ":live_gcc_libstdcxx",
+    ":live_gcc_wrapper",
+    ":live_gnumake",
+    ":live_gnum4",
+    ":live_bash",
+    ":live_gnutar",
+    ":live_bzip2",
+    ":live_gzip",
+    ":live_coreutils",
+    ":live_findutils",
+    ":live_diffutils",
+    ":live_gawk",
+    ":live_gnugrep",
+    ":live_gnupatch",
+    ":live_gnused",
+]
+
+_FINAL_RUNTIME = [
+    "//development/libraries/gmp:lib_final",
+    "//development/libraries/mpfr:lib_final",
+    "//development/libraries/libmpc:lib_final",
+    "//development/libraries/glibc:lib_stage1",
+    "//development/compilers/gcc:libgcc_final",
+    "//development/compilers/gcc:libstdcxx_final",
 ]
 
 _FOREIGN_SEED = [
@@ -385,32 +486,32 @@ _FOREIGN_SEED = [
 ]
 
 pkgs_seed_free(
-    name = "zlib_out_seed_free",
-    packages = ["//development/libraries/zlib:out"],
+    name = "zlib_lib_seed_free",
+    packages = [":ordinary_zlib_lib"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "zstd_lib_seed_free",
-    packages = ["//tools/compression/zstd:lib"],
+    packages = [":ordinary_zstd_lib"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "lz4_lib_seed_free",
-    packages = ["//tools/compression/lz4:lib"],
+    packages = [":ordinary_lz4_lib"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "ncurses_lib_seed_free",
-    packages = ["//development/libraries/ncurses:lib"],
+    packages = [":ordinary_ncurses_lib"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "readline_lib_seed_free",
-    packages = ["//development/libraries/readline:lib"],
+    packages = [":ordinary_readline_lib"],
     forbidden = _FOREIGN_SEED,
 )
 
@@ -422,7 +523,10 @@ pkgs_seed_free(
 
 pkgs_seed_free(
     name = "perl_bin_seed_free",
-    packages = ["//development/interpreters/perl:bin"],
+    packages = [
+        ":ordinary_perl_lib",
+        ":ordinary_perl_bin",
+    ],
     forbidden = _FOREIGN_SEED,
 )
 
@@ -440,37 +544,37 @@ pkgs_seed_free(
 
 pkgs_seed_free(
     name = "postgresql_lib_seed_free",
-    packages = ["//servers/sql/postgresql:lib"],
+    packages = [":ordinary_postgresql_lib"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "postgresql_bin_seed_free",
-    packages = ["//servers/sql/postgresql:bin"],
+    packages = [":ordinary_postgresql_bin"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "postgresql_dev_seed_free",
-    packages = ["//servers/sql/postgresql:dev"],
+    packages = [":ordinary_postgresql_dev"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "libcap_lib_seed_free",
-    packages = ["//development/libraries/libcap:lib"],
+    packages = [":ordinary_libcap_lib"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "libcap_dev_seed_free",
-    packages = ["//development/libraries/libcap:dev"],
+    packages = [":ordinary_libcap_dev"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_seed_free(
     name = "bubblewrap_bin_seed_free",
-    packages = ["//tools/sandboxing/bubblewrap:bin"],
+    packages = [":ordinary_bubblewrap_bin"],
     forbidden = _FOREIGN_SEED,
 )
 
@@ -511,14 +615,14 @@ pkgs_seed_free(
 )
 
 pkgs_seed_free(
-    name = "inih_out_seed_free",
-    packages = ["//development/libraries/inih:out"],
+    name = "inih_lib_seed_free",
+    packages = ["//development/libraries/inih:lib"],
     forbidden = _FOREIGN_SEED,
 )
 
 pkgs_foreign_build_free(
     name = "inih_native_graph_foreign_build_free",
-    packages = ["//development/libraries/inih:out"],
+    packages = ["//development/libraries/inih:lib"],
 )
 
 pkgs_seed_free(
@@ -530,6 +634,7 @@ pkgs_seed_free(
 pkgs_elf_interpreters(
     name = "final_base_pkgs_interpreters",
     packages = _FINAL_BASE,
-    interpreter = "//development/libraries/glibc:out_stage1",
+    interpreter = "//development/libraries/glibc:lib_stage1",
     interpreter_relpath = "lib/ld-linux-x86-64.so.2",
+    allowed_runtime_packages = _FINAL_RUNTIME,
 )

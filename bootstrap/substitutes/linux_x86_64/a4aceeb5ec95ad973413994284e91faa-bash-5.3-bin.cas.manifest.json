@@ -1,0 +1,37 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:aa392c890580b0a35f4469be8a0d91d8ce7fdaa70fd8e3ad1c84379c7b0cc9b8",
+    "download_size": 1051709,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:aa392c890580b0a35f4469be8a0d91d8ce7fdaa70fd8e3ad1c84379c7b0cc9b8",
+    "payload_size": 1051709
+  },
+  "canonical_tree_hash": "sha256:aa392c890580b0a35f4469be8a0d91d8ce7fdaa70fd8e3ad1c84379c7b0cc9b8",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "16c01677a649e1a708586e7d7b0853a265e7bfd272d71b623db90cf284d1b17a:78"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "bash",
+    "output": "bin",
+    "version": "5.3"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin"
+  ],
+  "store_entry": "a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin",
+  "store_path": "/pkgs/store/a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin",
+  "store_path_key": "a4aceeb5ec95ad973413994284e91faa",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin"
+  ]
+}

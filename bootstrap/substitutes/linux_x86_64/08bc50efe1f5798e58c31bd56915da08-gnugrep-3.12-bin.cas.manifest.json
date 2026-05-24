@@ -1,0 +1,37 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:74523271b787159f760405aa27d991666aab8e4a4c59a48bab1e3696089e5f4a",
+    "download_size": 192356,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:74523271b787159f760405aa27d991666aab8e4a4c59a48bab1e3696089e5f4a",
+    "payload_size": 192356
+  },
+  "canonical_tree_hash": "sha256:74523271b787159f760405aa27d991666aab8e4a4c59a48bab1e3696089e5f4a",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "0a0379f37e16e9b39c53f696ff81658b42e8063f6e14e2f75789d1998682e1ab:78"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "gnugrep",
+    "output": "bin",
+    "version": "3.12"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/08bc50efe1f5798e58c31bd56915da08-gnugrep-3.12-bin",
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "store_entry": "08bc50efe1f5798e58c31bd56915da08-gnugrep-3.12-bin",
+  "store_path": "/pkgs/store/08bc50efe1f5798e58c31bd56915da08-gnugrep-3.12-bin",
+  "store_path_key": "08bc50efe1f5798e58c31bd56915da08",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/08bc50efe1f5798e58c31bd56915da08-gnugrep-3.12-bin",
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ]
+}

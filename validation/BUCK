@@ -1,0 +1,464 @@
+load(
+    "//rules:pkgs.bzl",
+    "pkgs_cas_store_output",
+    "pkgs_cc_wrapper_package",
+    "pkgs_declared_references",
+    "pkgs_elf_interpreters",
+    "pkgs_export_store_closure",
+    "pkgs_export_store_substitute",
+    "pkgs_export_store_tree_substitute",
+    "pkgs_make_install_package",
+    "pkgs_output_policy",
+    "pkgs_package",
+    "pkgs_package_output",
+    "pkgs_source",
+)
+load(":cas_smoke.pin.bzl", _CAS_SMOKE_PIN = "PIN")
+
+_PROJECTION_MAKEFILE_CONTENT = [
+    "all:",
+    "\t:",
+    "install:",
+    "\tmkdir -p \"$(DESTDIR)$(PREFIX)/bin\" \"$(DESTDIR)$(PREFIX)/lib/pkgconfig\" \"$(DESTDIR)$(PREFIX)/include\" \"$(DESTDIR)$(PREFIX)/share/doc/contract\"",
+    "\tprintf compiler > \"$(DESTDIR)$(PREFIX)/bin/contract-cc\"",
+    "\tprintf runtime > \"$(DESTDIR)$(PREFIX)/lib/libcontract.so.1\"",
+    "\tprintf dependent-runtime > \"$(DESTDIR)$(PREFIX)/lib/libdependent.so.1\"",
+    "\tprintf header > \"$(DESTDIR)$(PREFIX)/include/contract.h\"",
+    "\tprintf 'prefix=%s\\nlibdir=$${prefix}/lib\\nincludedir=$${prefix}/include\\nName: contract\\n' \"$(PREFIX)\" > \"$(DESTDIR)$(PREFIX)/lib/pkgconfig/contract.pc\"",
+    "\tprintf omitted > \"$(DESTDIR)$(PREFIX)/share/doc/contract/README\"",
+]
+
+write_file(
+    name = "projection_makefile",
+    out = "Makefile",
+    content = _PROJECTION_MAKEFILE_CONTENT,
+)
+
+filegroup(
+    name = "projection_source_tree",
+    srcs = {
+        "Makefile": ":projection_makefile",
+    },
+    copy = True,
+)
+
+_PROJECTION_SOURCE = pkgs_source(
+    dep = ":projection_source_tree",
+    digests = ["sha256:" + sha256("\n".join(["Makefile"] + _PROJECTION_MAKEFILE_CONTENT))],
+)
+
+pkgs_make_install_package(
+    name = "projected_contract_lib",
+    package_name = "projected-contract",
+    version = "0",
+    sources = [_PROJECTION_SOURCE],
+    output = "lib",
+    output_paths = ["lib/libcontract.so.1"],
+    split_outputs = {
+        "dev": [
+            "include",
+            "lib/pkgconfig",
+        ],
+        "dependent_lib": ["lib/libdependent.so.1"],
+        "bin": ["bin/contract-cc"],
+    },
+    split_pkg_config_paths = {
+        "dev": ["lib/pkgconfig"],
+    },
+    split_reference_outputs = {
+        "dev": [
+            "lib",
+            "dependent_lib",
+        ],
+    },
+    split_reference_paths = {
+        "dev": {
+            "lib/libcontract.so": "lib/libcontract.so.1",
+        },
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib/libdependent.so": ("dependent_lib", "lib/libdependent.so.1"),
+        },
+    },
+    split_runtime_outputs = {
+        "dependent_lib": ["lib"],
+        "bin": [
+            "lib",
+            "dependent_lib",
+        ],
+    },
+    native_build_inputs = [
+        "//shells/bash:bin",
+        "//development/tools/build-managers/gnumake:bin",
+        "//tools/misc/coreutils:bin",
+    ],
+)
+
+pkgs_package_output(
+    name = "projected_contract_dev",
+    package = ":projected_contract_lib",
+    output = "dev",
+)
+
+pkgs_package_output(
+    name = "projected_contract_dependent_lib",
+    package = ":projected_contract_lib",
+    output = "dependent_lib",
+)
+
+pkgs_package_output(
+    name = "projected_contract_bin",
+    package = ":projected_contract_lib",
+    output = "bin",
+)
+
+pkgs_output_policy(
+    name = "projected_contract_lib_payload",
+    package = ":projected_contract_lib",
+)
+
+pkgs_declared_references(
+    name = "projected_contract_lib_validated",
+    package = ":projected_contract_lib_payload",
+)
+
+pkgs_output_policy(
+    name = "projected_contract_dev_payload",
+    package = ":projected_contract_dev",
+)
+
+pkgs_declared_references(
+    name = "projected_contract_dev_validated",
+    package = ":projected_contract_dev_payload",
+)
+
+pkgs_output_policy(
+    name = "projected_contract_dependent_lib_payload",
+    package = ":projected_contract_dependent_lib",
+)
+
+pkgs_declared_references(
+    name = "projected_contract_dependent_lib_validated",
+    package = ":projected_contract_dependent_lib_payload",
+)
+
+pkgs_output_policy(
+    name = "projected_contract_bin_payload",
+    package = ":projected_contract_bin",
+)
+
+pkgs_declared_references(
+    name = "projected_contract_bin_validated",
+    package = ":projected_contract_bin_payload",
+)
+
+pkgs_export_store_substitute(
+    name = "projected_contract_lib_substitute",
+    package = ":projected_contract_lib_validated",
+)
+
+pkgs_export_store_substitute(
+    name = "projected_contract_dev_substitute",
+    package = ":projected_contract_dev_validated",
+)
+
+pkgs_export_store_substitute(
+    name = "projected_contract_dependent_lib_substitute",
+    package = ":projected_contract_dependent_lib_validated",
+)
+
+pkgs_export_store_substitute(
+    name = "projected_contract_bin_substitute",
+    package = ":projected_contract_bin_validated",
+)
+
+pkgs_export_store_closure(
+    name = "projected_contract_dev_bundle",
+    closure_name = "projected-contract-dev",
+    roots = [
+        ":projected_contract_bin_substitute",
+        ":projected_contract_dev_substitute",
+    ],
+    objects = [
+        ":projected_contract_lib_substitute",
+        ":projected_contract_dependent_lib_substitute",
+        ":projected_contract_bin_substitute",
+        ":projected_contract_dev_substitute",
+    ],
+)
+
+pkgs_cc_wrapper_package(
+    name = "split_cc_wrapper_contract",
+    package_name = "split-cc-wrapper-contract",
+    version = "0",
+    cc = "//development/compilers/gcc:bin",
+    bintools = "//development/tools/misc/binutils:bin",
+    headers = ":projected_contract_dev_validated",
+    libc = ":projected_contract_lib_validated",
+    shell = "//shells/bash:bin",
+    libc_runtime = ":projected_contract_lib_validated",
+    libc_dev = ":projected_contract_dev_validated",
+    gcc_dev = ":projected_contract_dev_validated",
+    cxx_include_paths = ["include"],
+    libgcc_runtime = ":projected_contract_lib_validated",
+    libstdcxx_runtime = ":projected_contract_lib_validated",
+    reference_inputs = [
+        "//development/compilers/gcc:bin",
+        "//development/tools/misc/binutils:bin",
+        ":projected_contract_dev_validated",
+        ":projected_contract_lib_validated",
+        "//shells/bash:bin",
+    ],
+    runtime_inputs = [
+        "//development/compilers/gcc:bin",
+        "//shells/bash:bin",
+    ],
+    tool_inputs = [
+        "//development/compilers/gcc:bin",
+        "//development/tools/misc/binutils:bin",
+        ":projected_contract_dev_validated",
+        ":projected_contract_lib_validated",
+        "//shells/bash:bin",
+    ],
+)
+
+_RUNTIME_DATA_CONTENT = ["required runtime data"]
+
+write_file(
+    name = "runtime_data_file",
+    out = "messages",
+    content = _RUNTIME_DATA_CONTENT,
+)
+
+filegroup(
+    name = "runtime_data_tree",
+    srcs = {
+        "share/locale/C/messages": ":runtime_data_file",
+    },
+    copy = True,
+)
+
+_RUNTIME_DATA_SOURCE = pkgs_source(
+    dep = ":runtime_data_tree",
+    digests = ["sha256:" + sha256("\n".join(["share/locale/C/messages"] + _RUNTIME_DATA_CONTENT))],
+)
+
+pkgs_package(
+    name = "runtime_data_contract",
+    package_name = "runtime-data-contract",
+    version = "0",
+    builder = "runtime-data-contract-v0",
+    output = "lib",
+    sources = [_RUNTIME_DATA_SOURCE],
+)
+
+pkgs_output_policy(
+    name = "payload_policy_contract",
+    package = ":runtime_data_contract",
+    allowed_runtime_paths = ["share/locale"],
+)
+
+pkgs_export_store_tree_substitute(
+    name = "cas_smoke_tree_substitute",
+    tree = ":runtime_data_tree",
+    package_name = "cas-smoke",
+    version = "0",
+    output = "lib",
+    store_path_key = "00000000000000000000000000000001",
+    store_name = "cas-smoke-0-lib",
+)
+
+pkgs_cas_store_output(
+    name = "cas_smoke_import",
+    manifest = "cas_smoke.cas.manifest.json",
+    package_name = "cas-smoke",
+    version = "0",
+    output = "lib",
+    store_path_key = "00000000000000000000000000000001",
+    store_name = "cas-smoke-0-lib",
+    target_system = "x86_64-linux",
+    cas_root_digest = _CAS_SMOKE_PIN["cas_root_digest"],
+    canonical_tree_hash = _CAS_SMOKE_PIN["canonical_tree_hash"],
+    runtime_store_entries = ["00000000000000000000000000000001-cas-smoke-0-lib"],
+)
+
+pkgs_output_policy(
+    name = "cas_smoke_import_payload",
+    package = ":cas_smoke_import",
+    allowed_runtime_paths = ["share/locale"],
+)
+
+pkgs_declared_references(
+    name = "cas_smoke_import_validated",
+    package = ":cas_smoke_import_payload",
+)
+
+_ELF_RUNTIME_MAKEFILE_CONTENT = [
+    "all:",
+    "\tcc -g -fdebug-prefix-map=$(CURDIR)=/pkgs/store/dddddddddddddddddddddddddddddddd-undeclared-debug runtime_contract.c -o runtime_contract",
+    "install:",
+    "\tmkdir -p \"$(DESTDIR)$(PREFIX)/bin\"",
+    "\tcp runtime_contract \"$(DESTDIR)$(PREFIX)/bin/runtime_contract\"",
+]
+
+_ELF_RUNTIME_C_CONTENT = [
+    "int main(void) { return 0; }",
+]
+
+_ELF_CXX_RUNTIME_MAKEFILE_CONTENT = [
+    "all:",
+    "\tc++ runtime_contract.cc -o runtime_contract",
+    "install:",
+    "\tmkdir -p \"$(DESTDIR)$(PREFIX)/bin\"",
+    "\tcp runtime_contract \"$(DESTDIR)$(PREFIX)/bin/runtime_contract\"",
+]
+
+_ELF_CXX_RUNTIME_CONTENT = [
+    "#include <string>",
+    "int main(void) {",
+    "    const std::string value = \"runtime\";",
+    "    return value.size() == 7 ? 0 : 1;",
+    "}",
+]
+
+write_file(
+    name = "elf_runtime_makefile",
+    out = "Makefile",
+    content = _ELF_RUNTIME_MAKEFILE_CONTENT,
+)
+
+write_file(
+    name = "elf_runtime_c",
+    out = "runtime_contract.c",
+    content = _ELF_RUNTIME_C_CONTENT,
+)
+
+write_file(
+    name = "elf_cxx_runtime_makefile",
+    out = "Makefile",
+    content = _ELF_CXX_RUNTIME_MAKEFILE_CONTENT,
+)
+
+write_file(
+    name = "elf_cxx_runtime_source",
+    out = "runtime_contract.cc",
+    content = _ELF_CXX_RUNTIME_CONTENT,
+)
+
+filegroup(
+    name = "elf_runtime_source_tree",
+    srcs = {
+        "Makefile": ":elf_runtime_makefile",
+        "runtime_contract.c": ":elf_runtime_c",
+    },
+    copy = True,
+)
+
+filegroup(
+    name = "elf_cxx_runtime_source_tree",
+    srcs = {
+        "Makefile": ":elf_cxx_runtime_makefile",
+        "runtime_contract.cc": ":elf_cxx_runtime_source",
+    },
+    copy = True,
+)
+
+_ELF_RUNTIME_SOURCE = pkgs_source(
+    dep = ":elf_runtime_source_tree",
+    digests = [
+        "sha256:" + sha256("\n".join(["Makefile"] + _ELF_RUNTIME_MAKEFILE_CONTENT)),
+        "sha256:" + sha256("\n".join(["runtime_contract.c"] + _ELF_RUNTIME_C_CONTENT)),
+    ],
+)
+
+_ELF_CXX_RUNTIME_SOURCE = pkgs_source(
+    dep = ":elf_cxx_runtime_source_tree",
+    digests = [
+        "sha256:" + sha256("\n".join(["Makefile"] + _ELF_CXX_RUNTIME_MAKEFILE_CONTENT)),
+        "sha256:" + sha256("\n".join(["runtime_contract.cc"] + _ELF_CXX_RUNTIME_CONTENT)),
+    ],
+)
+
+pkgs_make_install_package(
+    name = "elf_runtime_bin",
+    package_name = "elf-runtime-contract",
+    version = "0",
+    output = "bin",
+    output_paths = ["bin/runtime_contract"],
+    sources = [_ELF_RUNTIME_SOURCE],
+    native_build_inputs = [
+        "//shells/bash:bin",
+        "//development/tools/build-managers/gnumake:bin",
+        "//development/tools/misc/binutils:bin",
+        "//development/compilers/gcc:bin",
+        "//tools/misc/coreutils:bin",
+    ],
+    runtime_inputs = ["//development/libraries/glibc:lib"],
+)
+
+pkgs_make_install_package(
+    name = "elf_cxx_runtime_bin",
+    package_name = "elf-cxx-runtime-contract",
+    version = "0",
+    output = "bin",
+    output_paths = ["bin/runtime_contract"],
+    sources = [_ELF_CXX_RUNTIME_SOURCE],
+    native_build_inputs = [
+        "//shells/bash:bin",
+        "//development/tools/build-managers/gnumake:bin",
+        "//development/tools/misc/binutils:bin",
+        "//development/compilers/gcc:bin",
+        "//tools/misc/coreutils:bin",
+    ],
+    runtime_inputs = [
+        "//development/libraries/glibc:lib",
+        "//development/compilers/gcc:libstdcxx",
+    ],
+)
+
+pkgs_elf_interpreters(
+    name = "elf_runtime_contract",
+    packages = [":elf_runtime_bin"],
+    interpreter = "//development/libraries/glibc:lib",
+    interpreter_relpath = "lib/ld-linux-x86-64.so.2",
+    allowed_runtime_packages = [
+        "//development/libraries/glibc:lib",
+    ],
+    forbidden_needed = [
+        "libgcc_s.so.1",
+        "libstdc++.so.6",
+    ],
+)
+
+pkgs_declared_references(
+    name = "elf_debug_strip_contract",
+    package = ":elf_runtime_bin",
+)
+
+pkgs_elf_interpreters(
+    name = "elf_cxx_runtime_contract",
+    packages = [":elf_cxx_runtime_bin"],
+    interpreter = "//development/libraries/glibc:lib",
+    interpreter_relpath = "lib/ld-linux-x86-64.so.2",
+    allowed_runtime_packages = [
+        "//development/libraries/glibc:lib",
+        "//development/compilers/gcc:libstdcxx",
+        "//development/compilers/gcc:libgcc",
+    ],
+    required_needed = [
+        "libgcc_s.so.1",
+        "libstdc++.so.6",
+    ],
+)
+
+pkgs_elf_interpreters(
+    name = "bubblewrap_runtime_integration",
+    packages = ["//tools/sandboxing/bubblewrap:bin"],
+    interpreter = "//development/libraries/glibc:lib",
+    interpreter_relpath = "lib/ld-linux-x86-64.so.2",
+    allowed_runtime_packages = [
+        "//development/libraries/glibc:lib",
+        "//development/libraries/libcap:lib",
+    ],
+)

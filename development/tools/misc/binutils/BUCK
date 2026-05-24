@@ -42,6 +42,7 @@ pkgs_configure_make_install_package(
     name = "bin_stage0",
     package_name = "binutils",
     version = "2.46.0",
+    output = "bin",
     sources = [_SOURCE],
     configure_args = [
         "--disable-dependency-tracking",
@@ -59,6 +60,11 @@ pkgs_configure_make_install_package(
         "lt_cv_sys_max_cmd_len=32768",
     ],
     make_args = ["MAKEINFO=true"],
+    output_paths = [
+        "bin",
+        "x86_64-pc-linux-gnu/bin",
+        "x86_64-pc-linux-gnu/lib/ldscripts",
+    ],
     native_build_inputs = _STAGE0_NATIVE_TOOLS,
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
@@ -86,6 +92,7 @@ pkgs_configure_make_install_package(
     name = "bin_stage1",
     package_name = "binutils",
     version = "2.46.0",
+    output = "bin",
     sources = [_SOURCE],
     configure_args = [
         "--disable-dependency-tracking",
@@ -104,9 +111,14 @@ pkgs_configure_make_install_package(
         "lt_cv_sys_max_cmd_len=32768",
     ],
     make_args = ["MAKEINFO=true"],
+    output_paths = [
+        "bin",
+        "x86_64-pc-linux-gnu/bin",
+        "x86_64-pc-linux-gnu/lib/ldscripts",
+    ],
     native_build_inputs = _STAGE1_NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/libraries/glibc:out_stage1",
+        "//development/libraries/glibc:lib_stage1",
     ],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )

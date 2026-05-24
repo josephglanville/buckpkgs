@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_make_install_package", "pkgs_package_output")
+load("//rules:pkgs.bzl", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_make_install_package", "pkgs_package_output", "pkgs_self_store_path")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -33,22 +33,30 @@ pkgs_make_install_package(
         "CC=cc",
         "AR=ar",
         "RANLIB=ranlib",
+        pkgs_self_store_path("PREFIX="),
     ],
     patches = [_NULL_POINTER_HANDLING_PATCH],
-    output_paths = ["lib"],
+    output_paths = [
+        "lib/liblz4.so.1",
+        "lib/liblz4.so.1.10.0",
+    ],
     split_outputs = {
         "dev": [
             "include",
-            "lib/liblz4.a",
             "lib/pkgconfig",
         ],
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib/liblz4.so": ("lib", "lib/liblz4.so.1.10.0"),
+        },
     },
     split_pkg_config_paths = {
         "dev": ["lib/pkgconfig"],
     },
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

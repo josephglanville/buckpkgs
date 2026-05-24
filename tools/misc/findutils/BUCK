@@ -37,6 +37,11 @@ pkgs_configure_make_install_package(
     name = "bin_stage0",
     package_name = "findutils",
     version = "4.10.0",
+    output = "bin",
+    output_paths = [
+        "bin",
+        "libexec",
+    ],
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     native_build_inputs = _NATIVE_TOOLS,
@@ -61,10 +66,15 @@ pkgs_configure_make_install_package(
     name = "bin_final",
     package_name = "findutils",
     version = "4.10.0",
+    output = "bin",
+    output_paths = [
+        "bin/find",
+        "bin/xargs",
+    ],
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
-    runtime_inputs = ["//development/libraries/glibc:out_stage1"],
+    runtime_inputs = ["//development/libraries/glibc:lib_stage1"],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 

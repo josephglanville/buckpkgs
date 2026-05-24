@@ -49,7 +49,7 @@ pkgs_configure_make_install_package(
     },
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

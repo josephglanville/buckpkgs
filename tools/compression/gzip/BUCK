@@ -34,9 +34,11 @@ _FINAL_NATIVE_TOOLS = [
 ]
 
 pkgs_configure_make_install_package(
-    name = "out_stage0",
+    name = "bin_stage0",
     package_name = "gzip",
     version = "1.14",
+    output = "bin",
+    output_paths = ["bin"],
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     make_args = [
@@ -50,16 +52,18 @@ pkgs_configure_make_install_package(
 )
 
 pkgs_seed_free(
-    name = "out_stage0_seed_free",
-    packages = [":out_stage0"],
+    name = "bin_stage0_seed_free",
+    packages = [":bin_stage0"],
     forbidden = _SEED,
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_configure_make_install_package(
-    name = "out_final",
+    name = "bin_final",
     package_name = "gzip",
     version = "1.14",
+    output = "bin",
+    output_paths = ["bin"],
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     make_args = [
@@ -69,19 +73,19 @@ pkgs_configure_make_install_package(
         "ZLESS_PROG=zless",
     ],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
-    runtime_inputs = ["//development/libraries/glibc:out_stage1"],
+    runtime_inputs = ["//development/libraries/glibc:lib_stage1"],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 alias(
-    name = "out",
-    actual = ":out_final",
+    name = "bin",
+    actual = ":bin_final",
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
-    name = "out_final_seed_free",
-    packages = [":out_final"],
+    name = "bin_final_seed_free",
+    packages = [":bin_final"],
     forbidden = _SEED,
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )

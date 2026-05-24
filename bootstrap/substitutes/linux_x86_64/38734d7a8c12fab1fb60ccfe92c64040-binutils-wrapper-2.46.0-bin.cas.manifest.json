@@ -1,0 +1,43 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:ec975fa92ece191f817282d53e8a92c2f730bfb9577667dc457fd3c60c699655",
+    "download_size": 1569,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:ec975fa92ece191f817282d53e8a92c2f730bfb9577667dc457fd3c60c699655",
+    "payload_size": 1569
+  },
+  "canonical_tree_hash": "sha256:ec975fa92ece191f817282d53e8a92c2f730bfb9577667dc457fd3c60c699655",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "ab471c83c362f62b8007934b18c9768e5059ed9783a3b75bf94ee3271347ec32:78"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "binutils-wrapper",
+    "output": "bin",
+    "version": "2.46.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin",
+    "/pkgs/store/cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/38734d7a8c12fab1fb60ccfe92c64040-binutils-wrapper-2.46.0-bin",
+    "/pkgs/store/a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin",
+    "/pkgs/store/cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin"
+  ],
+  "store_entry": "38734d7a8c12fab1fb60ccfe92c64040-binutils-wrapper-2.46.0-bin",
+  "store_path": "/pkgs/store/38734d7a8c12fab1fb60ccfe92c64040-binutils-wrapper-2.46.0-bin",
+  "store_path_key": "38734d7a8c12fab1fb60ccfe92c64040",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/38734d7a8c12fab1fb60ccfe92c64040-binutils-wrapper-2.46.0-bin",
+    "/pkgs/store/a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin",
+    "/pkgs/store/cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin"
+  ]
+}

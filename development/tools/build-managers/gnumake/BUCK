@@ -50,6 +50,8 @@ pkgs_configure_make_install_package(
     name = "bin_stage0",
     package_name = "gnumake",
     version = "4.4.1",
+    output = "bin",
+    output_paths = ["bin"],
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     patches = [
@@ -78,6 +80,8 @@ pkgs_configure_make_install_package(
     name = "bin_final",
     package_name = "gnumake",
     version = "4.4.1",
+    output = "bin",
+    output_paths = ["bin"],
     sources = [_SOURCE],
     configure_env = ["CC=cc"],
     patches = [
@@ -85,7 +89,7 @@ pkgs_configure_make_install_package(
         _REMOVE_IMPURE_DIRS_PATCH,
     ],
     native_build_inputs = _FINAL_NATIVE_TOOLS,
-    runtime_inputs = ["//development/libraries/glibc:out_stage1"],
+    runtime_inputs = ["//development/libraries/glibc:lib_stage1"],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 

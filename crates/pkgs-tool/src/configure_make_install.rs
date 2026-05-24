@@ -23,6 +23,9 @@ pub(crate) struct Args {
     #[arg(long = "exclude-file-suffix")]
     exclude_file_suffixes: Vec<String>,
 
+    #[arg(long)]
+    preserve_debug: bool,
+
     #[arg(long = "normalize-work-dir-text-path")]
     normalize_work_dir_text_paths: Vec<PathBuf>,
 
@@ -35,6 +38,9 @@ pub(crate) struct Args {
     #[arg(long = "split-path")]
     split_paths: Vec<String>,
 
+    #[arg(long = "split-reference-symlink")]
+    split_reference_symlinks: Vec<String>,
+
     #[arg(long)]
     install_prefix: PathBuf,
 
@@ -43,6 +49,9 @@ pub(crate) struct Args {
 
     #[arg(long = "link-input")]
     link_inputs: Vec<PathBuf>,
+
+    #[arg(long = "link-interface-input")]
+    link_interface_inputs: Vec<PathBuf>,
 
     #[arg(long = "pkg-config-path")]
     pkg_config_paths: Vec<PathBuf>,
@@ -164,7 +173,12 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
 
     let path = std::env::join_paths(&args.path_entries)
         .map_err(|source| common::Error::JoinPath { source })?;
-    let path = common::compiler_wrapped_path(&path, work.path(), &args.link_inputs)?;
+    let path = common::compiler_wrapped_path(
+        &path,
+        work.path(),
+        &args.link_inputs,
+        &args.link_interface_inputs,
+    )?;
     let configure_args = expand_work_dir_placeholders(&args.configure_args, work.path());
     let configure_env = expand_work_dir_placeholders(&args.configure_env, work.path());
     let env = build::parse_env_assignments(&configure_env)?;
@@ -221,6 +235,7 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &args.split_outputs,
         &args.split_output_prefixes,
         &args.split_paths,
+        &args.split_reference_symlinks,
     )?;
     let (output, split_outputs) = build::staging_outputs(work.path(), &split_destinations);
     build::copy_split_staged_prefix(
@@ -230,16 +245,39 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &args.output_paths,
         &split_outputs,
     )?;
-    for output in std::iter::once(&output).chain(split_outputs.iter().map(|output| &output.output))
-    {
-        build::exclude_file_suffixes(output, &args.exclude_file_suffixes)?;
-        build::sanitize_libtool_archives(output, work.path())?;
+    build::exclude_file_suffixes(&output, &args.exclude_file_suffixes)?;
+    build::sanitize_libtool_archives(&output, work.path())?;
+    build::normalize_work_dir_text_paths(
+        &output,
+        work.path(),
+        &args.normalize_work_dir_text_paths,
+    )?;
+    build::sanitize_self_referential_linker_scripts(
+        &output,
+        &args.install_prefix,
+        &args.install_prefix,
+        &split_outputs,
+    )?;
+    for split_output in &split_outputs {
+        build::exclude_file_suffixes(&split_output.output, &args.exclude_file_suffixes)?;
+        build::sanitize_libtool_archives(&split_output.output, work.path())?;
         build::normalize_work_dir_text_paths(
-            output,
+            &split_output.output,
             work.path(),
             &args.normalize_work_dir_text_paths,
         )?;
-        build::sanitize_self_referential_linker_scripts(output, &args.install_prefix)?;
+        build::sanitize_self_referential_linker_scripts(
+            &split_output.output,
+            &args.install_prefix,
+            &split_output.install_prefix,
+            &split_outputs,
+        )?;
+    }
+    if !args.preserve_debug {
+        build::strip_debug_sections(&output, &path)?;
+        for split_output in &split_outputs {
+            build::strip_debug_sections(&split_output.output, &path)?;
+        }
     }
     let output = common::canonicalize(&output)?;
     build::create_symlinks(&output, &args.symlinks)?;

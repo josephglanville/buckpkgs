@@ -187,20 +187,23 @@ The implemented pieces of that surface now include:
 - `pkgs_hydrate_store_closure`
 - `pkgs_hydrated_store_output(...)`
 
-`root//bootstrap/exports:linux_x86_64_bundle` publishes finalized live wrapper
-roots. `root//bootstrap/substitutes:*` holds reviewed pinned closure/object
-metadata and import-only provider declarations. Canonical package-facing labels
-such as `root//development/libraries/glibc:out` and
-`root//development/compilers/gcc:bin` alias those imports, while explicit
-`*_stage*` and `*_final` targets remain live publication producers.
+`root//bootstrap/exports:linux_x86_64_bundle` publishes finalized live
+role-specific roots. `root//bootstrap/substitutes:*` holds reviewed pinned
+closure/object metadata and import-only provider declarations. Canonical
+package-facing labels such as `root//development/libraries/glibc:{lib,dev}`
+and `root//development/compilers/gcc:{bin,dev,libgcc,libstdcxx}` alias those
+imports, while explicit `*_stage*` and `*_final` targets remain live
+publication producers.
 
 The imported bootstrap surface now also includes the final Bash, GNU Make,
-Coreutils, Findutils, GNU sed, GNU grep, GNU awk, and GNU patch outputs required by ordinary
-configure/make-style packages. `root//development/libraries/zlib:out`
+Coreutils, Findutils, GNU sed, GNU grep, GNU awk, and GNU patch outputs required
+by ordinary configure/make-style packages.
+`root//development/libraries/zlib:{lib,dev}`
 demonstrates the boundary with a useful non-toolchain package: zlib is a direct
-PostgreSQL build input in nixpkgs, builds shared and static libraries plus
-`zlib.pc`, and names ordinary package labels whose canonical definitions resolve
-to pinned bootstrap imports rather than live turnover or foreign-seed targets.
+PostgreSQL build input in nixpkgs, publishes its runtime library separately
+from `zlib.pc`, and names ordinary package labels whose canonical definitions
+resolve to pinned bootstrap imports rather than live turnover or foreign-seed
+targets.
 Higher-layer tools such as Ninja and Meson are normal native package
 derivations built on that sealed imported façade. Their immediate Python
 dependency is an explicitly reduced native build interpreter with `zlib`; its
@@ -209,10 +212,10 @@ imported surface, rather than reaching the live promotion graph. This is not a
 claim that full canonical Python has already been built. Meson consumers remain
 ordinary package recipes: a local fresh `inih` build has now completed through
 the imported façade, rebuilding normal-layer Python and Ninja without entering
-bootstrap producers. The newly pinned expanded closure has passed hydration
-verification from its assembled bundle into an independent disposable store
-root; a clean-consumer rerun after external distribution remains operational
-validation.
+bootstrap producers. The normalized 24-object closure has been uploaded to
+Foundry CAS and pinned; imported C/C++, `inih`, Bubblewrap, Perl, and
+PostgreSQL validation passes, and graph-boundary queries for representative
+ordinary consumers contain no live bootstrap or foreign-seed ancestry.
 
 Live producers and foreign seed wrappers are now restricted by an exact
 `BOOTSTRAP_PRODUCER_VISIBILITY` allowlist, and substitute targets may be

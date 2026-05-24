@@ -17,7 +17,7 @@ foreign_wrapped_package(
 
 foreign_wrapped_package(
     name = "binutils",
-    commands = ["ar", "as", "ld", "nm", "ranlib"],
+    commands = ["ar", "as", "ld", "nm", "ranlib", "strip"],
 )
 
 foreign_wrapped_package(

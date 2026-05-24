@@ -1,0 +1,32 @@
+{
+  "format": "buckpkgs-store-object-v1",
+  "store_path": "/pkgs/store/81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin",
+  "store_path_key": "81d1a96fa6c5b97e8f2ccbb042ef6429",
+  "store_entry": "81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin",
+  "package": {
+    "name": "patch",
+    "version": "2.8",
+    "output": "bin"
+  },
+  "target_system": "x86_64-linux",
+  "archive": {
+    "encoding": "buckpkgs-tree-v1",
+    "compression": "none",
+    "download_hash": "sha256:1918678cf0e8d5c62ce1b7dd7b45577d71ae367853d722168e19017537659c69",
+    "download_size": 189103,
+    "payload_hash": "sha256:1918678cf0e8d5c62ce1b7dd7b45577d71ae367853d722168e19017537659c69",
+    "payload_size": 189103
+  },
+  "canonical_tree_hash": "sha256:1918678cf0e8d5c62ce1b7dd7b45577d71ae367853d722168e19017537659c69",
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin"
+  ],
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin"
+  ]
+}

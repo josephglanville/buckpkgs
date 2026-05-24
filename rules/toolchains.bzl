@@ -9,7 +9,7 @@ def _pkgs_executable_tool_impl(ctx):
         RunInfo(
             args = cmd_args(
                 executable,
-                hidden = package.runtime_store_outputs,
+                hidden = package.tool_store_outputs,
             ),
         ),
     ]

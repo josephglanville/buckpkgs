@@ -44,25 +44,37 @@ pkgs_configure_make_install_package(
         "cf_cv_ar_flags=-crvD",
     ],
     output_paths = [
-        "lib",
+        "lib/libform.so.6",
+        "lib/libform.so.6.6",
+        "lib/libmenu.so.6",
+        "lib/libmenu.so.6.6",
+        "lib/libncurses.so.6",
+        "lib/libncurses.so.6.6",
+        "lib/libpanel.so.6",
+        "lib/libpanel.so.6.6",
+        "lib/terminfo",
         "share/terminfo",
     ],
     split_outputs = {
         "dev": [
             "include",
-            "lib/libform.a",
-            "lib/libmenu.a",
-            "lib/libncurses.a",
-            "lib/libpanel.a",
             "lib/pkgconfig",
         ],
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib/libform.so": ("lib", "lib/libform.so.6.6"),
+            "lib/libmenu.so": ("lib", "lib/libmenu.so.6.6"),
+            "lib/libncurses.so": ("lib", "lib/libncurses.so.6.6"),
+            "lib/libpanel.so": ("lib", "lib/libpanel.so.6.6"),
+        },
     },
     split_pkg_config_paths = {
         "dev": ["lib/pkgconfig"],
     },
     native_build_inputs = _NATIVE_TOOLS,
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

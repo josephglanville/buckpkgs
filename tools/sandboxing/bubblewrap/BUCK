@@ -38,11 +38,14 @@ pkgs_meson_install_package(
     build_inputs = [
         "//development/libraries/libcap:dev",
     ],
+    link_interface_inputs = [
+        "//development/libraries/libcap:dev",
+    ],
     link_inputs = [
         "//development/libraries/libcap:lib",
     ],
     runtime_inputs = [
-        "//development/libraries/glibc:out",
+        "//development/libraries/glibc:lib",
     ],
     visibility = ["PUBLIC"],
 )

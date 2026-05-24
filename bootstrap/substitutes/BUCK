@@ -1,7 +1,57 @@
 load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_SUBSTITUTE_VISIBILITY")
 load("//rules:pkgs.bzl", "pkgs_cas_store_output")
+load("//bootstrap/substitutes/linux_x86_64_pins:08bc50efe1f5798e58c31bd56915da08-gnugrep-3.12-bin.pin.bzl", _GNUGREP_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib.pin.bzl", _GLIBC_LIB_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:38734d7a8c12fab1fb60ccfe92c64040-binutils-wrapper-2.46.0-bin.pin.bzl", _BINUTILS_WRAPPER_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:3c3820f85558680b8b2ffd0c0b64e138-gnused-4.9-bin.pin.bzl", _GNUSED_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:5513ee5243c4795f8d5d8fb0e955fa25-gcc-wrapper-15.2.0-bin.pin.bzl", _GCC_WRAPPER_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:5672ae7d0f5d5e37805539742605eb71-gcc-15.2.0-libstdcxx.pin.bzl", _GCC_LIBSTDCXX_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev.pin.bzl", _GMP_DEV_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin.pin.bzl", _GNUPATCH_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:99812d28da3995945304c41c2e094a74-gawk-5.4.0-bin.pin.bzl", _GAWK_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib.pin.bzl", _GMP_LIB_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin.pin.bzl", _BASH_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib.pin.bzl", _MPFR_LIB_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:b0ff6860dbd901389437553b076f5500-gnumake-4.4.1-bin.pin.bzl", _GNUMAKE_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:bc149dc88ef9a5064ae6e2017a6349cf-gcc-15.2.0-bin.pin.bzl", _GCC_BIN_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin.pin.bzl", _BINUTILS_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev.pin.bzl", _LINUX_HEADERS_DEV_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:d79d3410372a81b85838dd003c664197-glibc-2.42-dev.pin.bzl", _GLIBC_DEV_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev.pin.bzl", _MPFR_DEV_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:dfbc9c5e12b63f3fbd059a09dd1e4f6c-gcc-15.2.0-dev.pin.bzl", _GCC_DEV_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev.pin.bzl", _LIBMPC_DEV_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib.pin.bzl", _LIBMPC_LIB_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:f032418bfac0cf12dff29a52793f6510-findutils-4.10.0-bin.pin.bzl", _FINDUTILS_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc.pin.bzl", _GCC_LIBGCC_PIN = "PIN")
+load("//bootstrap/substitutes/linux_x86_64_pins:fbf57a5edcd17a36c4db01db66440770-coreutils-9.10-bin.pin.bzl", _COREUTILS_PIN = "PIN")
 
 _TARGET_SYSTEM = "x86_64-linux"
+_STORE = "/pkgs/store/"
+
+_GNUGREP = "08bc50efe1f5798e58c31bd56915da08-gnugrep-3.12-bin"
+_GLIBC_LIB = "1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib"
+_BINUTILS_WRAPPER = "38734d7a8c12fab1fb60ccfe92c64040-binutils-wrapper-2.46.0-bin"
+_GNUSED = "3c3820f85558680b8b2ffd0c0b64e138-gnused-4.9-bin"
+_GCC_WRAPPER = "5513ee5243c4795f8d5d8fb0e955fa25-gcc-wrapper-15.2.0-bin"
+_GCC_LIBSTDCXX = "5672ae7d0f5d5e37805539742605eb71-gcc-15.2.0-libstdcxx"
+_GMP_DEV = "6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev"
+_GNUPATCH = "81d1a96fa6c5b97e8f2ccbb042ef6429-patch-2.8-bin"
+_GAWK = "99812d28da3995945304c41c2e094a74-gawk-5.4.0-bin"
+_GMP_LIB = "a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib"
+_BASH = "a4aceeb5ec95ad973413994284e91faa-bash-5.3-bin"
+_MPFR_LIB = "aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib"
+_GNUMAKE = "b0ff6860dbd901389437553b076f5500-gnumake-4.4.1-bin"
+_GCC_BIN = "bc149dc88ef9a5064ae6e2017a6349cf-gcc-15.2.0-bin"
+_BINUTILS = "cd9a36628544a7bfda54b75b593e4783-binutils-2.46.0-bin"
+_LINUX_HEADERS_DEV = "ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev"
+_GLIBC_DEV = "d79d3410372a81b85838dd003c664197-glibc-2.42-dev"
+_MPFR_DEV = "dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev"
+_GCC_DEV = "dfbc9c5e12b63f3fbd059a09dd1e4f6c-gcc-15.2.0-dev"
+_LIBMPC_DEV = "e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev"
+_LIBMPC_LIB = "e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib"
+_FINDUTILS = "f032418bfac0cf12dff29a52793f6510-findutils-4.10.0-bin"
+_GCC_LIBGCC = "f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc"
+_COREUTILS = "fbf57a5edcd17a36c4db01db66440770-coreutils-9.10-bin"
 
 export_file(
     name = "linux_x86_64_closure",
@@ -10,363 +60,412 @@ export_file(
 )
 
 pkgs_cas_store_output(
-    name = "gmp",
-    manifest = "linux_x86_64/a71279fad6ed78a2b843de2497590614-gmp-6.3.0.cas.manifest.json",
-    package_name = "gmp",
-    version = "6.3.0",
-    store_path_key = "a71279fad6ed78a2b843de2497590614",
-    store_name = "gmp-6.3.0",
-    target_system = _TARGET_SYSTEM,
-    cas_root_digest = "455793ea566439028dca25de266afe0cb17c367979bdab2fad11780e5d089b85:238",
-    canonical_tree_hash = "sha256:e43d51f4f34b0ff99db35c2c18a5354aed4eed08cfaf444a3c44c82583a9d808",
-    runtime_store_entries = ["a71279fad6ed78a2b843de2497590614-gmp-6.3.0"],
-    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
-)
-
-pkgs_cas_store_output(
-    name = "mpfr",
-    manifest = "linux_x86_64/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2.cas.manifest.json",
-    package_name = "mpfr",
-    version = "4.2.2",
-    store_path_key = "049b681bdd4657e11abaca06cf0b61a1",
-    store_name = "mpfr-4.2.2",
-    target_system = _TARGET_SYSTEM,
-    cas_root_digest = "38cfff12a523adf028dfb01343e0e134cb55924dc228db42629476b5113ef851:240",
-    canonical_tree_hash = "sha256:506d2a46c288cbddb1e6997d3f8cb19ab71105c078b64e31139264ae28030c42",
-    runtime_store_entries = ["049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2"],
-    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
-)
-
-pkgs_cas_store_output(
-    name = "libmpc",
-    manifest = "linux_x86_64/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0.cas.manifest.json",
-    package_name = "libmpc",
-    version = "1.4.0",
-    store_path_key = "1d427468b13e3f764d320ae599d6148d",
-    store_name = "libmpc-1.4.0",
-    target_system = _TARGET_SYSTEM,
-    cas_root_digest = "17af7f1f63130e5c00c52812bc937b59d22d54223567d3b5e2353f7585888791:238",
-    canonical_tree_hash = "sha256:c597f85e254cd67f1d8a7d1acea7fde4f17b4fa6d35230ecc14147aa717ed2f3",
-    runtime_store_entries = ["1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0"],
-    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
-)
-
-pkgs_cas_store_output(
-    name = "glibc",
-    manifest = "linux_x86_64/5331594618ea5972bfd3208387ed54b3-glibc-2.42.cas.manifest.json",
+    name = "glibc_lib",
+    manifest = "linux_x86_64/" + _GLIBC_LIB + ".cas.manifest.json",
     package_name = "glibc",
     version = "2.42",
-    store_path_key = "5331594618ea5972bfd3208387ed54b3",
-    store_name = "glibc-2.42",
+    output = "lib",
+    store_path_key = "1d287d1ed64559b7400d9f5fe7beb83a",
+    store_name = "glibc-2.42-lib",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "60f832689b93c350e4e1c03928905551b99204b5283341c0ac455805e6d0bb30:633",
-    canonical_tree_hash = "sha256:6e360d6aaef0708ccb50e738295fd3d4657524e93de5cea1d6b8663f01bfc261",
-    runtime_store_entries = ["5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
+    cas_root_digest = _GLIBC_LIB_PIN["cas_root_digest"],
+    canonical_tree_hash = _GLIBC_LIB_PIN["canonical_tree_hash"],
+    runtime_store_entries = [_GLIBC_LIB],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "linux_headers",
-    manifest = "linux_x86_64/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7.cas.manifest.json",
+    name = "glibc_dev",
+    manifest = "linux_x86_64/" + _GLIBC_DEV + ".cas.manifest.json",
+    package_name = "glibc",
+    version = "2.42",
+    output = "dev",
+    store_path_key = "d79d3410372a81b85838dd003c664197",
+    store_name = "glibc-2.42-dev",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GLIBC_DEV_PIN["cas_root_digest"],
+    canonical_tree_hash = _GLIBC_DEV_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_DEV],
+    reference_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "linux_headers_dev",
+    manifest = "linux_x86_64/" + _LINUX_HEADERS_DEV + ".cas.manifest.json",
     package_name = "linux-headers",
     version = "6.18.7",
-    store_path_key = "4349dc439d38eb56f3d68cd8b4dbe7f2",
-    store_name = "linux-headers-6.18.7",
+    output = "dev",
+    store_path_key = "ce9d82673934e49165879e1c7ef25739",
+    store_name = "linux-headers-6.18.7-dev",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "baac80a2790f6b0861891c7d9296b1c1ab16bdf632c6424d90fa2c9c707cc02c:82",
-    canonical_tree_hash = "sha256:679814efc9f5febfa035f8a99efc87a207914627fab9e518b778d3433bb52f5e",
-    runtime_store_entries = ["4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7"],
+    cas_root_digest = _LINUX_HEADERS_DEV_PIN["cas_root_digest"],
+    canonical_tree_hash = _LINUX_HEADERS_DEV_PIN["canonical_tree_hash"],
+    runtime_store_entries = [_LINUX_HEADERS_DEV],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "bash",
-    manifest = "linux_x86_64/096afc650c09c96b853c0d9abbdb20df-bash-5.3.cas.manifest.json",
-    package_name = "bash",
-    version = "5.3",
-    store_path_key = "096afc650c09c96b853c0d9abbdb20df",
-    store_name = "bash-5.3",
+    name = "gmp_lib",
+    manifest = "linux_x86_64/" + _GMP_LIB + ".cas.manifest.json",
+    package_name = "gmp",
+    version = "6.3.0",
+    output = "lib",
+    store_path_key = "a409531b2056d04446f79b9f181e208e",
+    store_name = "gmp-6.3.0-lib",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "8ba9e096c850604be9b5597fd6ef3421a869731bcb1100c0077e176e9a36981c:317",
-    canonical_tree_hash = "sha256:ce96b9ef3d08b6e1cc9b781f00d2aee007be69b1f3d81ea5ef179c9891aa1a9d",
-    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
-    runtime_store_entries = [
-        "096afc650c09c96b853c0d9abbdb20df-bash-5.3",
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-    ],
-    runtime_inputs = [":glibc"],
+    cas_root_digest = _GMP_LIB_PIN["cas_root_digest"],
+    canonical_tree_hash = _GMP_LIB_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GMP_LIB],
+    runtime_inputs = [":glibc_lib"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "gnumake",
-    manifest = "linux_x86_64/723b6d25c84083cce1b57a5cd294aa5c-gnumake-4.4.1.cas.manifest.json",
-    package_name = "gnumake",
-    version = "4.4.1",
-    store_path_key = "723b6d25c84083cce1b57a5cd294aa5c",
-    store_name = "gnumake-4.4.1",
+    name = "gmp_dev",
+    manifest = "linux_x86_64/" + _GMP_DEV + ".cas.manifest.json",
+    package_name = "gmp",
+    version = "6.3.0",
+    output = "dev",
+    store_path_key = "6df76e5d5fa7584ff65282adf489f80d",
+    store_name = "gmp-6.3.0-dev",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "e3ea88b0e0efdea155b12d84afb52233be3b2e36666c9c4ffb84990dbdcf7822:238",
-    canonical_tree_hash = "sha256:fbfb707dd57269820798d3ffc976672ca453db9efef9b27fdd0cf6fd970b4da9",
-    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
-    runtime_store_entries = [
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "723b6d25c84083cce1b57a5cd294aa5c-gnumake-4.4.1",
-    ],
-    runtime_inputs = [":glibc"],
+    cas_root_digest = _GMP_DEV_PIN["cas_root_digest"],
+    canonical_tree_hash = _GMP_DEV_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_LIB],
+    runtime_store_entries = [_GMP_DEV],
+    reference_inputs = [":gmp_lib"],
+    pkg_config_paths = ["lib/pkgconfig"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "gnused",
-    manifest = "linux_x86_64/8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9.cas.manifest.json",
-    package_name = "gnused",
-    version = "4.9",
-    store_path_key = "8c6ae4b374c5326b381cf3fde5d672de",
-    store_name = "gnused-4.9",
+    name = "mpfr_lib",
+    manifest = "linux_x86_64/" + _MPFR_LIB + ".cas.manifest.json",
+    package_name = "mpfr",
+    version = "4.2.2",
+    output = "lib",
+    store_path_key = "aa4c9158de9347ee0c79055121405597",
+    store_name = "mpfr-4.2.2-lib",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "25255900cc969c5ab220fb1a5b5174407bcd886296f9e95b4dc908c644ce6c05:157",
-    canonical_tree_hash = "sha256:bc88febc9f6a8818fbe1a11d3fad1a8804997070f83da14758f0fcc96045fc17",
-    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
-    runtime_store_entries = [
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "8c6ae4b374c5326b381cf3fde5d672de-gnused-4.9",
-    ],
-    runtime_inputs = [":glibc"],
+    cas_root_digest = _MPFR_LIB_PIN["cas_root_digest"],
+    canonical_tree_hash = _MPFR_LIB_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GMP_LIB, _MPFR_LIB],
+    runtime_inputs = [":gmp_lib"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "gnugrep",
-    manifest = "linux_x86_64/d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12.cas.manifest.json",
-    package_name = "gnugrep",
-    version = "3.12",
-    store_path_key = "d23256b434a0aab58ab30c60ea3704aa",
-    store_name = "gnugrep-3.12",
+    name = "mpfr_dev",
+    manifest = "linux_x86_64/" + _MPFR_DEV + ".cas.manifest.json",
+    package_name = "mpfr",
+    version = "4.2.2",
+    output = "dev",
+    store_path_key = "dc50bb4e921e0e044cc89a5f762544de",
+    store_name = "mpfr-4.2.2-dev",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "228273b5aabb060cfa628b6c518f609691f5fc8d3c8f8ba625d124a5a471e1e0:158",
-    canonical_tree_hash = "sha256:6f28d84595e0174267a88b656ea16ffcbdc5f6314faf5e1294a9d19d8cd73f2a",
-    references = [
-        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-    ],
-    runtime_store_entries = [
-        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-        "d23256b434a0aab58ab30c60ea3704aa-gnugrep-3.12",
-    ],
-    runtime_inputs = [":gcc"],
+    cas_root_digest = _MPFR_DEV_PIN["cas_root_digest"],
+    canonical_tree_hash = _MPFR_DEV_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_LIB, _STORE + _MPFR_LIB],
+    runtime_store_entries = [_MPFR_DEV],
+    reference_inputs = [":mpfr_lib"],
+    pkg_config_paths = ["lib/pkgconfig"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "gawk",
-    manifest = "linux_x86_64/b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0.cas.manifest.json",
-    package_name = "gawk",
-    version = "5.4.0",
-    store_path_key = "b060b888aa062fa4c4d85404b87da73e",
-    store_name = "gawk-5.4.0",
+    name = "libmpc_lib",
+    manifest = "linux_x86_64/" + _LIBMPC_LIB + ".cas.manifest.json",
+    package_name = "libmpc",
+    version = "1.4.0",
+    output = "lib",
+    store_path_key = "e731f775a0217593bc1c6bc2d921fd9b",
+    store_name = "libmpc-1.4.0-lib",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "6d5db9c67cb951aeaf302945964270f4106b56343a0f5eec9eda7fb9f82ba68b:474",
-    canonical_tree_hash = "sha256:f9564d13d8364b35da808906f7153f1f004283e1fc3141278b1a339eb5e2b84c",
-    references = [
-        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-    ],
-    runtime_store_entries = [
-        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "b060b888aa062fa4c4d85404b87da73e-gawk-5.4.0",
-        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-    ],
-    runtime_inputs = [":gcc"],
+    cas_root_digest = _LIBMPC_LIB_PIN["cas_root_digest"],
+    canonical_tree_hash = _LIBMPC_LIB_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_LIB, _STORE + _MPFR_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GMP_LIB, _MPFR_LIB, _LIBMPC_LIB],
+    runtime_inputs = [":mpfr_lib"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "gnupatch",
-    manifest = "linux_x86_64/f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8.cas.manifest.json",
-    package_name = "patch",
-    version = "2.8",
-    store_path_key = "f8debe78c130ca1bd12e4bb51ba6135c",
-    store_name = "patch-2.8",
+    name = "libmpc_dev",
+    manifest = "linux_x86_64/" + _LIBMPC_DEV + ".cas.manifest.json",
+    package_name = "libmpc",
+    version = "1.4.0",
+    output = "dev",
+    store_path_key = "e124ac1287a1d20190a36a83c5e2017f",
+    store_name = "libmpc-1.4.0-dev",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "cfdaf2020769d2781404fae7a28599afa658d16676a0e445b47d1ee3b063590b:156",
-    canonical_tree_hash = "sha256:70e58ebee9314db943a2021fc45b9cf71dd7169d7114221cd71bd353544e79cb",
-    references = [
-        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-    ],
-    runtime_store_entries = [
-        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-        "f8debe78c130ca1bd12e4bb51ba6135c-patch-2.8",
-    ],
-    runtime_inputs = [":gcc"],
+    cas_root_digest = _LIBMPC_DEV_PIN["cas_root_digest"],
+    canonical_tree_hash = _LIBMPC_DEV_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_LIB, _STORE + _MPFR_LIB, _STORE + _LIBMPC_LIB],
+    runtime_store_entries = [_LIBMPC_DEV],
+    reference_inputs = [":libmpc_lib"],
+    pkg_config_paths = ["lib/pkgconfig"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "findutils",
-    manifest = "linux_x86_64/a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0.cas.manifest.json",
-    package_name = "findutils",
-    version = "4.10.0",
-    store_path_key = "a5cf0a55274cc499ef5d03190c40bfdb",
-    store_name = "findutils-4.10.0",
+    name = "gcc_bin",
+    manifest = "linux_x86_64/" + _GCC_BIN + ".cas.manifest.json",
+    package_name = "gcc",
+    version = "15.2.0",
+    output = "bin",
+    store_path_key = "bc149dc88ef9a5064ae6e2017a6349cf",
+    store_name = "gcc-15.2.0-bin",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "38b2f65ae3287b758518426b542994c99500f181e80b20db8679ae166391308f:314",
-    canonical_tree_hash = "sha256:ed65c231521a5cd7ecd29f978aaca34061c794ea3c65c3e1a3d8c989043466d6",
-    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
-    runtime_store_entries = [
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "a5cf0a55274cc499ef5d03190c40bfdb-findutils-4.10.0",
-    ],
-    runtime_inputs = [":glibc"],
+    cas_root_digest = _GCC_BIN_PIN["cas_root_digest"],
+    canonical_tree_hash = _GCC_BIN_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_DEV, _STORE + _GMP_LIB, _STORE + _MPFR_LIB, _STORE + _LINUX_HEADERS_DEV, _STORE + _GLIBC_DEV, _STORE + _MPFR_DEV, _STORE + _LIBMPC_DEV, _STORE + _LIBMPC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GMP_LIB, _MPFR_LIB, _GCC_BIN, _LIBMPC_LIB],
+    runtime_inputs = [":libmpc_lib"],
+    reference_inputs = [":glibc_dev", ":gmp_dev", ":mpfr_dev", ":libmpc_dev", ":linux_headers_dev"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "coreutils",
-    manifest = "linux_x86_64/bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10.cas.manifest.json",
-    package_name = "coreutils",
-    version = "9.10",
-    store_path_key = "bef5edaaa8bb28862b07b95d4fe20c33",
-    store_name = "coreutils-9.10",
+    name = "gcc_libgcc",
+    manifest = "linux_x86_64/" + _GCC_LIBGCC + ".cas.manifest.json",
+    package_name = "gcc",
+    version = "15.2.0",
+    output = "libgcc",
+    store_path_key = "f3dbbf1e0ee927e0eb8805ea8c8a7940",
+    store_name = "gcc-15.2.0-libgcc",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "9be05b2a684d6b2409d07708483efcc80e54e7212418f3f19c4471b7eb106728:239",
-    canonical_tree_hash = "sha256:9567885bcc1a86e393a62b400e32dcbd3f9ec7532208a107335df9896024c872",
-    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
-    runtime_store_entries = [
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "bef5edaaa8bb28862b07b95d4fe20c33-coreutils-9.10",
-    ],
-    runtime_inputs = [":glibc"],
+    cas_root_digest = _GCC_LIBGCC_PIN["cas_root_digest"],
+    canonical_tree_hash = _GCC_LIBGCC_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_DEV, _STORE + _GMP_LIB, _STORE + _MPFR_LIB, _STORE + _LINUX_HEADERS_DEV, _STORE + _GLIBC_DEV, _STORE + _MPFR_DEV, _STORE + _LIBMPC_DEV, _STORE + _LIBMPC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GCC_LIBGCC],
+    runtime_inputs = [":glibc_lib"],
+    reference_inputs = [":glibc_dev", ":gmp_dev", ":mpfr_dev", ":libmpc_dev", ":linux_headers_dev"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "gcc_libstdcxx",
+    manifest = "linux_x86_64/" + _GCC_LIBSTDCXX + ".cas.manifest.json",
+    package_name = "gcc",
+    version = "15.2.0",
+    output = "libstdcxx",
+    store_path_key = "5672ae7d0f5d5e37805539742605eb71",
+    store_name = "gcc-15.2.0-libstdcxx",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GCC_LIBSTDCXX_PIN["cas_root_digest"],
+    canonical_tree_hash = _GCC_LIBSTDCXX_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GMP_DEV, _STORE + _GMP_LIB, _STORE + _MPFR_LIB, _STORE + _LINUX_HEADERS_DEV, _STORE + _GLIBC_DEV, _STORE + _MPFR_DEV, _STORE + _LIBMPC_DEV, _STORE + _LIBMPC_LIB, _STORE + _GCC_LIBGCC],
+    runtime_store_entries = [_GLIBC_LIB, _GCC_LIBSTDCXX, _GCC_LIBGCC],
+    runtime_inputs = [":gcc_libgcc"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "gcc_dev",
+    manifest = "linux_x86_64/" + _GCC_DEV + ".cas.manifest.json",
+    package_name = "gcc",
+    version = "15.2.0",
+    output = "dev",
+    store_path_key = "dfbc9c5e12b63f3fbd059a09dd1e4f6c",
+    store_name = "gcc-15.2.0-dev",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GCC_DEV_PIN["cas_root_digest"],
+    canonical_tree_hash = _GCC_DEV_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _GCC_LIBSTDCXX, _STORE + _GMP_DEV, _STORE + _GMP_LIB, _STORE + _MPFR_LIB, _STORE + _GCC_BIN, _STORE + _LINUX_HEADERS_DEV, _STORE + _GLIBC_DEV, _STORE + _MPFR_DEV, _STORE + _LIBMPC_DEV, _STORE + _LIBMPC_LIB, _STORE + _GCC_LIBGCC],
+    runtime_store_entries = [_GCC_DEV],
+    reference_inputs = [":gcc_bin", ":gcc_libstdcxx", ":glibc_dev", ":gmp_dev", ":mpfr_dev", ":libmpc_dev", ":linux_headers_dev"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
     name = "binutils",
-    manifest = "linux_x86_64/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0.cas.manifest.json",
+    manifest = "linux_x86_64/" + _BINUTILS + ".cas.manifest.json",
     package_name = "binutils",
     version = "2.46.0",
-    store_path_key = "ec3cb3291b13cfea4b676a70d7df1557",
-    store_name = "binutils-2.46.0",
+    output = "bin",
+    store_path_key = "cd9a36628544a7bfda54b75b593e4783",
+    store_name = "binutils-2.46.0-bin",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "bc21e5ddc8126d1018706bc3a2bbaa64f53decb749fd7d7bf4b980953c7af846:412",
-    canonical_tree_hash = "sha256:25cc54373f8e623179cc9f868531455b70b331ff58ce3e446fd3ad69005b0bd1",
-    references = ["/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42"],
-    runtime_store_entries = [
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
-    ],
-    runtime_inputs = [":glibc"],
+    cas_root_digest = _BINUTILS_PIN["cas_root_digest"],
+    canonical_tree_hash = _BINUTILS_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _BINUTILS],
+    runtime_inputs = [":glibc_lib"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
-    name = "gcc",
-    manifest = "linux_x86_64/ce44949178532f9a9195421c393cca11-gcc-15.2.0.cas.manifest.json",
-    package_name = "gcc",
-    version = "15.2.0",
-    store_path_key = "ce44949178532f9a9195421c393cca11",
-    store_name = "gcc-15.2.0",
+    name = "bash",
+    manifest = "linux_x86_64/" + _BASH + ".cas.manifest.json",
+    package_name = "bash",
+    version = "5.3",
+    output = "bin",
+    store_path_key = "a4aceeb5ec95ad973413994284e91faa",
+    store_name = "bash-5.3-bin",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "da59a60046a9139cc93e62ea2f4ce8b320bb894995c2e444daf16e7b78e1de50:477",
-    canonical_tree_hash = "sha256:17d10f39483853024a57c8ccfb070dfd2be05bae06b6861c8ebfc71f0ab61e77",
-    references = [
-        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-    ],
-    runtime_store_entries = [
-        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-    ],
-    runtime_inputs = [":gmp", ":mpfr", ":libmpc", ":glibc"],
+    cas_root_digest = _BASH_PIN["cas_root_digest"],
+    canonical_tree_hash = _BASH_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _BASH],
+    runtime_inputs = [":glibc_lib"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
     name = "binutils_wrapper",
-    manifest = "linux_x86_64/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin.cas.manifest.json",
+    manifest = "linux_x86_64/" + _BINUTILS_WRAPPER + ".cas.manifest.json",
     package_name = "binutils-wrapper",
     version = "2.46.0",
     output = "bin",
-    store_path_key = "7523b3ff8c52b0974a7de03ac2894f43",
+    store_path_key = "38734d7a8c12fab1fb60ccfe92c64040",
     store_name = "binutils-wrapper-2.46.0-bin",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "1455029156be39e78766acc9706c7e422aadd141a03ba610715f5316fe7533d0:78",
-    canonical_tree_hash = "sha256:58d600a8cc1a5e5aa9d0278e69aa5c9111599506b172074f1b0c7c63f405afd9",
-    references = [
-        "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
-        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "/pkgs/store/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
-    ],
-    runtime_store_entries = [
-        "096afc650c09c96b853c0d9abbdb20df-bash-5.3",
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
-        "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
-    ],
+    cas_root_digest = _BINUTILS_WRAPPER_PIN["cas_root_digest"],
+    canonical_tree_hash = _BINUTILS_WRAPPER_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _BASH, _STORE + _BINUTILS],
+    runtime_store_entries = [_GLIBC_LIB, _BINUTILS_WRAPPER, _BASH, _BINUTILS],
     runtime_inputs = [":binutils", ":bash"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )
 
 pkgs_cas_store_output(
+    name = "gnumake",
+    manifest = "linux_x86_64/" + _GNUMAKE + ".cas.manifest.json",
+    package_name = "gnumake",
+    version = "4.4.1",
+    output = "bin",
+    store_path_key = "b0ff6860dbd901389437553b076f5500",
+    store_name = "gnumake-4.4.1-bin",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GNUMAKE_PIN["cas_root_digest"],
+    canonical_tree_hash = _GNUMAKE_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GNUMAKE],
+    runtime_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "coreutils",
+    manifest = "linux_x86_64/" + _COREUTILS + ".cas.manifest.json",
+    package_name = "coreutils",
+    version = "9.10",
+    output = "bin",
+    store_path_key = "fbf57a5edcd17a36c4db01db66440770",
+    store_name = "coreutils-9.10-bin",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _COREUTILS_PIN["cas_root_digest"],
+    canonical_tree_hash = _COREUTILS_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _COREUTILS],
+    runtime_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "findutils",
+    manifest = "linux_x86_64/" + _FINDUTILS + ".cas.manifest.json",
+    package_name = "findutils",
+    version = "4.10.0",
+    output = "bin",
+    store_path_key = "f032418bfac0cf12dff29a52793f6510",
+    store_name = "findutils-4.10.0-bin",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _FINDUTILS_PIN["cas_root_digest"],
+    canonical_tree_hash = _FINDUTILS_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _FINDUTILS],
+    runtime_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "gnused",
+    manifest = "linux_x86_64/" + _GNUSED + ".cas.manifest.json",
+    package_name = "gnused",
+    version = "4.9",
+    output = "bin",
+    store_path_key = "3c3820f85558680b8b2ffd0c0b64e138",
+    store_name = "gnused-4.9-bin",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GNUSED_PIN["cas_root_digest"],
+    canonical_tree_hash = _GNUSED_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GNUSED],
+    runtime_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "gnugrep",
+    manifest = "linux_x86_64/" + _GNUGREP + ".cas.manifest.json",
+    package_name = "gnugrep",
+    version = "3.12",
+    output = "bin",
+    store_path_key = "08bc50efe1f5798e58c31bd56915da08",
+    store_name = "gnugrep-3.12-bin",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GNUGREP_PIN["cas_root_digest"],
+    canonical_tree_hash = _GNUGREP_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GNUGREP, _GLIBC_LIB],
+    runtime_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "gawk",
+    manifest = "linux_x86_64/" + _GAWK + ".cas.manifest.json",
+    package_name = "gawk",
+    version = "5.4.0",
+    output = "bin",
+    store_path_key = "99812d28da3995945304c41c2e094a74",
+    store_name = "gawk-5.4.0-bin",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GAWK_PIN["cas_root_digest"],
+    canonical_tree_hash = _GAWK_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GAWK],
+    runtime_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
+    name = "gnupatch",
+    manifest = "linux_x86_64/" + _GNUPATCH + ".cas.manifest.json",
+    package_name = "patch",
+    version = "2.8",
+    output = "bin",
+    store_path_key = "81d1a96fa6c5b97e8f2ccbb042ef6429",
+    store_name = "patch-2.8-bin",
+    target_system = _TARGET_SYSTEM,
+    cas_root_digest = _GNUPATCH_PIN["cas_root_digest"],
+    canonical_tree_hash = _GNUPATCH_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB],
+    runtime_store_entries = [_GLIBC_LIB, _GNUPATCH],
+    runtime_inputs = [":glibc_lib"],
+    visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
+)
+
+pkgs_cas_store_output(
     name = "gcc_wrapper",
-    manifest = "linux_x86_64/bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin.cas.manifest.json",
+    manifest = "linux_x86_64/" + _GCC_WRAPPER + ".cas.manifest.json",
     package_name = "gcc-wrapper",
     version = "15.2.0",
     output = "bin",
-    store_path_key = "bbca89e9477fd196133e0482703d02a3",
+    store_path_key = "5513ee5243c4795f8d5d8fb0e955fa25",
     store_name = "gcc-wrapper-15.2.0-bin",
     target_system = _TARGET_SYSTEM,
-    cas_root_digest = "4f5b9b31684ae8e63ea440608d4a0ce3db12bbaf9a16009f981b5e94bdfc1bcb:78",
-    canonical_tree_hash = "sha256:814f37e15447e90b547ffab56db20e54cb4fb0ca8d4bfccdbff4ed451037cef1",
-    references = [
-        "/pkgs/store/049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "/pkgs/store/096afc650c09c96b853c0d9abbdb20df-bash-5.3",
-        "/pkgs/store/1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "/pkgs/store/4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7",
-        "/pkgs/store/5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "/pkgs/store/7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
-        "/pkgs/store/a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "/pkgs/store/ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-        "/pkgs/store/ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
-    ],
-    runtime_store_entries = [
-        "049b681bdd4657e11abaca06cf0b61a1-mpfr-4.2.2",
-        "096afc650c09c96b853c0d9abbdb20df-bash-5.3",
-        "1d427468b13e3f764d320ae599d6148d-libmpc-1.4.0",
-        "4349dc439d38eb56f3d68cd8b4dbe7f2-linux-headers-6.18.7",
-        "5331594618ea5972bfd3208387ed54b3-glibc-2.42",
-        "7523b3ff8c52b0974a7de03ac2894f43-binutils-wrapper-2.46.0-bin",
-        "a71279fad6ed78a2b843de2497590614-gmp-6.3.0",
-        "bbca89e9477fd196133e0482703d02a3-gcc-wrapper-15.2.0-bin",
-        "ce44949178532f9a9195421c393cca11-gcc-15.2.0",
-        "ec3cb3291b13cfea4b676a70d7df1557-binutils-2.46.0",
-    ],
-    runtime_inputs = [":gcc", ":binutils_wrapper", ":linux_headers", ":glibc", ":bash"],
+    cas_root_digest = _GCC_WRAPPER_PIN["cas_root_digest"],
+    canonical_tree_hash = _GCC_WRAPPER_PIN["canonical_tree_hash"],
+    references = [_STORE + _GLIBC_LIB, _STORE + _BINUTILS_WRAPPER, _STORE + _GCC_LIBSTDCXX, _STORE + _GMP_DEV, _STORE + _GMP_LIB, _STORE + _BASH, _STORE + _MPFR_LIB, _STORE + _GCC_BIN, _STORE + _BINUTILS, _STORE + _LINUX_HEADERS_DEV, _STORE + _GLIBC_DEV, _STORE + _MPFR_DEV, _STORE + _GCC_DEV, _STORE + _LIBMPC_DEV, _STORE + _LIBMPC_LIB, _STORE + _GCC_LIBGCC],
+    runtime_store_entries = [_GLIBC_LIB, _GCC_WRAPPER, _GMP_LIB, _BASH, _MPFR_LIB, _GCC_BIN, _LIBMPC_LIB],
+    tool_store_entries = [_GLIBC_LIB, _BINUTILS_WRAPPER, _GCC_WRAPPER, _GCC_LIBSTDCXX, _GMP_LIB, _BASH, _MPFR_LIB, _GCC_BIN, _BINUTILS, _LINUX_HEADERS_DEV, _GLIBC_DEV, _GCC_DEV, _LIBMPC_LIB, _GCC_LIBGCC],
+    runtime_inputs = [":gcc_bin", ":bash"],
+    tool_inputs = [":gcc_dev", ":gcc_libstdcxx", ":binutils_wrapper", ":glibc_dev", ":linux_headers_dev"],
     visibility = BOOTSTRAP_SUBSTITUTE_VISIBILITY,
 )

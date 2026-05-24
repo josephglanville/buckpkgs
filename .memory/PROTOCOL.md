@@ -48,13 +48,35 @@ hermetic library interfaces.
   runtime shared libraries plus indispensable loaded runtime data, `dev` for
   headers/static archives/build metadata, and `out` only for compound runtime
   payloads that cannot yet be separated without losing required runtime
-  closure modeling. Defer renaming established bootstrap-facing outputs until
-  that sealed interface is intentionally revised.
+  closure modeling. The revised bootstrap-facing public surface uses the same
+  canonical roles.
 - Do not create `man`, `doc`, or `info` projections by default; those require
   an explicit package need.
+- Strip ELF and archive debug metadata from normal code-bearing outputs by
+  default. Preserving or eventually separating debug information is an
+  explicit output-policy choice; do not satisfy debug-only store references
+  by adding build compilers to runtime or object closures.
+- The foreign binutils seed exposes `strip` solely so the first self-hosted
+  code-bearing packages can execute the default debug fixup; seed-free final
+  outputs must still discharge that root build tool.
 - Prefer explicit keep-lists for primary outputs on newly ported mixed-content
   packages. Never discard all of `share` mechanically: retain runtime data
   such as terminal databases or PostgreSQL installed data explicitly.
+- The normalized bootstrap generation uses canonical `bin`, `lib`, `dev`, and
+  optional `static` roles. Publish static payloads only on demonstrated need;
+  keep dynamically required nonshared components in `dev`.
+- Normalized `dev` outputs reference `lib` objects through link-name
+  projections rather than copying versioned runtime shared libraries.
+- Linker scripts projected into a split `dev` sysroot must refer to sibling
+  runtime outputs using paths that remain valid under GNU `ld --sysroot`,
+  normally relative sibling-output paths rather than absolute store paths.
+- The normalized glibc runtime supports `C.UTF-8`, required `gconv` and NSS
+  modules and rejects ambient loader-cache/preload dependence. It must not
+  propagate final `libgcc_s`, because final GCC is built after glibc;
+  consumers requiring unwinding carry an explicit `gcc:libgcc` runtime edge.
+- GCC exposes separate `libgcc` and `libstdcxx` interfaces projected from its
+  first normalized realization; C-only consumers must not inherit C++ runtime
+  closure.
 - Do not add an ordinary-build fallback that silently rebuilds the bootstrap
   island when a substitute is absent.
 - Treat the established `bootstrap/foreign_seed` and pinned substitute closure
@@ -105,6 +127,9 @@ hermetic library interfaces.
   `bootstrap/substitutes/<system>/`.
 - Hydrate a pinned closure into a disposable store root before relying on the
   ordinary `pkgs_hydrated_store_output(...)` native import path.
+- Before normalized bootstrap publication, verify default output payload
+  policy, declared object references (including symlinks), and ELF
+  interpreter/RUNPATH ownership independently of runtime propagation.
 
 ## Reviewer Policy
 

@@ -1,106 +1,269 @@
-load("//rules:pkgs.bzl", "pkgs_export_store_closure", "pkgs_export_store_substitute")
+load("//rules:pkgs.bzl", "pkgs_export_store_closure", "pkgs_export_store_substitute", "pkgs_validated_output")
 
 _EXPORT_VISIBILITY = ["//bootstrap/exports:", "//bootstrap/tests:"]
 
-pkgs_export_store_substitute(
-    name = "gmp",
-    package = "//development/libraries/gmp:out_final",
-    visibility = _EXPORT_VISIBILITY,
+pkgs_validated_output(
+    name = "gmp_lib_validated",
+    package = "//development/libraries/gmp:lib_final",
 )
 
 pkgs_export_store_substitute(
-    name = "mpfr",
-    package = "//development/libraries/mpfr:out_final",
+    name = "gmp_lib",
+    package = ":gmp_lib_validated",
     visibility = _EXPORT_VISIBILITY,
 )
 
-pkgs_export_store_substitute(
-    name = "libmpc",
-    package = "//development/libraries/libmpc:out_final",
-    visibility = _EXPORT_VISIBILITY,
+pkgs_validated_output(
+    name = "gmp_dev_validated",
+    package = "//development/libraries/gmp:dev_final",
 )
 
 pkgs_export_store_substitute(
-    name = "glibc",
-    package = "//development/libraries/glibc:out_stage1",
+    name = "gmp_dev",
+    package = ":gmp_dev_validated",
     visibility = _EXPORT_VISIBILITY,
 )
 
+pkgs_validated_output(
+    name = "mpfr_lib_validated",
+    package = "//development/libraries/mpfr:lib_final",
+)
+
 pkgs_export_store_substitute(
-    name = "gcc",
-    package = "//development/compilers/gcc:out_stage2",
+    name = "mpfr_lib",
+    package = ":mpfr_lib_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "mpfr_dev_validated",
+    package = "//development/libraries/mpfr:dev_final",
+)
+
+pkgs_export_store_substitute(
+    name = "mpfr_dev",
+    package = ":mpfr_dev_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "libmpc_lib_validated",
+    package = "//development/libraries/libmpc:lib_final",
+)
+
+pkgs_export_store_substitute(
+    name = "libmpc_lib",
+    package = ":libmpc_lib_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "libmpc_dev_validated",
+    package = "//development/libraries/libmpc:dev_final",
+)
+
+pkgs_export_store_substitute(
+    name = "libmpc_dev",
+    package = ":libmpc_dev_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "glibc_lib_validated",
+    package = "//development/libraries/glibc:lib_stage1",
+)
+
+pkgs_export_store_substitute(
+    name = "glibc_lib",
+    package = ":glibc_lib_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "glibc_dev_validated",
+    package = "//development/libraries/glibc:dev_stage1",
+)
+
+pkgs_export_store_substitute(
+    name = "glibc_dev",
+    package = ":glibc_dev_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gcc_bin_validated",
+    package = "//development/compilers/gcc:compiler_final",
+)
+
+pkgs_export_store_substitute(
+    name = "gcc_bin",
+    package = ":gcc_bin_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gcc_dev_validated",
+    package = "//development/compilers/gcc:dev_final",
+)
+
+pkgs_export_store_substitute(
+    name = "gcc_dev",
+    package = ":gcc_dev_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gcc_libgcc_validated",
+    package = "//development/compilers/gcc:libgcc_final",
+)
+
+pkgs_export_store_substitute(
+    name = "gcc_libgcc",
+    package = ":gcc_libgcc_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gcc_libstdcxx_validated",
+    package = "//development/compilers/gcc:libstdcxx_final",
+)
+
+pkgs_export_store_substitute(
+    name = "gcc_libstdcxx",
+    package = ":gcc_libstdcxx_validated",
+    visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "binutils_validated",
+    package = "//development/tools/misc/binutils:bin_stage1",
 )
 
 pkgs_export_store_substitute(
     name = "binutils",
-    package = "//development/tools/misc/binutils:bin_stage1",
+    package = ":binutils_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "bash_validated",
+    package = "//shells/bash:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "bash",
-    package = "//shells/bash:bin_final",
+    package = ":bash_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gnumake_validated",
+    package = "//development/tools/build-managers/gnumake:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "gnumake",
-    package = "//development/tools/build-managers/gnumake:bin_final",
+    package = ":gnumake_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "coreutils_validated",
+    package = "//tools/misc/coreutils:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "coreutils",
-    package = "//tools/misc/coreutils:bin_final",
+    package = ":coreutils_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "findutils_validated",
+    package = "//tools/misc/findutils:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "findutils",
-    package = "//tools/misc/findutils:bin_final",
+    package = ":findutils_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gnused_validated",
+    package = "//tools/text/gnused:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "gnused",
-    package = "//tools/text/gnused:bin_final",
+    package = ":gnused_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gnugrep_validated",
+    package = "//tools/text/gnugrep:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "gnugrep",
-    package = "//tools/text/gnugrep:bin_promoted_seed_cut",
+    package = ":gnugrep_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gawk_validated",
+    package = "//tools/text/gawk:bin_final",
+    allowed_runtime_paths = ["share/awk"],
 )
 
 pkgs_export_store_substitute(
     name = "gawk",
-    package = "//tools/text/gawk:bin_promoted_seed_cut",
+    package = ":gawk_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gnupatch_validated",
+    package = "//tools/text/gnupatch:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "gnupatch",
-    package = "//tools/text/gnupatch:bin_promoted_seed_cut",
+    package = ":gnupatch_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "binutils_wrapper_validated",
+    package = "//development/tools/misc/binutils:bin_final_wrapped",
 )
 
 pkgs_export_store_substitute(
     name = "binutils_wrapper",
-    package = "//development/tools/misc/binutils:bin_final_wrapped",
+    package = ":binutils_wrapper_validated",
     visibility = _EXPORT_VISIBILITY,
 )
 
+pkgs_validated_output(
+    name = "linux_headers_dev_validated",
+    package = "//os-specific/linux/kernel-headers:dev_final",
+)
+
 pkgs_export_store_substitute(
-    name = "linux_headers",
-    package = "//os-specific/linux/kernel-headers:out_final",
+    name = "linux_headers_dev",
+    package = ":linux_headers_dev_validated",
     visibility = _EXPORT_VISIBILITY,
+)
+
+pkgs_validated_output(
+    name = "gcc_wrapper_validated",
+    package = "//development/compilers/gcc:bin_final",
 )
 
 pkgs_export_store_substitute(
     name = "gcc_wrapper",
-    package = "//development/compilers/gcc:bin_imported_final",
+    package = ":gcc_wrapper_validated",
     visibility = _EXPORT_VISIBILITY,
 )
 
@@ -125,17 +288,24 @@ pkgs_export_store_closure(
         ":coreutils",
         ":findutils",
         ":gawk",
-        ":gcc",
+        ":gcc_bin",
+        ":gcc_dev",
+        ":gcc_libgcc",
+        ":gcc_libstdcxx",
         ":gcc_wrapper",
-        ":glibc",
-        ":gmp",
+        ":glibc_lib",
+        ":glibc_dev",
+        ":gmp_lib",
+        ":gmp_dev",
         ":gnumake",
         ":gnugrep",
         ":gnupatch",
         ":gnused",
-        ":libmpc",
-        ":linux_headers",
-        ":mpfr",
+        ":libmpc_lib",
+        ":libmpc_dev",
+        ":linux_headers_dev",
+        ":mpfr_lib",
+        ":mpfr_dev",
     ],
     visibility = ["//bootstrap/tests:"],
 )

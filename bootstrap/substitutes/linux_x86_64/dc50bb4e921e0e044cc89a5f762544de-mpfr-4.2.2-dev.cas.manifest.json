@@ -1,0 +1,37 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:9ab82026e69cd42af1baddf378d747422440b557232ce6d4686d17a15728c8e7",
+    "download_size": 64780,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:9ab82026e69cd42af1baddf378d747422440b557232ce6d4686d17a15728c8e7",
+    "payload_size": 64780
+  },
+  "canonical_tree_hash": "sha256:9ab82026e69cd42af1baddf378d747422440b557232ce6d4686d17a15728c8e7",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "34aa803153e28dbb1ef664e443819b74a95f9e81ec1a7d4614437b40fb2582f5:160"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "mpfr",
+    "output": "dev",
+    "version": "4.2.2"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev"
+  ],
+  "store_entry": "dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev",
+  "store_path": "/pkgs/store/dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev",
+  "store_path_key": "dc50bb4e921e0e044cc89a5f762544de",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev"
+  ]
+}

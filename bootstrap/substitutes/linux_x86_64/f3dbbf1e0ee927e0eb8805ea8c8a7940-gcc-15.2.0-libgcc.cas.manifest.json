@@ -1,0 +1,45 @@
+{
+  "archive": {
+    "compression": "none",
+    "download_hash": "sha256:8fdf0eab8360eacbaaad6355df78d87a9ac6c5e35d0a7e031052df2ea5d9248f",
+    "download_size": 193395,
+    "encoding": "buckpkgs-tree-v1",
+    "payload_hash": "sha256:8fdf0eab8360eacbaaad6355df78d87a9ac6c5e35d0a7e031052df2ea5d9248f",
+    "payload_size": 193395
+  },
+  "canonical_tree_hash": "sha256:8fdf0eab8360eacbaaad6355df78d87a9ac6c5e35d0a7e031052df2ea5d9248f",
+  "cas": {
+    "digest_function": "sha256",
+    "format": "reapi-directory-v1",
+    "root_digest": "736f9eb20662af0c951d41cea6f0036c13fd2e28ebe5eb5ee74aa400f842419c:79"
+  },
+  "format": "buckpkgs-store-object-v1",
+  "package": {
+    "name": "gcc",
+    "output": "libgcc",
+    "version": "15.2.0"
+  },
+  "references": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/6df76e5d5fa7584ff65282adf489f80d-gmp-6.3.0-dev",
+    "/pkgs/store/a409531b2056d04446f79b9f181e208e-gmp-6.3.0-lib",
+    "/pkgs/store/aa4c9158de9347ee0c79055121405597-mpfr-4.2.2-lib",
+    "/pkgs/store/ce9d82673934e49165879e1c7ef25739-linux-headers-6.18.7-dev",
+    "/pkgs/store/d79d3410372a81b85838dd003c664197-glibc-2.42-dev",
+    "/pkgs/store/dc50bb4e921e0e044cc89a5f762544de-mpfr-4.2.2-dev",
+    "/pkgs/store/e124ac1287a1d20190a36a83c5e2017f-libmpc-1.4.0-dev",
+    "/pkgs/store/e731f775a0217593bc1c6bc2d921fd9b-libmpc-1.4.0-lib"
+  ],
+  "runtime_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc"
+  ],
+  "store_entry": "f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc",
+  "store_path": "/pkgs/store/f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc",
+  "store_path_key": "f3dbbf1e0ee927e0eb8805ea8c8a7940",
+  "target_system": "x86_64-linux",
+  "tool_store_outputs": [
+    "/pkgs/store/1d287d1ed64559b7400d9f5fe7beb83a-glibc-2.42-lib",
+    "/pkgs/store/f3dbbf1e0ee927e0eb8805ea8c8a7940-gcc-15.2.0-libgcc"
+  ]
+}

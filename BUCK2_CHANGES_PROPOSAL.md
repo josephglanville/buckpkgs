@@ -387,10 +387,10 @@ authoring layer with these properties:
    - package authors should express meaning like:
 
 ```text
-arg("--with-gmp=", dep_path("//development/libraries/gmp:out"))
+arg("--with-gmp=", dep_path("//development/libraries/gmp:dev"))
 env("LDFLAGS", join([
   literal("-Wl,-rpath,"),
-  dep_path("//development/libraries/gmp:out", "lib"),
+  dep_path("//development/libraries/gmp:lib", "lib"),
 ]))
 ```
 
@@ -513,6 +513,9 @@ It relies on and refines:
   - how package semantics map onto Buck2
 - `BUCK2_STORE_INTEGRATION.md`
   - lower-level integration observations from reading Buck2 internals
+- `REMOTE_CACHE_SHARING.md`
+  - separates required RE and identity-correctness work from optional
+    cross-repository cache-key portability
 
 Those documents explain the pieces. This one states the desired Buck2 change set
 as a single proposal.

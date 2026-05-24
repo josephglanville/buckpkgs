@@ -1,5 +1,5 @@
 load("//bootstrap:island_visibility.bzl", "BOOTSTRAP_PRODUCER_VISIBILITY")
-load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_seed_free", "pkgs_store_path", "pkgs_store_path_join")
+load("//rules:pkgs.bzl", "pkgs_cc_wrapper_package", "pkgs_configure_make_install_package", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_package_output", "pkgs_seed_free", "pkgs_store_path", "pkgs_store_path_join")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -42,7 +42,7 @@ _STAGE2_NATIVE_TOOLS = [
     "//shells/bash:bin_stage2",
     "//development/tools/build-managers/gnumake:bin_stage0",
     "//development/tools/misc/binutils:bin_stage1_wrapped",
-    "//development/compilers/gcc:bin_stage1",
+    "//development/compilers/gcc:bin_stage1_for_final_gcc",
     "//tools/misc/coreutils:bin_stage0",
     "//tools/misc/findutils:bin_stage0",
     "//tools/archivers/gnutar:bin_stage0",
@@ -53,11 +53,26 @@ _STAGE2_NATIVE_TOOLS = [
     "//tools/text/gnused:bin_stage0",
 ]
 
-_MATH_LIBS = [
-    "//development/libraries/gmp:out_final",
-    "//development/libraries/mpfr:out_final",
-    "//development/libraries/libmpc:out_final",
+_MATH_STAGE0 = [
+    "//development/libraries/gmp:out_stage0",
+    "//development/libraries/mpfr:out_stage0",
+    "//development/libraries/libmpc:out_stage0",
 ]
+
+_MATH_LIBS_FINAL = [
+    "//development/libraries/gmp:lib_final",
+    "//development/libraries/mpfr:lib_final",
+    "//development/libraries/libmpc:lib_final",
+]
+
+_MATH_DEVS_FINAL = [
+    "//development/libraries/gmp:dev_final",
+    "//development/libraries/mpfr:dev_final",
+    "//development/libraries/libmpc:dev_final",
+]
+
+_PRIVATE_RUNTIME_DIR = "lib/gcc/x86_64-pc-linux-gnu/15.2.0"
+_LIBEXEC_RUNTIME_DIR = "libexec/gcc/x86_64-pc-linux-gnu/15.2.0"
 
 _DEBUG_PREFIX_MAP_ENV_PATCH = pkgs_export_patch(
     name = "debug_prefix_map_env_patch",
@@ -87,9 +102,9 @@ pkgs_configure_make_install_package(
         "--without-included-gettext",
         "--with-zstd=no",
         "--enable-languages=c,c++",
-        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_final"),
-        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_final"),
-        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_final"),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_stage0"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_stage0"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_stage0"),
     ],
     configure_env = [
         "CC=cc",
@@ -101,21 +116,17 @@ pkgs_configure_make_install_package(
         "CXXFLAGS=-fno-char8_t",
         "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
     ],
-    make_args = [
-        "MAKEINFO=true",
-    ],
+    make_args = ["MAKEINFO=true"],
     patches = [_DEBUG_PREFIX_MAP_ENV_PATCH],
     native_build_inputs = _STAGE0_NATIVE_TOOLS,
-    build_inputs = _MATH_LIBS,
+    build_inputs = _MATH_STAGE0,
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_seed_free(
     name = "out_stage0_seed_free",
     packages = [":out_stage0"],
-    forbidden = [
-        "//bootstrap/foreign_seed:gcc",
-    ],
+    forbidden = ["//bootstrap/foreign_seed:gcc"],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
@@ -143,10 +154,10 @@ pkgs_configure_make_install_package(
         "--with-zstd=no",
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
-        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_final"),
-        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_final"),
-        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_final"),
-        pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:out_stage1"),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_stage0"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_stage0"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_stage0"),
+        pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:dev_stage1"),
     ],
     configure_env = [
         "CC=gcc",
@@ -157,23 +168,21 @@ pkgs_configure_make_install_package(
         "RANLIB=ranlib",
         "CXXFLAGS=-fno-char8_t",
         "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
-        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
-        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
-        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
-        pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
-        pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
+        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:dev_final", "/include"),
+        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:dev_final", "/include"),
+        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:dev_final", "/include"),
+        pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:dev_stage1", "/lib"),
+        pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_STAGE0, "/lib -Wl,-rpath,", "/lib"),
     ],
-    make_args = [
-        "MAKEINFO=true",
-    ],
+    make_args = ["MAKEINFO=true"],
     patches = [_DEBUG_PREFIX_MAP_ENV_PATCH],
     native_build_inputs = _STAGE1_NATIVE_TOOLS,
-    build_inputs = _MATH_LIBS + [
-        "//development/libraries/glibc:out_stage1",
-        "//os-specific/linux/kernel-headers:out_final",
+    build_inputs = _MATH_STAGE0 + [
+        "//development/libraries/glibc:dev_stage1",
+        "//os-specific/linux/kernel-headers:dev_final",
     ],
-    runtime_inputs = _MATH_LIBS + [
-        "//development/libraries/glibc:out_stage1",
+    runtime_inputs = _MATH_STAGE0 + [
+        "//development/libraries/glibc:lib_stage1",
     ],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
@@ -181,9 +190,7 @@ pkgs_configure_make_install_package(
 pkgs_seed_free(
     name = "out_stage1_seed_free",
     packages = [":out_stage1"],
-    forbidden = [
-        "//bootstrap/foreign_seed:gcc",
-    ],
+    forbidden = ["//bootstrap/foreign_seed:gcc"],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
@@ -193,16 +200,76 @@ pkgs_cc_wrapper_package(
     version = "15.2.0",
     cc = ":out_stage1",
     bintools = "//development/tools/misc/binutils:bin_stage0_wrapped",
-    headers = "//os-specific/linux/kernel-headers:out_final",
-    libc = "//development/libraries/glibc:out_stage1",
+    headers = "//os-specific/linux/kernel-headers:dev_final",
+    libc = "//development/libraries/glibc:lib_stage1",
+    libc_runtime = "//development/libraries/glibc:lib_stage1",
+    libc_dev = "//development/libraries/glibc:dev_stage1",
     shell = "//shells/bash:bin_stage2",
+    reference_inputs = [
+        ":out_stage1",
+        "//development/tools/misc/binutils:bin_stage0_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_stage2",
+    ],
+    runtime_inputs = [
+        ":out_stage1",
+        "//shells/bash:bin_stage2",
+    ],
+    tool_inputs = [
+        ":out_stage1",
+        "//development/tools/misc/binutils:bin_stage0_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_stage2",
+    ],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
+)
+
+# GCC's own host programs link their C++ support statically. Avoid preserving
+# the stage compiler as an unused RUNPATH in the final compiler executables.
+pkgs_cc_wrapper_package(
+    name = "bin_stage1_for_final_gcc",
+    package_name = "gcc-wrapper-build-only",
+    version = "15.2.0",
+    cc = ":out_stage1",
+    bintools = "//development/tools/misc/binutils:bin_stage0_wrapped",
+    headers = "//os-specific/linux/kernel-headers:dev_final",
+    libc = "//development/libraries/glibc:lib_stage1",
+    libc_runtime = "//development/libraries/glibc:lib_stage1",
+    libc_dev = "//development/libraries/glibc:dev_stage1",
+    shell = "//shells/bash:bin_stage2",
+    suppress_cxx_runtime_rpaths = True,
+    reference_inputs = [
+        ":out_stage1",
+        "//development/tools/misc/binutils:bin_stage0_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_stage2",
+    ],
+    runtime_inputs = [
+        ":out_stage1",
+        "//shells/bash:bin_stage2",
+    ],
+    tool_inputs = [
+        ":out_stage1",
+        "//development/tools/misc/binutils:bin_stage0_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_stage2",
+    ],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 pkgs_configure_make_install_package(
-    name = "out_stage2",
+    name = "compiler_final",
     package_name = "gcc",
     version = "15.2.0",
+    output = "bin",
     sources = [_SOURCE],
     out_of_source = True,
     configure_args = [
@@ -216,8 +283,6 @@ pkgs_configure_make_install_package(
         "--disable-libquadmath",
         "--disable-libgomp",
         "--disable-libatomic",
-        # Match nixpkgs bootstrap behavior: libcc1 is a GDB plugin and otherwise
-        # keeps turnover outputs tied to the compiler that built them.
         "--disable-libcc1",
         "--disable-libstdcxx-pch",
         "--disable-default-pie",
@@ -226,10 +291,10 @@ pkgs_configure_make_install_package(
         "--with-zstd=no",
         "--enable-languages=c,c++",
         "--with-native-system-header-dir=/include",
-        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:out_final"),
-        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:out_final"),
-        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:out_final"),
-        pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:out_stage1"),
+        pkgs_store_path("--with-gmp=", "//development/libraries/gmp:dev_final"),
+        pkgs_store_path("--with-mpfr=", "//development/libraries/mpfr:dev_final"),
+        pkgs_store_path("--with-mpc=", "//development/libraries/libmpc:dev_final"),
+        pkgs_store_path("--with-build-sysroot=", "//development/libraries/glibc:dev_stage1"),
     ],
     configure_env = [
         "CC=gcc",
@@ -238,47 +303,172 @@ pkgs_configure_make_install_package(
         "AS=as",
         "LD=ld",
         "RANLIB=ranlib",
-        "CXXFLAGS=-fno-char8_t",
+        pkgs_store_path("CXXFLAGS=-fno-char8_t -ffile-prefix-map=", ":out_stage1", "=/build/gcc-stage1"),
+        pkgs_store_path("LD_LIBRARY_PATH=", ":out_stage1", "/lib64"),
         "DEBUG_PREFIX_CFLAGS_FOR_TARGET=-ffile-prefix-map=@PKGS_WORK_DIR@=. -fdebug-prefix-map=@PKGS_WORK_DIR@=.",
-        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
-        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
-        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:out_final", "/include"),
-        pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:out_stage1", "/lib"),
-        pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_LIBS, "/lib -Wl,-rpath,", "/lib"),
+        pkgs_store_path("CPPFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:dev_final", "/include"),
+        pkgs_store_path("CFLAGS_FOR_TARGET=-idirafter ", "//os-specific/linux/kernel-headers:dev_final", "/include"),
+        pkgs_store_path("CXXFLAGS_FOR_TARGET=-fno-char8_t -idirafter ", "//os-specific/linux/kernel-headers:dev_final", "/include"),
+        pkgs_store_path("FLAGS_FOR_TARGET=-B", "//development/libraries/glibc:dev_stage1", "/lib"),
+        pkgs_store_path_join("LDFLAGS=-Wl,-rpath,", _MATH_LIBS_FINAL, "/lib -Wl,-rpath,", "/lib"),
     ],
-    make_args = [
-        "MAKEINFO=true",
-    ],
+    make_args = ["MAKEINFO=true"],
     patches = [_DEBUG_PREFIX_MAP_ENV_PATCH],
-    native_build_inputs = _STAGE2_NATIVE_TOOLS,
-    build_inputs = _MATH_LIBS + [
-        "//development/libraries/glibc:out_stage1",
-        "//os-specific/linux/kernel-headers:out_final",
+    output_paths = [
+        "bin",
+        _PRIVATE_RUNTIME_DIR + "/crtbegin.o",
+        _PRIVATE_RUNTIME_DIR + "/crtbeginS.o",
+        _PRIVATE_RUNTIME_DIR + "/crtbeginT.o",
+        _PRIVATE_RUNTIME_DIR + "/crtend.o",
+        _PRIVATE_RUNTIME_DIR + "/crtendS.o",
+        _PRIVATE_RUNTIME_DIR + "/crtfastmath.o",
+        _PRIVATE_RUNTIME_DIR + "/crtprec32.o",
+        _PRIVATE_RUNTIME_DIR + "/crtprec64.o",
+        _PRIVATE_RUNTIME_DIR + "/crtprec80.o",
+        _PRIVATE_RUNTIME_DIR + "/include",
+        _PRIVATE_RUNTIME_DIR + "/include-fixed",
+        _PRIVATE_RUNTIME_DIR + "/libgcc.a",
+        _PRIVATE_RUNTIME_DIR + "/libgcc_eh.a",
+        _PRIVATE_RUNTIME_DIR + "/libgcov.a",
+        _LIBEXEC_RUNTIME_DIR + "/cc1",
+        _LIBEXEC_RUNTIME_DIR + "/cc1plus",
+        _LIBEXEC_RUNTIME_DIR + "/collect2",
+        _LIBEXEC_RUNTIME_DIR + "/g++-mapper-server",
+        _LIBEXEC_RUNTIME_DIR + "/liblto_plugin.so",
+        _LIBEXEC_RUNTIME_DIR + "/lto-wrapper",
+        _LIBEXEC_RUNTIME_DIR + "/lto1",
     ],
-    runtime_inputs = _MATH_LIBS + [
-        "//development/libraries/glibc:out_stage1",
+    split_outputs = {
+        "dev": [
+            "include",
+            "lib64/libgcc_s.so",
+            "lib64/libstdc++.modules.json",
+            _PRIVATE_RUNTIME_DIR + "/plugin",
+        ],
+        "libgcc": ["lib64/libgcc_s.so.1"],
+        "libstdcxx": [
+            "lib64/libstdc++.so.6",
+            "lib64/libstdc++.so.6.0.34",
+        ],
+    },
+    split_reference_output_paths = {
+        "dev": {
+            "lib64/libgcc_s.so.1": ("libgcc", "lib64/libgcc_s.so.1"),
+            "lib64/libstdc++.so": ("libstdcxx", "lib64/libstdc++.so.6.0.34"),
+        },
+    },
+    split_reference_outputs = {
+        "dev": [
+            # Generated plugin configuration headers record the installed compiler prefix.
+            "bin",
+            "libgcc",
+            "libstdcxx",
+        ],
+    },
+    split_runtime_inputs = {
+        "libgcc": ["//development/libraries/glibc:lib_stage1"],
+        "libstdcxx": ["//development/libraries/glibc:lib_stage1"],
+    },
+    split_runtime_outputs = {
+        "libstdcxx": ["libgcc"],
+    },
+    native_build_inputs = _STAGE2_NATIVE_TOOLS,
+    build_inputs = _MATH_DEVS_FINAL + [
+        "//development/libraries/glibc:dev_stage1",
+        "//os-specific/linux/kernel-headers:dev_final",
+    ],
+    link_interface_inputs = _MATH_DEVS_FINAL,
+    link_inputs = _MATH_LIBS_FINAL,
+    reference_inputs = _MATH_DEVS_FINAL + [
+        "//development/libraries/glibc:dev_stage1",
+        "//os-specific/linux/kernel-headers:dev_final",
+    ],
+    runtime_inputs = _MATH_LIBS_FINAL + [
+        "//development/libraries/glibc:lib_stage1",
     ],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
-pkgs_seed_free(
-    name = "out_stage2_seed_free",
-    packages = [":out_stage2"],
-    forbidden = [
-        "//bootstrap/foreign_seed:gcc",
-    ],
+pkgs_package_output(
+    name = "dev_final",
+    package = ":compiler_final",
+    output = "dev",
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
+
+pkgs_package_output(
+    name = "libgcc_final",
+    package = ":compiler_final",
+    output = "libgcc",
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
+)
+
+pkgs_package_output(
+    name = "libstdcxx_final",
+    package = ":compiler_final",
+    output = "libstdcxx",
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
+)
+
+pkgs_seed_free(
+    name = "compiler_final_seed_free",
+    packages = [
+        ":compiler_final",
+        ":dev_final",
+        ":libgcc_final",
+        ":libstdcxx_final",
+    ],
+    forbidden = ["//bootstrap/foreign_seed:gcc"],
+    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
+)
+
+_CXX_INCLUDE_PATHS = [
+    "include/c++/15.2.0",
+    "include/c++/15.2.0/backward",
+    "include/c++/15.2.0/x86_64-pc-linux-gnu",
+]
 
 pkgs_cc_wrapper_package(
     name = "bin_stage2",
     package_name = "gcc-wrapper",
     version = "15.2.0",
-    cc = ":out_stage2",
+    cc = ":compiler_final",
+    gcc_dev = ":dev_final",
+    cxx_include_paths = _CXX_INCLUDE_PATHS,
     bintools = "//development/tools/misc/binutils:bin_stage1_wrapped",
-    headers = "//os-specific/linux/kernel-headers:out_final",
-    libc = "//development/libraries/glibc:out_stage1",
+    headers = "//os-specific/linux/kernel-headers:dev_final",
+    libc = "//development/libraries/glibc:lib_stage1",
+    libc_runtime = "//development/libraries/glibc:lib_stage1",
+    libc_dev = "//development/libraries/glibc:dev_stage1",
+    libgcc_runtime = ":libgcc_final",
+    libstdcxx_runtime = ":libstdcxx_final",
     shell = "//shells/bash:bin_stage2",
+    reference_inputs = [
+        ":compiler_final",
+        ":dev_final",
+        ":libgcc_final",
+        ":libstdcxx_final",
+        "//development/tools/misc/binutils:bin_stage1_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_stage2",
+    ],
+    runtime_inputs = [
+        ":compiler_final",
+        "//shells/bash:bin_stage2",
+    ],
+    tool_inputs = [
+        ":compiler_final",
+        ":dev_final",
+        ":libgcc_final",
+        ":libstdcxx_final",
+        "//development/tools/misc/binutils:bin_stage1_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_stage2",
+    ],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
@@ -286,37 +476,66 @@ pkgs_cc_wrapper_package(
     name = "bin_final",
     package_name = "gcc-wrapper",
     version = "15.2.0",
-    cc = ":out_stage2",
+    cc = ":compiler_final",
+    gcc_dev = ":dev_final",
+    cxx_include_paths = _CXX_INCLUDE_PATHS,
     bintools = "//development/tools/misc/binutils:bin_final_wrapped",
-    headers = "//os-specific/linux/kernel-headers:out_final",
-    libc = "//development/libraries/glibc:out_stage1",
+    headers = "//os-specific/linux/kernel-headers:dev_final",
+    libc = "//development/libraries/glibc:lib_stage1",
+    libc_runtime = "//development/libraries/glibc:lib_stage1",
+    libc_dev = "//development/libraries/glibc:dev_stage1",
+    libgcc_runtime = ":libgcc_final",
+    libstdcxx_runtime = ":libstdcxx_final",
     shell = "//shells/bash:bin_final",
-    visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
-)
-
-# Republish wrapper-policy changes over the pinned imported base closure. This
-# target is intentionally absent from BOOTSTRAP_PRODUCER_VISIBILITY's consumer
-# list, so visibility prevents it from regressing to live bootstrap inputs.
-pkgs_cc_wrapper_package(
-    name = "bin_imported_final",
-    package_name = "gcc-wrapper",
-    version = "15.2.0",
-    cc = ":out",
-    bintools = "//development/tools/misc/binutils:bin",
-    headers = "//os-specific/linux/kernel-headers:out",
-    libc = "//development/libraries/glibc:out",
-    shell = "//shells/bash:bin",
+    reference_inputs = [
+        ":compiler_final",
+        ":dev_final",
+        ":libgcc_final",
+        ":libstdcxx_final",
+        "//development/tools/misc/binutils:bin_final_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_final",
+    ],
+    runtime_inputs = [
+        ":compiler_final",
+        "//shells/bash:bin_final",
+    ],
+    tool_inputs = [
+        ":compiler_final",
+        ":dev_final",
+        ":libgcc_final",
+        ":libstdcxx_final",
+        "//development/tools/misc/binutils:bin_final_wrapped",
+        "//os-specific/linux/kernel-headers:dev_final",
+        "//development/libraries/glibc:lib_stage1",
+        "//development/libraries/glibc:dev_stage1",
+        "//shells/bash:bin_final",
+    ],
     visibility = BOOTSTRAP_PRODUCER_VISIBILITY,
 )
 
 alias(
-    name = "out",
-    actual = "//bootstrap/substitutes:gcc",
+    name = "dev",
+    actual = "//bootstrap/substitutes:gcc_dev",
     visibility = ["PUBLIC"],
 )
 
 alias(
     name = "bin",
     actual = "//bootstrap/substitutes:gcc_wrapper",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "libgcc",
+    actual = "//bootstrap/substitutes:gcc_libgcc",
+    visibility = ["PUBLIC"],
+)
+
+alias(
+    name = "libstdcxx",
+    actual = "//bootstrap/substitutes:gcc_libstdcxx",
     visibility = ["PUBLIC"],
 )

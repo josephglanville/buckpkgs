@@ -102,6 +102,16 @@ pkgs_bootstrap_rust_binary(
 )
 
 pkgs_bootstrap_rust_binary(
+    name = "pkgs_add_cas_manifest",
+    srcs = _STORE_SUBSTITUTE_SRCS + [
+        "src/bin/pkgs_add_cas_manifest.rs",
+    ],
+    crate_root = "src/bin/pkgs_add_cas_manifest.rs",
+    visibility = ["PUBLIC"],
+    deps = _STORE_SUBSTITUTE_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
     name = "pkgs_hydrate_store_object",
     srcs = _STORE_SUBSTITUTE_SRCS + [
         "src/bin/pkgs_hydrate_store_object.rs",
@@ -168,6 +178,28 @@ pkgs_bootstrap_rust_binary(
         "src/verify_no_refs.rs",
     ],
     crate_root = "src/bin/pkgs_verify_no_refs.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_verify_output_policy",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_verify_output_policy.rs",
+        "src/verify_output_policy.rs",
+    ],
+    crate_root = "src/bin/pkgs_verify_output_policy.rs",
+    visibility = ["PUBLIC"],
+    deps = _COMMON_DEPS,
+)
+
+pkgs_bootstrap_rust_binary(
+    name = "pkgs_verify_declared_refs",
+    srcs = _COMMON_SRCS + [
+        "src/bin/pkgs_verify_declared_refs.rs",
+        "src/verify_declared_refs.rs",
+    ],
+    crate_root = "src/bin/pkgs_verify_declared_refs.rs",
     visibility = ["PUBLIC"],
     deps = _COMMON_DEPS,
 )
