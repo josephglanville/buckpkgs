@@ -39,27 +39,30 @@ prefer it over other metadata formats.
 
 Do not copy the shell-hook mechanism just because nixpkgs uses it.
 
-In Buck2, the cleaner shape is structured provider data:
+In Buck2, the cleaner shape is structured provider data. The package exports
+search roots; the dependency edge supplies the role:
 
 ```text
 PkgConfigInfo(
-  search_paths_by_role = {
-    build: [...],
-    host: [...],
-    target: [...],
-  },
+  search_paths = [...],
 )
 ```
 
-and a tool wrapper or action helper that turns the selected closure into:
+The standard builders now turn declared dependencies into:
 
 ```text
 PKG_CONFIG_PATH
+PKG_CONFIG_LIBDIR
 PKG_CONFIG_PATH_FOR_BUILD
+PKG_CONFIG_LIBDIR_FOR_BUILD
 PKG_CONFIG_PATH_FOR_TARGET
+PKG_CONFIG_LIBDIR_FOR_TARGET
 ```
 
-for the action being executed.
+for the action being executed. `build_inputs` and `link_inputs` supply the
+ordinary host lookup path, `native_build_inputs` supply the build lookup path,
+and `target_inputs` supply the target lookup path. Setting `PKG_CONFIG_LIBDIR`
+alongside `PKG_CONFIG_PATH` keeps host defaults out of hermetic actions.
 
 That keeps dependency visibility explicit and avoids ambient shell mutation as
 the primary model.
@@ -69,52 +72,50 @@ the primary model.
 For packages that produce pkg-config metadata:
 
 ```python
-pkg_config = {
-    "out": [
-        "lib/pkgconfig",
-        "share/pkgconfig",
-    ],
-    "dev": [
-        "lib/pkgconfig",
-    ],
-}
+pkg_config_paths = ["lib/pkgconfig"]
 ```
 
-or, more likely, inferred defaults with explicit overrides where packages route
-metadata unusually.
+For a named output split from the package's primary realization:
+
+```python
+split_pkg_config_paths = {
+    "dev": ["lib/pkgconfig"],
+}
+```
 
 For consumers:
 
 ```python
 native_build_inputs = [
-    "//pkgs/build-support/pkg-config-wrapper:out",
+    "//development/tools/pkg-config:bin",
 ]
 build_inputs = [
-    "//pkgs/development/libraries/openssl:dev",
+    "//development/libraries/zlib:dev",
+]
+link_inputs = [
+    "//development/libraries/zlib:out",
 ]
 ```
 
-The builder collects `PkgConfigInfo` from the declared dependency closure and
-sets the environment for actions that need pkg-config.
+The builder collects `PkgConfigInfo` from declared dependencies and
+sets the environment for actions that need pkg-config. `pkgconf` is packaged as
+the normal native `pkg-config` frontend with `:bin` and `:dev` outputs; the
+structured action environment supplies the wrapper semantics without shell
+hooks. Documentation-only named outputs are not part of the default package
+surface.
 
-## Design Questions
+## Implemented Surface
 
-1. Should search roots be inferred from conventional output paths, or always
-   declared?
-2. Should the public package stay named `pkg-config-wrapper`, or should BuckPkgs
-   expose the wrapper as `pkg-config` the way nixpkgs does?
-3. Is the wrapper a normal BuckPkgs package, a Buck2 toolchain helper, or both?
-4. How should `PKG_CONFIG_LIBDIR` be handled for packages like `ncurses` that
-   deliberately generate metadata into a chosen output during their own build?
-5. Do we need a parallel `CMakeInfo` later, or can BuckPkgs intentionally prioritize
-   pkg-config first for native library discovery?
-
-## Current Recommendation
-
-1. keep `pkg-config-unwrapped` and a wrapped `pkg-config`
-2. keep role-aware semantics
-3. represent exported search roots as providers, not only shell hooks
-4. prioritize pkg-config support before broad native-library work
+- `PkgConfigInfo(search_paths = [...])` is exported by built, projected,
+  imported, hydrated, and CAS-backed package outputs.
+- `pkgs_make_install_package`, `pkgs_configure_make_install_package`, and
+  `pkgs_meson_install_package` lower provider roots into hermetic role-specific
+  environment variables.
+- `//development/tools/pkg-config:bin` supplies `pkg-config` through a native
+  `pkgconf` installation.
+- `//development/libraries/zlib:dev` is the first split metadata provider;
+  Python consumes it through `pkg-config` while linking against
+  `zlib:out`.
 
 This is one of the first places where BuckPkgs should deliberately keep nixpkgs'
 package semantics while changing the implementation model.

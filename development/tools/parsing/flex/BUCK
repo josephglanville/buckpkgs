@@ -1,0 +1,40 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source")
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995",
+    strip_prefix = "flex-2.6.4",
+    urls = ["https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/parsing/bison:bin",
+    "//development/tools/misc/gnum4:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnused:bin",
+]
+
+pkgs_configure_make_install_package(
+    name = "bin",
+    package_name = "flex",
+    version = "2.6.4",
+    sources = [_SOURCE],
+    output = "bin",
+    configure_args = ["--disable-nls"],
+    configure_env = [
+        "CC=cc",
+        "AR=ar",
+        "RANLIB=ranlib",
+    ],
+    output_paths = ["bin"],
+    native_build_inputs = _NATIVE_TOOLS,
+    runtime_inputs = ["//development/libraries/glibc:out"],
+    visibility = ["PUBLIC"],
+)

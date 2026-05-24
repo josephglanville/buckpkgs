@@ -34,6 +34,18 @@ PkgsPackageInfo = provider(
     ],
 )
 
+PkgConfigInfo = provider(
+    fields = [
+        "search_paths",
+    ],
+)
+
+PkgsOutputSetInfo = provider(
+    fields = [
+        "outputs",
+    ],
+)
+
 PkgsStoreSubstituteInfo = provider(
     fields = [
         "archive",
@@ -182,13 +194,14 @@ def _store_name(name, version, output):
     base = "{}-{}".format(name, version)
     return base if output == "out" else "{}-{}".format(base, output)
 
-def _package_instance_digest(ctx, deps_by_role):
+def _package_instance_digest(ctx, deps_by_role, output = None):
+    output = ctx.attrs.output if output == None else output
     parts = [
         STORE_ABI_VERSION,
         "name={}".format(ctx.attrs.package_name),
         "version={}".format(ctx.attrs.version),
         "builder={}".format(ctx.attrs.builder),
-        "output={}".format(ctx.attrs.output),
+        "output={}".format(output),
         "target_system={}".format(ctx.attrs.target_system),
     ]
     parts.extend(_recipe_semantic_parts(ctx))
@@ -210,6 +223,10 @@ def _recipe_semantic_parts(ctx):
     parts = []
 
     _append_semantic_values(parts, "configure_arg", getattr(ctx.attrs, "configure_args", []))
+    if getattr(ctx.attrs, "configure_program", "./configure") != "./configure":
+        parts.append("configure_program={}".format(ctx.attrs.configure_program))
+    if getattr(ctx.attrs, "configure_prefix_arg", "--prefix=") != "--prefix=":
+        parts.append("configure_prefix_arg={}".format(ctx.attrs.configure_prefix_arg))
     for prefix, dep, suffix in getattr(ctx.attrs, "configure_arg_store_paths", []):
         parts.append("configure_arg_store_path={}{}{}".format(
             prefix,
@@ -326,6 +343,24 @@ def _recipe_semantic_parts(ctx):
     for link, target in sorted(getattr(ctx.attrs, "symlinks", {}).items()):
         parts.append("symlink={}={}".format(link, target))
 
+    for path in sorted(getattr(ctx.attrs, "pkg_config_paths", [])):
+        parts.append("pkg_config_path={}".format(path))
+    for output, paths in sorted(getattr(ctx.attrs, "split_outputs", {}).items()):
+        for path in sorted(paths):
+            parts.append("split_output_path={}={}".format(output, path))
+    for output, runtime_outputs in sorted(getattr(ctx.attrs, "split_runtime_outputs", {}).items()):
+        for runtime_output in sorted(runtime_outputs):
+            parts.append("split_runtime_output={}={}".format(output, runtime_output))
+    for path in sorted(getattr(ctx.attrs, "output_paths", [])):
+        parts.append("output_path={}".format(path))
+    for suffix in sorted(getattr(ctx.attrs, "excluded_file_suffixes", [])):
+        parts.append("excluded_file_suffix={}".format(suffix))
+    for path in sorted(getattr(ctx.attrs, "normalize_work_dir_text_paths", [])):
+        parts.append("normalize_work_dir_text_path={}".format(path))
+    for output, paths in sorted(getattr(ctx.attrs, "split_pkg_config_paths", {}).items()):
+        for path in sorted(paths):
+            parts.append("split_pkg_config_path={}={}".format(output, path))
+
     if hasattr(ctx.attrs, "kernel_release"):
         parts.append("kernel_release={}".format(ctx.attrs.kernel_release))
 
@@ -334,18 +369,19 @@ def _recipe_semantic_parts(ctx):
 
     return parts
 
-def _store_path_parts(ctx, deps_by_role):
+def _store_path_parts(ctx, deps_by_role, output = None):
+    output = ctx.attrs.output if output == None else output
     store_name = _store_name(
         ctx.attrs.package_name,
         ctx.attrs.version,
-        ctx.attrs.output,
+        output,
     )
-    package_digest = _package_instance_digest(ctx, deps_by_role)
+    package_digest = _package_instance_digest(ctx, deps_by_role, output = output)
     store_path_key = sha256(
         "\n".join([
             STORE_ABI_VERSION,
             package_digest,
-            ctx.attrs.output,
+            output,
             store_name,
         ]),
     )[:32]
@@ -437,10 +473,11 @@ def _deps_by_role(ctx):
         deps_by_role.append(("python_bytecode_interpreters", [dep[PkgsPackageInfo] for dep in python_bytecode_interpreters]))
     return deps_by_role
 
-def _package_metadata(ctx):
+def _package_metadata(ctx, output = None, runtime_deps = None, runtime_infos = None):
+    output = ctx.attrs.output if output == None else output
     deps_by_role = _deps_by_role(ctx)
     dependency_infos = [dep for _, deps in deps_by_role for dep in deps]
-    store_path_key, store_name, store_entry = _store_path_parts(ctx, deps_by_role)
+    store_path_key, store_name, store_entry = _store_path_parts(ctx, deps_by_role, output = output)
     logical_store_path = "{}/{}".format(LOGICAL_STORE_ROOT, store_entry)
     store_path = ctx.actions.store_path(
         store_path_key = store_path_key,
@@ -454,8 +491,10 @@ def _package_metadata(ctx):
         store_entry,
         [dep.build_closure for dep in dependency_infos],
     )
-    runtime_deps = [dep for dep in ctx.attrs.runtime_inputs] + getattr(ctx.attrs, "link_inputs", [])
-    runtime_infos = [dep[PkgsPackageInfo] for dep in runtime_deps]
+    if runtime_infos == None:
+        if runtime_deps == None:
+            runtime_deps = [dep for dep in ctx.attrs.runtime_inputs] + getattr(ctx.attrs, "link_inputs", [])
+        runtime_infos = [dep[PkgsPackageInfo] for dep in runtime_deps]
     runtime_closure = _collect_closure(
         store_entry,
         [dep.runtime_closure for dep in runtime_infos],
@@ -493,8 +532,35 @@ def _package_metadata(ctx):
         validation_outputs = validation_outputs,
     )
 
-def _declare_reproducibility_stamp(ctx, metadata, replay_tree):
-    stamp = ctx.actions.declare_output("{}.reproducible".format(ctx.label.name))
+def _split_output_metadata(ctx, primary_metadata):
+    primary_output = ctx.attrs.output
+    primary_package = _package_info(ctx, primary_metadata.store_output, primary_metadata, primary_output)
+    split_runtime_outputs = ctx.attrs.split_runtime_outputs
+
+    for output in split_runtime_outputs:
+        if output not in ctx.attrs.split_outputs:
+            fail("package {} declares runtime outputs for unknown split output {}".format(ctx.label, output))
+
+    split_metadata = {}
+    for output in ctx.attrs.split_outputs:
+        runtime_infos = []
+        for runtime_output in split_runtime_outputs.get(output, []):
+            if runtime_output != primary_output:
+                fail(
+                    "package {} split output {} may currently depend only on primary output {}, not {}".format(
+                        ctx.label,
+                        output,
+                        primary_output,
+                        runtime_output,
+                    ),
+                )
+            runtime_infos.append(primary_package)
+        split_metadata[output] = _package_metadata(ctx, output = output, runtime_infos = runtime_infos)
+    return split_metadata
+
+def _declare_reproducibility_stamp(ctx, metadata, replay_tree, output = None):
+    stem = ctx.label.name if output == None else "{}.{}".format(ctx.label.name, output)
+    stamp = ctx.actions.declare_output("{}.reproducible".format(stem))
     ctx.actions.run(
         cmd_args([
             ctx.attrs._reproducibility_verifier[RunInfo],
@@ -506,12 +572,13 @@ def _declare_reproducibility_stamp(ctx, metadata, replay_tree):
             stamp.as_output(),
         ]),
         category = "pkgs_verify_reproducible_tree",
-        identifier = ctx.label.name,
+        identifier = stem,
     )
     return stamp
 
-def _declare_archive_metadata_stamp(ctx, metadata):
-    stamp = ctx.actions.declare_output("{}.archive_metadata".format(ctx.label.name))
+def _declare_archive_metadata_stamp(ctx, metadata, output = None):
+    stem = ctx.label.name if output == None else "{}.{}".format(ctx.label.name, output)
+    stamp = ctx.actions.declare_output("{}.archive_metadata".format(stem))
     ctx.actions.run(
         cmd_args([
             ctx.attrs._archive_metadata_verifier[RunInfo],
@@ -521,7 +588,7 @@ def _declare_archive_metadata_stamp(ctx, metadata):
             stamp.as_output(),
         ]),
         category = "pkgs_verify_archive_metadata",
-        identifier = ctx.label.name,
+        identifier = stem,
     )
     return stamp
 
@@ -531,31 +598,89 @@ def _package_sub_targets(reproducibility_stamp, archive_metadata_stamp):
         "reproducible": [DefaultInfo(default_output = reproducibility_stamp)],
     }
 
-def _package_result(ctx, tree, metadata, reproducibility_stamp, archive_metadata_stamp, other_outputs = []):
-    return [
+def _pkg_config_provider_for_path(logical_store_path, paths):
+    if not paths:
+        return None
+    return PkgConfigInfo(
+        search_paths = [
+            "{}/{}".format(logical_store_path, path)
+            for path in paths
+        ],
+    )
+
+def _pkg_config_provider(metadata, paths):
+    return _pkg_config_provider_for_path(metadata.logical_store_path, paths)
+
+def _package_info(ctx, tree, metadata, output):
+    return PkgsPackageInfo(
+        build_closure = metadata.build_closure,
+        foreign_build_entries = metadata.foreign_build_entries,
+        foreign_runtime_entries = metadata.foreign_runtime_entries,
+        is_foreign = ctx.attrs.foreign,
+        logical_store_path = metadata.logical_store_path,
+        name = ctx.attrs.package_name,
+        output = output,
+        runtime_closure = metadata.runtime_closure,
+        runtime_store_outputs = metadata.runtime_store_outputs,
+        store_entry = metadata.store_entry,
+        store_output = metadata.store_output,
+        store_path_key = metadata.store_path_key,
+        tree = tree,
+        validation_outputs = metadata.validation_outputs,
+        version = ctx.attrs.version,
+    )
+
+def _package_result(
+        ctx,
+        tree,
+        metadata,
+        reproducibility_stamp,
+        archive_metadata_stamp,
+        other_outputs = [],
+        output_records = {}):
+    result = [
         DefaultInfo(
             default_output = metadata.store_output,
             other_outputs = other_outputs,
             sub_targets = _package_sub_targets(reproducibility_stamp, archive_metadata_stamp),
         ),
-        PkgsPackageInfo(
-            build_closure = metadata.build_closure,
-            foreign_build_entries = metadata.foreign_build_entries,
-            foreign_runtime_entries = metadata.foreign_runtime_entries,
-            is_foreign = ctx.attrs.foreign,
-            logical_store_path = metadata.logical_store_path,
-            name = ctx.attrs.package_name,
-            output = ctx.attrs.output,
-            runtime_closure = metadata.runtime_closure,
-            runtime_store_outputs = metadata.runtime_store_outputs,
-            store_entry = metadata.store_entry,
-            store_output = metadata.store_output,
-            store_path_key = metadata.store_path_key,
-            tree = tree,
-            validation_outputs = metadata.validation_outputs,
-            version = ctx.attrs.version,
-        ),
+        _package_info(ctx, tree, metadata, ctx.attrs.output),
     ]
+    pkg_config = _pkg_config_provider(metadata, getattr(ctx.attrs, "pkg_config_paths", []))
+    if pkg_config != None:
+        result.append(pkg_config)
+    if output_records:
+        result.append(PkgsOutputSetInfo(outputs = output_records))
+    return result
+
+def _pkgs_package_output_impl(ctx):
+    record = ctx.attrs.package[PkgsOutputSetInfo].outputs[ctx.attrs.output]
+    result = [
+        DefaultInfo(
+            default_output = record.package.store_output,
+            sub_targets = _package_sub_targets(record.reproducibility_stamp, record.archive_metadata_stamp),
+        ),
+        record.package,
+    ]
+    if record.pkg_config != None:
+        result.append(record.pkg_config)
+    return result
+
+_pkgs_package_output = rule(
+    impl = _pkgs_package_output_impl,
+    attrs = {
+        "output": attrs.string(),
+        "package": attrs.dep(providers = [PkgsOutputSetInfo]),
+    },
+)
+
+def pkgs_package_output(name, package, output, visibility = []):
+    _pkgs_package_output(
+        name = name,
+        package = package,
+        output = output,
+        visibility = visibility,
+    )
 
 def _stage_tree_package(ctx, tree):
     metadata = _package_metadata(ctx)
@@ -646,6 +771,7 @@ _pkgs_package = rule(
         "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
+        "pkg_config_paths": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source_digests": attrs.list(attrs.string(), default = []),
         "src": attrs.dep(providers = [DefaultInfo]),
@@ -685,7 +811,8 @@ def pkgs_package(
         build_inputs = [],
         target_inputs = [],
         runtime_inputs = [],
-        visibility = []):
+        visibility = [],
+        pkg_config_paths = []):
     source = _source_set(name, sources)
     _pkgs_package(
         name = name,
@@ -694,6 +821,7 @@ def pkgs_package(
         output = output,
         builder = builder,
         foreign = foreign,
+        pkg_config_paths = pkg_config_paths,
         source_digests = source.digests,
         src = source.dep,
         target_system = _TARGET_SYSTEM,
@@ -1044,7 +1172,7 @@ def _pkgs_imported_store_output_impl(ctx):
         identifier = ctx.label.name,
     )
 
-    return [
+    result = [
         DefaultInfo(default_output = store_output),
         PkgsPackageInfo(
             build_closure = runtime_closure,
@@ -1064,10 +1192,15 @@ def _pkgs_imported_store_output_impl(ctx):
             version = substitute.version,
         ),
     ]
+    pkg_config = _pkg_config_provider_for_path(substitute.logical_store_path, ctx.attrs.pkg_config_paths)
+    if pkg_config != None:
+        result.append(pkg_config)
+    return result
 
 _pkgs_imported_store_output = rule(
     impl = _pkgs_imported_store_output_impl,
     attrs = {
+        "pkg_config_paths": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "substitute": attrs.dep(providers = [PkgsStoreSubstituteInfo]),
         "_importer": attrs.default_only(
@@ -1079,10 +1212,11 @@ _pkgs_imported_store_output = rule(
     },
 )
 
-def pkgs_imported_store_output(name, substitute, runtime_inputs = [], visibility = []):
+def pkgs_imported_store_output(name, substitute, runtime_inputs = [], visibility = [], pkg_config_paths = []):
     _pkgs_imported_store_output(
         name = name,
         substitute = substitute,
+        pkg_config_paths = pkg_config_paths,
         runtime_inputs = runtime_inputs,
         visibility = visibility,
     )
@@ -1123,7 +1257,7 @@ def _pkgs_hydrated_store_output_impl(ctx):
         store_output,
         runtime_inputs,
     )
-    return [
+    result = [
         DefaultInfo(default_output = store_output),
         PkgsPackageInfo(
             build_closure = runtime_closure,
@@ -1143,6 +1277,10 @@ def _pkgs_hydrated_store_output_impl(ctx):
             version = ctx.attrs.version,
         ),
     ]
+    pkg_config = _pkg_config_provider_for_path(logical_store_path, ctx.attrs.pkg_config_paths)
+    if pkg_config != None:
+        result.append(pkg_config)
+    return result
 
 _pkgs_hydrated_store_output = rule(
     impl = _pkgs_hydrated_store_output_impl,
@@ -1152,6 +1290,7 @@ _pkgs_hydrated_store_output = rule(
         "missing_hint": attrs.string(),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
+        "pkg_config_paths": attrs.list(attrs.string(), default = []),
         "references": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "runtime_store_entries": attrs.list(attrs.string(), default = []),
@@ -1176,7 +1315,8 @@ def pkgs_hydrated_store_output(
         references = [],
         runtime_store_entries = [],
         runtime_inputs = [],
-        visibility = []):
+        visibility = [],
+        pkg_config_paths = []):
     _pkgs_hydrated_store_output(
         name = name,
         manifest = manifest,
@@ -1184,6 +1324,7 @@ def pkgs_hydrated_store_output(
         package_name = package_name,
         version = version,
         output = output,
+        pkg_config_paths = pkg_config_paths,
         store_path_key = store_path_key,
         store_name = store_name,
         target_system = target_system,
@@ -1231,7 +1372,7 @@ def _pkgs_cas_store_output_impl(ctx):
         store_output,
         runtime_inputs,
     )
-    return [
+    result = [
         DefaultInfo(default_output = store_output),
         PkgsPackageInfo(
             build_closure = runtime_closure,
@@ -1251,6 +1392,10 @@ def _pkgs_cas_store_output_impl(ctx):
             version = ctx.attrs.version,
         ),
     ]
+    pkg_config = _pkg_config_provider_for_path(logical_store_path, ctx.attrs.pkg_config_paths)
+    if pkg_config != None:
+        result.append(pkg_config)
+    return result
 
 _pkgs_cas_store_output = rule(
     impl = _pkgs_cas_store_output_impl,
@@ -1261,6 +1406,7 @@ _pkgs_cas_store_output = rule(
         "cas_use_case": attrs.string(default = "buckpkgs-published"),
         "output": attrs.string(default = "out"),
         "package_name": attrs.string(),
+        "pkg_config_paths": attrs.list(attrs.string(), default = []),
         "references": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "runtime_store_entries": attrs.list(attrs.string(), default = []),
@@ -1286,7 +1432,8 @@ def pkgs_cas_store_output(
         runtime_store_entries = [],
         runtime_inputs = [],
         cas_use_case = "buckpkgs-published",
-        visibility = []):
+        visibility = [],
+        pkg_config_paths = []):
     _pkgs_cas_store_output(
         name = name,
         manifest = manifest,
@@ -1296,6 +1443,7 @@ def pkgs_cas_store_output(
         package_name = package_name,
         version = version,
         output = output,
+        pkg_config_paths = pkg_config_paths,
         store_path_key = store_path_key,
         store_name = store_name,
         target_system = target_system,
@@ -1382,7 +1530,7 @@ def _pkgs_seed_cut_impl(ctx):
         identifier = ctx.label.name,
     )
 
-    return [
+    result = [
         DefaultInfo(default_output = package.store_output, other_outputs = [stamp]),
         PkgsPackageInfo(
             build_closure = package.build_closure,
@@ -1402,6 +1550,9 @@ def _pkgs_seed_cut_impl(ctx):
             version = package.version,
         ),
     ]
+    if PkgConfigInfo in ctx.attrs.package:
+        result.append(ctx.attrs.package[PkgConfigInfo])
+    return result
 
 pkgs_seed_cut = rule(
     impl = _pkgs_seed_cut_impl,
@@ -1496,7 +1647,30 @@ pkgs_elf_interpreters = rule(
     },
 )
 
-def _make_install_args(ctx, source, output, metadata, native_build_inputs, link_inputs):
+def _pkg_config_search_paths(deps):
+    paths = []
+    for dep in deps:
+        if PkgConfigInfo in dep:
+            paths.extend(dep[PkgConfigInfo].search_paths)
+    return paths
+
+def _add_pkg_config_args(ctx, args):
+    for path in _pkg_config_search_paths(ctx.attrs.build_inputs + getattr(ctx.attrs, "link_inputs", [])):
+        args.add("--pkg-config-path", path)
+    for path in _pkg_config_search_paths(ctx.attrs.native_build_inputs):
+        args.add("--pkg-config-path-for-build", path)
+    for path in _pkg_config_search_paths(ctx.attrs.target_inputs):
+        args.add("--pkg-config-path-for-target", path)
+
+def _make_install_args(
+        ctx,
+        source,
+        output,
+        metadata,
+        native_build_inputs,
+        link_inputs,
+        split_metadata = {},
+        split_trees = {}):
     self_store_path = metadata.logical_store_path
 
     args = cmd_args([
@@ -1517,6 +1691,16 @@ def _make_install_args(ctx, source, output, metadata, native_build_inputs, link_
         )
     for dep in link_inputs:
         args.add("--link-input", dep.logical_store_path)
+    _add_pkg_config_args(ctx, args)
+    for path in ctx.attrs.output_paths:
+        args.add("--output-path", path)
+    for suffix in ctx.attrs.excluded_file_suffixes:
+        args.add("--exclude-file-suffix", suffix)
+    for name, paths in sorted(ctx.attrs.split_outputs.items()):
+        args.add("--split-output", cmd_args(["{}=".format(name), split_trees[name]], delimiter = ""))
+        args.add("--split-output-prefix", "{}={}".format(name, split_metadata[name].logical_store_path))
+        for path in paths:
+            args.add("--split-path", "{}={}".format(name, path))
     for arg in ctx.attrs.make_args:
         args.add("--make-arg={}".format(arg))
     for prefix, dep, suffix in ctx.attrs.make_arg_store_paths:
@@ -1577,6 +1761,7 @@ def _pkgs_make_install_package_impl(ctx):
     build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
     link_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.link_inputs]
     metadata = _package_metadata(ctx)
+    split_metadata = _split_output_metadata(ctx, metadata)
 
     native_runtime_store_outputs = [
         output
@@ -1593,6 +1778,7 @@ def _pkgs_make_install_package_impl(ctx):
         for dep in ctx.attrs.python_bytecode_interpreters
         for output in dep[PkgsPackageInfo].runtime_store_outputs
     ]
+    target_store_outputs = [dep[PkgsPackageInfo].store_output for dep in ctx.attrs.target_inputs]
     ctx.actions.run(
         cmd_args(
             _make_install_args(
@@ -1602,14 +1788,23 @@ def _pkgs_make_install_package_impl(ctx):
                 metadata,
                 native_build_inputs,
                 link_inputs,
+                split_metadata = split_metadata,
+                split_trees = {
+                    output: output_metadata.store_output.as_output()
+                    for output, output_metadata in split_metadata.items()
+                },
             ),
-            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + target_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_make_install",
         identifier = ctx.label.name,
     )
 
     replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    split_replay_trees = {
+        output: ctx.actions.declare_output("{}.{}.replay".format(ctx.label.name, output), dir = True)
+        for output in ctx.attrs.split_outputs
+    }
     ctx.actions.run(
         cmd_args(
             _make_install_args(
@@ -1619,14 +1814,32 @@ def _pkgs_make_install_package_impl(ctx):
                 metadata,
                 native_build_inputs,
                 link_inputs,
+                split_metadata = split_metadata,
+                split_trees = {
+                    output: tree.as_output()
+                    for output, tree in split_replay_trees.items()
+                },
             ),
-            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + target_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_replay_make_install",
         identifier = ctx.label.name,
     )
     reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
     archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+    output_records = {}
+    for output, output_metadata in split_metadata.items():
+        output_records[output] = struct(
+            archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, output_metadata, output = output),
+            package = _package_info(ctx, output_metadata.store_output, output_metadata, output),
+            pkg_config = _pkg_config_provider(output_metadata, ctx.attrs.split_pkg_config_paths.get(output, [])),
+            reproducibility_stamp = _declare_reproducibility_stamp(
+                ctx,
+                output_metadata,
+                split_replay_trees[output],
+                output = output,
+            ),
+        )
 
     return _package_result(
         ctx,
@@ -1634,6 +1847,11 @@ def _pkgs_make_install_package_impl(ctx):
         metadata,
         reproducibility_stamp,
         archive_metadata_stamp,
+        other_outputs = [
+            output_metadata.store_output
+            for output_metadata in split_metadata.values()
+        ],
+        output_records = output_records,
     )
 
 _pkgs_make_install_package = rule(
@@ -1690,6 +1908,8 @@ _pkgs_make_install_package = rule(
         "make_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
         "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
+        "output_paths": attrs.list(attrs.string(), default = []),
+        "excluded_file_suffixes": attrs.list(attrs.string(), default = []),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
         "patch_strip": attrs.int(default = 1),
@@ -1697,9 +1917,13 @@ _pkgs_make_install_package = rule(
         "python_bytecode_dirs": attrs.list(attrs.string(), default = []),
         "python_bytecode_interpreters": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "python_bytecode_optimizations": attrs.list(attrs.int(), default = []),
+        "pkg_config_paths": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source": attrs.dep(providers = [DefaultInfo]),
         "source_digests": attrs.list(attrs.string(), default = []),
+        "split_outputs": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
+        "split_pkg_config_paths": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
+        "split_runtime_outputs": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
         "symlinks": attrs.dict(attrs.string(), attrs.string(), default = {}),
         "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -1830,7 +2054,15 @@ _pkgs_linux_headers_package = rule(
     },
 )
 
-def _configure_make_install_args(ctx, source, output, metadata, native_build_inputs, link_inputs):
+def _configure_make_install_args(
+        ctx,
+        source,
+        output,
+        metadata,
+        native_build_inputs,
+        link_inputs,
+        split_metadata = {},
+        split_trees = {}):
     self_store_path = metadata.logical_store_path
 
     args = cmd_args([
@@ -1851,8 +2083,22 @@ def _configure_make_install_args(ctx, source, output, metadata, native_build_inp
         )
     for dep in link_inputs:
         args.add("--link-input", dep.logical_store_path)
+    _add_pkg_config_args(ctx, args)
+    for path in ctx.attrs.output_paths:
+        args.add("--output-path", path)
+    for suffix in ctx.attrs.excluded_file_suffixes:
+        args.add("--exclude-file-suffix", suffix)
+    for path in ctx.attrs.normalize_work_dir_text_paths:
+        args.add("--normalize-work-dir-text-path", path)
+    for name, paths in sorted(ctx.attrs.split_outputs.items()):
+        args.add("--split-output", cmd_args(["{}=".format(name), split_trees[name]], delimiter = ""))
+        args.add("--split-output-prefix", "{}={}".format(name, split_metadata[name].logical_store_path))
+        for path in paths:
+            args.add("--split-path", "{}={}".format(name, path))
     for arg in ctx.attrs.configure_args:
         args.add("--configure-arg={}".format(arg))
+    args.add("--configure-program={}".format(ctx.attrs.configure_program))
+    args.add("--configure-prefix-arg={}".format(ctx.attrs.configure_prefix_arg))
     if ctx.attrs.out_of_source:
         args.add("--out-of-source")
     for prefix, dep, suffix in ctx.attrs.configure_arg_store_paths:
@@ -1917,6 +2163,7 @@ def _pkgs_configure_make_install_package_impl(ctx):
     build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
     link_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.link_inputs]
     metadata = _package_metadata(ctx)
+    split_metadata = _split_output_metadata(ctx, metadata)
 
     native_runtime_store_outputs = [
         output
@@ -1933,6 +2180,7 @@ def _pkgs_configure_make_install_package_impl(ctx):
         for dep in ctx.attrs.python_bytecode_interpreters
         for output in dep[PkgsPackageInfo].runtime_store_outputs
     ]
+    target_store_outputs = [dep[PkgsPackageInfo].store_output for dep in ctx.attrs.target_inputs]
 
     ctx.actions.run(
         cmd_args(
@@ -1943,14 +2191,23 @@ def _pkgs_configure_make_install_package_impl(ctx):
                 metadata,
                 native_build_inputs,
                 link_inputs,
+                split_metadata = split_metadata,
+                split_trees = {
+                    output: output_metadata.store_output.as_output()
+                    for output, output_metadata in split_metadata.items()
+                },
             ),
-            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + target_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_configure_make_install",
         identifier = ctx.label.name,
     )
 
     replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    split_replay_trees = {
+        output: ctx.actions.declare_output("{}.{}.replay".format(ctx.label.name, output), dir = True)
+        for output in ctx.attrs.split_outputs
+    }
     ctx.actions.run(
         cmd_args(
             _configure_make_install_args(
@@ -1960,14 +2217,32 @@ def _pkgs_configure_make_install_package_impl(ctx):
                 metadata,
                 native_build_inputs,
                 link_inputs,
+                split_metadata = split_metadata,
+                split_trees = {
+                    output: tree.as_output()
+                    for output, tree in split_replay_trees.items()
+                },
             ),
-            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+            hidden = native_runtime_store_outputs + link_runtime_store_outputs + python_bytecode_runtime_store_outputs + target_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_replay_configure_make_install",
         identifier = ctx.label.name,
     )
     reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
     archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+    output_records = {}
+    for output, output_metadata in split_metadata.items():
+        output_records[output] = struct(
+            archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, output_metadata, output = output),
+            package = _package_info(ctx, output_metadata.store_output, output_metadata, output),
+            pkg_config = _pkg_config_provider(output_metadata, ctx.attrs.split_pkg_config_paths.get(output, [])),
+            reproducibility_stamp = _declare_reproducibility_stamp(
+                ctx,
+                output_metadata,
+                split_replay_trees[output],
+                output = output,
+            ),
+        )
 
     return _package_result(
         ctx,
@@ -1975,6 +2250,11 @@ def _pkgs_configure_make_install_package_impl(ctx):
         metadata,
         reproducibility_stamp,
         archive_metadata_stamp,
+        other_outputs = [
+            output_metadata.store_output
+            for output_metadata in split_metadata.values()
+        ],
+        output_records = output_records,
     )
 
 _pkgs_configure_make_install_package = rule(
@@ -2004,6 +2284,8 @@ _pkgs_configure_make_install_package = rule(
             default = [],
         ),
         "configure_args": attrs.list(attrs.string(), default = []),
+        "configure_program": attrs.string(default = "./configure"),
+        "configure_prefix_arg": attrs.string(default = "--prefix="),
         "configure_env": attrs.list(attrs.string(), default = []),
         "configure_env_store_paths": attrs.list(
             attrs.tuple(
@@ -2055,6 +2337,9 @@ _pkgs_configure_make_install_package = rule(
         "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "out_of_source": attrs.bool(default = False),
         "output": attrs.string(default = "out"),
+        "output_paths": attrs.list(attrs.string(), default = []),
+        "excluded_file_suffixes": attrs.list(attrs.string(), default = []),
+        "normalize_work_dir_text_paths": attrs.list(attrs.string(), default = []),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
         "patch_strip": attrs.int(default = 1),
@@ -2063,8 +2348,12 @@ _pkgs_configure_make_install_package = rule(
         "python_bytecode_interpreters": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "python_bytecode_optimizations": attrs.list(attrs.int(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
+        "pkg_config_paths": attrs.list(attrs.string(), default = []),
         "source": attrs.dep(providers = [DefaultInfo]),
         "source_digests": attrs.list(attrs.string(), default = []),
+        "split_outputs": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
+        "split_pkg_config_paths": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
+        "split_runtime_outputs": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
         "symlinks": attrs.dict(attrs.string(), attrs.string(), default = {}),
         "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -2090,7 +2379,15 @@ _pkgs_configure_make_install_package = rule(
     },
 )
 
-def _meson_install_args(ctx, source, output, metadata, native_build_inputs, link_inputs):
+def _meson_install_args(
+        ctx,
+        source,
+        output,
+        metadata,
+        native_build_inputs,
+        link_inputs,
+        split_metadata = {},
+        split_trees = {}):
     self_store_path = metadata.logical_store_path
 
     args = cmd_args([
@@ -2111,6 +2408,16 @@ def _meson_install_args(ctx, source, output, metadata, native_build_inputs, link
         )
     for dep in link_inputs:
         args.add("--link-input", dep.logical_store_path)
+    _add_pkg_config_args(ctx, args)
+    for path in ctx.attrs.output_paths:
+        args.add("--output-path", path)
+    for suffix in ctx.attrs.excluded_file_suffixes:
+        args.add("--exclude-file-suffix", suffix)
+    for name, paths in sorted(ctx.attrs.split_outputs.items()):
+        args.add("--split-output", cmd_args(["{}=".format(name), split_trees[name]], delimiter = ""))
+        args.add("--split-output-prefix", "{}={}".format(name, split_metadata[name].logical_store_path))
+        for path in paths:
+            args.add("--split-path", "{}={}".format(name, path))
     for arg in ctx.attrs.meson_args:
         args.add("--meson-arg={}".format(arg))
     for prefix, dep, suffix in ctx.attrs.meson_arg_store_paths:
@@ -2172,6 +2479,7 @@ def _pkgs_meson_install_package_impl(ctx):
     build_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.build_inputs]
     link_inputs = [dep[PkgsPackageInfo] for dep in ctx.attrs.link_inputs]
     metadata = _package_metadata(ctx)
+    split_metadata = _split_output_metadata(ctx, metadata)
 
     native_runtime_store_outputs = [
         output
@@ -2183,6 +2491,7 @@ def _pkgs_meson_install_package_impl(ctx):
         for dep in link_inputs
         for output in dep.runtime_store_outputs
     ]
+    target_store_outputs = [dep[PkgsPackageInfo].store_output for dep in ctx.attrs.target_inputs]
 
     ctx.actions.run(
         cmd_args(
@@ -2193,14 +2502,23 @@ def _pkgs_meson_install_package_impl(ctx):
                 metadata,
                 native_build_inputs,
                 link_inputs,
+                split_metadata = split_metadata,
+                split_trees = {
+                    output: output_metadata.store_output.as_output()
+                    for output, output_metadata in split_metadata.items()
+                },
             ),
-            hidden = native_runtime_store_outputs + link_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+            hidden = native_runtime_store_outputs + link_runtime_store_outputs + target_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_meson_install",
         identifier = ctx.label.name,
     )
 
     replay_tree = ctx.actions.declare_output("{}.replay".format(ctx.label.name), dir = True)
+    split_replay_trees = {
+        output: ctx.actions.declare_output("{}.{}.replay".format(ctx.label.name, output), dir = True)
+        for output in ctx.attrs.split_outputs
+    }
     ctx.actions.run(
         cmd_args(
             _meson_install_args(
@@ -2210,14 +2528,32 @@ def _pkgs_meson_install_package_impl(ctx):
                 metadata,
                 native_build_inputs,
                 link_inputs,
+                split_metadata = split_metadata,
+                split_trees = {
+                    output: tree.as_output()
+                    for output, tree in split_replay_trees.items()
+                },
             ),
-            hidden = native_runtime_store_outputs + link_runtime_store_outputs + [dep.store_output for dep in build_inputs],
+            hidden = native_runtime_store_outputs + link_runtime_store_outputs + target_store_outputs + [dep.store_output for dep in build_inputs],
         ),
         category = "pkgs_replay_meson_install",
         identifier = ctx.label.name,
     )
     reproducibility_stamp = _declare_reproducibility_stamp(ctx, metadata, replay_tree)
     archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, metadata)
+    output_records = {}
+    for output, output_metadata in split_metadata.items():
+        output_records[output] = struct(
+            archive_metadata_stamp = _declare_archive_metadata_stamp(ctx, output_metadata, output = output),
+            package = _package_info(ctx, output_metadata.store_output, output_metadata, output),
+            pkg_config = _pkg_config_provider(output_metadata, ctx.attrs.split_pkg_config_paths.get(output, [])),
+            reproducibility_stamp = _declare_reproducibility_stamp(
+                ctx,
+                output_metadata,
+                split_replay_trees[output],
+                output = output,
+            ),
+        )
 
     return _package_result(
         ctx,
@@ -2225,6 +2561,11 @@ def _pkgs_meson_install_package_impl(ctx):
         metadata,
         reproducibility_stamp,
         archive_metadata_stamp,
+        other_outputs = [
+            output_metadata.store_output
+            for output_metadata in split_metadata.values()
+        ],
+        output_records = output_records,
     )
 
 _pkgs_meson_install_package = rule(
@@ -2303,13 +2644,19 @@ _pkgs_meson_install_package = rule(
         "meson_jobs": attrs.int(default = DEFAULT_MAKE_JOBS),
         "native_build_inputs": attrs.list(attrs.exec_dep(providers = [PkgsPackageInfo]), default = []),
         "output": attrs.string(default = "out"),
+        "output_paths": attrs.list(attrs.string(), default = []),
+        "excluded_file_suffixes": attrs.list(attrs.string(), default = []),
         "package_name": attrs.string(),
         "patch_digests": attrs.list(attrs.string(), default = []),
         "patch_strip": attrs.int(default = 1),
         "patches": attrs.list(attrs.dep(providers = [DefaultInfo]), default = []),
+        "pkg_config_paths": attrs.list(attrs.string(), default = []),
         "runtime_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
         "source": attrs.dep(providers = [DefaultInfo]),
         "source_digests": attrs.list(attrs.string(), default = []),
+        "split_outputs": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
+        "split_pkg_config_paths": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
+        "split_runtime_outputs": attrs.dict(attrs.string(), attrs.list(attrs.string()), default = {}),
         "symlinks": attrs.dict(attrs.string(), attrs.string(), default = {}),
         "target_system": attrs.string(),
         "target_inputs": attrs.list(attrs.dep(providers = [PkgsPackageInfo]), default = []),
@@ -2541,6 +2888,8 @@ def pkgs_make_install_package(
         patch_strip = 1,
         symlinks = {},
         output = "out",
+        output_paths = [],
+        excluded_file_suffixes = [],
         native_build_inputs = [],
         build_inputs = [],
         link_inputs = [],
@@ -2548,7 +2897,11 @@ def pkgs_make_install_package(
         python_bytecode_dirs = [],
         python_bytecode_interpreter = None,
         python_bytecode_optimizations = [0],
-        visibility = []):
+        visibility = [],
+        pkg_config_paths = [],
+        split_outputs = {},
+        split_pkg_config_paths = {},
+        split_runtime_outputs = {}):
     _validate_make_jobs(name, make_jobs)
     _validate_python_bytecode(name, python_bytecode_dirs, python_bytecode_interpreter, python_bytecode_optimizations)
     source = _source_set(name, sources)
@@ -2559,7 +2912,9 @@ def pkgs_make_install_package(
         package_name = package_name,
         version = version,
         output = output,
-        builder = "make-install-v9",
+        output_paths = output_paths,
+        excluded_file_suffixes = excluded_file_suffixes,
+        builder = "make-install-v12",
         source = source.dep,
         make_args = lowered_make_args.strings,
         make_arg_store_paths = lowered_make_args.store_paths,
@@ -2583,6 +2938,10 @@ def pkgs_make_install_package(
         build_inputs = build_inputs,
         link_inputs = link_inputs,
         target_inputs = [],
+        pkg_config_paths = pkg_config_paths,
+        split_outputs = split_outputs,
+        split_pkg_config_paths = split_pkg_config_paths,
+        split_runtime_outputs = split_runtime_outputs,
         runtime_inputs = runtime_inputs,
         visibility = visibility,
     )
@@ -2593,6 +2952,8 @@ def pkgs_configure_make_install_package(
         version,
         sources,
         configure_args = [],
+        configure_program = "./configure",
+        configure_prefix_arg = "--prefix=",
         configure_env = [],
         out_of_source = False,
         make_args = [],
@@ -2602,6 +2963,9 @@ def pkgs_configure_make_install_package(
         patch_strip = 1,
         symlinks = {},
         output = "out",
+        output_paths = [],
+        excluded_file_suffixes = [],
+        normalize_work_dir_text_paths = [],
         native_build_inputs = [],
         build_inputs = [],
         link_inputs = [],
@@ -2609,7 +2973,11 @@ def pkgs_configure_make_install_package(
         python_bytecode_dirs = [],
         python_bytecode_interpreter = None,
         python_bytecode_optimizations = [0],
-        visibility = []):
+        visibility = [],
+        pkg_config_paths = [],
+        split_outputs = {},
+        split_pkg_config_paths = {},
+        split_runtime_outputs = {}):
     _validate_make_jobs(name, make_jobs)
     _validate_python_bytecode(name, python_bytecode_dirs, python_bytecode_interpreter, python_bytecode_optimizations)
     source = _source_set(name, sources)
@@ -2621,9 +2989,14 @@ def pkgs_configure_make_install_package(
         package_name = package_name,
         version = version,
         output = output,
-        builder = "configure-make-install-v9",
+        output_paths = output_paths,
+        excluded_file_suffixes = excluded_file_suffixes,
+        normalize_work_dir_text_paths = normalize_work_dir_text_paths,
+        builder = "configure-make-install-v13",
         source = source.dep,
         configure_args = lowered_configure_args.strings,
+        configure_program = configure_program,
+        configure_prefix_arg = configure_prefix_arg,
         configure_arg_store_paths = lowered_configure_args.store_paths,
         configure_arg_self_store_paths = lowered_configure_args.self_store_paths,
         configure_arg_store_path_joins = lowered_configure_args.store_path_joins,
@@ -2652,6 +3025,10 @@ def pkgs_configure_make_install_package(
         link_inputs = link_inputs,
         target_inputs = [],
         runtime_inputs = runtime_inputs,
+        pkg_config_paths = pkg_config_paths,
+        split_outputs = split_outputs,
+        split_pkg_config_paths = split_pkg_config_paths,
+        split_runtime_outputs = split_runtime_outputs,
         visibility = visibility,
     )
 
@@ -2668,11 +3045,17 @@ def pkgs_meson_install_package(
         patch_strip = 1,
         symlinks = {},
         output = "out",
+        output_paths = [],
+        excluded_file_suffixes = [],
         native_build_inputs = [],
         build_inputs = [],
         link_inputs = [],
         runtime_inputs = [],
-        visibility = []):
+        visibility = [],
+        pkg_config_paths = [],
+        split_outputs = {},
+        split_pkg_config_paths = {},
+        split_runtime_outputs = {}):
     _validate_make_jobs(name, meson_jobs)
     source = _source_set(name, sources)
     lowered_meson_args = _lower_configure_values(meson_args)
@@ -2683,7 +3066,9 @@ def pkgs_meson_install_package(
         package_name = package_name,
         version = version,
         output = output,
-        builder = "meson-install-v4",
+        output_paths = output_paths,
+        excluded_file_suffixes = excluded_file_suffixes,
+        builder = "meson-install-v8",
         source = source.dep,
         meson_args = lowered_meson_args.strings,
         meson_arg_store_paths = lowered_meson_args.store_paths,
@@ -2708,6 +3093,10 @@ def pkgs_meson_install_package(
         build_inputs = build_inputs,
         link_inputs = link_inputs,
         target_inputs = [],
+        pkg_config_paths = pkg_config_paths,
+        split_outputs = split_outputs,
+        split_pkg_config_paths = split_pkg_config_paths,
+        split_runtime_outputs = split_runtime_outputs,
         runtime_inputs = runtime_inputs,
         visibility = visibility,
     )

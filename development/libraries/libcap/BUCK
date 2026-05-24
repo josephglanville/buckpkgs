@@ -1,0 +1,71 @@
+load(
+    "//rules:pkgs.bzl",
+    "pkgs_http_archive_source",
+    "pkgs_make_install_package",
+    "pkgs_package_output",
+    "pkgs_self_store_path",
+)
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "897bc18b44afc26c70e78cead3dbb31e154acc24bee085a5a09079a88dbf6f52",
+    strip_prefix = "libcap-2.77",
+    urls = ["https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-2.77.tar.xz"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnused:bin",
+]
+
+_MAKE_VARIABLES = [
+    "lib=lib",
+    "PAM_CAP=no",
+    "GOLANG=no",
+    "USE_GPERF=no",
+    "CC=cc",
+    "BUILD_CC=cc",
+    "AR=ar",
+    "RANLIB=ranlib",
+    "OBJCOPY=objcopy",
+    pkgs_self_store_path("prefix=", ""),
+]
+
+pkgs_make_install_package(
+    name = "lib",
+    package_name = "libcap",
+    version = "2.77",
+    sources = [_SOURCE],
+    output = "lib",
+    make_args = ["-C", "libcap"] + _MAKE_VARIABLES,
+    install_args = ["-C", "libcap"] + _MAKE_VARIABLES,
+    output_paths = ["lib"],
+    split_outputs = {
+        "dev": [
+            "include",
+            "lib/libcap.a",
+            "lib/libpsx.a",
+            "lib/pkgconfig",
+        ],
+    },
+    split_pkg_config_paths = {
+        "dev": ["lib/pkgconfig"],
+    },
+    native_build_inputs = _NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_package_output(
+    name = "dev",
+    package = ":lib",
+    output = "dev",
+    visibility = ["PUBLIC"],
+)

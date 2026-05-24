@@ -1,0 +1,48 @@
+load(
+    "//rules:pkgs.bzl",
+    "pkgs_http_archive_source",
+    "pkgs_meson_install_package",
+)
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "3fc7b94dd133539365dc573fe79d207802ce433e6e34b791a8b1080b17803a28",
+    strip_prefix = "bubblewrap-0.11.2",
+    urls = ["https://github.com/containers/bubblewrap/archive/refs/tags/v0.11.2.tar.gz"],
+)
+
+_NATIVE_TOOLS = [
+    "//development/interpreters/python:build_interpreter",
+    "//development/tools/pkg-config:bin",
+    "//development/tools/build-managers/meson:bin",
+    "//development/tools/build-managers/ninja:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+]
+
+pkgs_meson_install_package(
+    name = "bin",
+    package_name = "bubblewrap",
+    version = "0.11.2",
+    sources = [_SOURCE],
+    output = "bin",
+    meson_args = [
+        "-Dselinux=disabled",
+        "-Dbash_completion=disabled",
+        "-Dzsh_completion=disabled",
+        "-Dman=disabled",
+        "-Dtests=false",
+    ],
+    output_paths = ["bin/bwrap"],
+    native_build_inputs = _NATIVE_TOOLS,
+    build_inputs = [
+        "//development/libraries/libcap:dev",
+    ],
+    link_inputs = [
+        "//development/libraries/libcap:lib",
+    ],
+    runtime_inputs = [
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)

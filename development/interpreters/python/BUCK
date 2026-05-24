@@ -1,4 +1,4 @@
-load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_export_patch", "pkgs_http_archive_source", "pkgs_store_path")
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_export_patch", "pkgs_http_archive_source")
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
@@ -16,6 +16,7 @@ _RELATIVE_BUILD_METADATA_PATHS_PATCH = pkgs_export_patch(
 _NATIVE_TOOLS = [
     "//shells/bash:bin",
     "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/pkg-config:bin",
     "//development/tools/misc/binutils:bin",
     "//development/compilers/gcc:bin",
     "//tools/misc/coreutils:bin",
@@ -40,11 +41,10 @@ pkgs_configure_make_install_package(
         "CXX=c++",
         "AR=ar",
         "RANLIB=ranlib",
-        pkgs_store_path("ZLIB_CFLAGS=-I", "//development/libraries/zlib:out", "/include"),
-        "ZLIB_LIBS=-lz",
     ],
     patches = [_RELATIVE_BUILD_METADATA_PATHS_PATCH],
     native_build_inputs = _NATIVE_TOOLS,
+    build_inputs = ["//development/libraries/zlib:dev"],
     link_inputs = ["//development/libraries/zlib:out"],
     python_bytecode_dirs = ["lib/python3.13"],
     python_bytecode_optimizations = [0, 1, 2],

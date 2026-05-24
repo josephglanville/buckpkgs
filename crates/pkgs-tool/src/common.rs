@@ -242,6 +242,31 @@ pub(crate) fn reproducible_command(program: impl AsRef<OsStr>) -> ProcessCommand
     command
 }
 
+pub(crate) fn add_pkg_config_environment(
+    command: &mut ProcessCommand,
+    paths: &[PathBuf],
+    paths_for_build: &[PathBuf],
+    paths_for_target: &[PathBuf],
+) -> Result<(), Error> {
+    add_search_path_environment(command, "PKG_CONFIG_PATH", paths)?;
+    add_search_path_environment(command, "PKG_CONFIG_LIBDIR", paths)?;
+    add_search_path_environment(command, "PKG_CONFIG_PATH_FOR_BUILD", paths_for_build)?;
+    add_search_path_environment(command, "PKG_CONFIG_LIBDIR_FOR_BUILD", paths_for_build)?;
+    add_search_path_environment(command, "PKG_CONFIG_PATH_FOR_TARGET", paths_for_target)?;
+    add_search_path_environment(command, "PKG_CONFIG_LIBDIR_FOR_TARGET", paths_for_target)?;
+    Ok(())
+}
+
+fn add_search_path_environment(
+    command: &mut ProcessCommand,
+    name: &str,
+    paths: &[PathBuf],
+) -> Result<(), Error> {
+    let value = std::env::join_paths(paths).map_err(|source| Error::JoinPath { source })?;
+    command.env(name, value);
+    Ok(())
+}
+
 pub(crate) fn compiler_wrapped_path(
     path: &OsStr,
     work_dir: &Path,

@@ -1026,6 +1026,63 @@ EOF
 }
 
 #[test]
+fn supports_non_gnu_configure_prefix_conventions() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("Configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) exit 1 ;;
+    -Dprefix=*) prefix=${arg#-Dprefix=} ;;
+  esac
+done
+test -n "$prefix"
+cat > Makefile <<EOF
+all:
+	printf built > artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/bin"
+	cp artifact "\$(DESTDIR)$prefix/bin/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("Configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+            "--configure-program",
+            "./Configure",
+            "--configure-prefix-arg=",
+            "--configure-arg=-Dprefix=/pkgs/store/example-package",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(output.join("bin/artifact")).unwrap(),
+        "built"
+    );
+}
+
+#[test]
 fn uses_a_stable_configure_work_dir_under_buck_scratch_path() {
     let temp = tempdir().unwrap();
     let source = temp.path().join("source");
@@ -1249,6 +1306,159 @@ EOF
     assert_eq!(
         fs::read_to_string(output.join("bin/artifact")).unwrap(),
         "unset\n"
+    );
+}
+
+#[test]
+fn configures_with_declared_pkg_config_search_roots_by_role() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+cat > Makefile <<EOF
+all:
+	printf '%s\n' "$PKG_CONFIG_PATH|$PKG_CONFIG_LIBDIR|$PKG_CONFIG_PATH_FOR_BUILD|$PKG_CONFIG_LIBDIR_FOR_BUILD|$PKG_CONFIG_PATH_FOR_TARGET|$PKG_CONFIG_LIBDIR_FOR_TARGET" > artifact
+install:
+	mkdir -p "\$(DESTDIR)$prefix/share"
+	cp artifact "\$(DESTDIR)$prefix/share/artifact"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .env("PKG_CONFIG_PATH", "/host/should/not/leak")
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+            "--pkg-config-path",
+            "/pkgs/store/library-dev/lib/pkgconfig",
+            "--pkg-config-path-for-build",
+            "/pkgs/store/build-library-dev/lib/pkgconfig",
+            "--pkg-config-path-for-target",
+            "/pkgs/store/target-library-dev/lib/pkgconfig",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(output.join("share/artifact")).unwrap(),
+        "/pkgs/store/library-dev/lib/pkgconfig|/pkgs/store/library-dev/lib/pkgconfig|/pkgs/store/build-library-dev/lib/pkgconfig|/pkgs/store/build-library-dev/lib/pkgconfig|/pkgs/store/target-library-dev/lib/pkgconfig|/pkgs/store/target-library-dev/lib/pkgconfig\n"
+    );
+
+    let output_without_roots = temp.path().join("out-without-roots");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .env("PKG_CONFIG_PATH", "/host/should/not/leak")
+        .env("PKG_CONFIG_LIBDIR", "/host/defaults/should/not/leak")
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output_without_roots.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package-without-roots",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::read_to_string(output_without_roots.join("share/artifact")).unwrap(),
+        "|||||\n"
+    );
+}
+
+#[test]
+fn splits_development_output_and_repairs_pkg_config_paths() {
+    let temp = tempdir().unwrap();
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("configure"),
+        r#"#!/bin/sh
+set -eu
+prefix=
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#--prefix=} ;;
+  esac
+done
+cat > Makefile <<EOF
+all:
+	:
+install:
+	mkdir -p "\$(DESTDIR)$prefix/lib/pkgconfig" "\$(DESTDIR)$prefix/include" "\$(DESTDIR)$prefix/share/man"
+	printf library > "\$(DESTDIR)$prefix/lib/libexample.so"
+	printf documentation > "\$(DESTDIR)$prefix/lib/example.pod"
+	printf header > "\$(DESTDIR)$prefix/include/example.h"
+	printf manual > "\$(DESTDIR)$prefix/share/man/example.1"
+	printf 'prefix=%s\nexec_prefix=\$\${prefix}\nlibdir=\$\${exec_prefix}/lib\nincludedir=\$\${prefix}/include\nName: example\n' "$prefix" > "\$(DESTDIR)$prefix/lib/pkgconfig/example.pc"
+EOF
+"#,
+    )
+    .unwrap();
+    let configure = source.join("configure");
+    let mut permissions = fs::metadata(&configure).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&configure, permissions).unwrap();
+
+    let output = temp.path().join("out");
+    let dev_output = temp.path().join("dev");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_configure_make_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--output-path",
+            "lib",
+            "--exclude-file-suffix",
+            ".pod",
+            "--split-output",
+            &format!("dev={}", dev_output.display()),
+            "--split-output-prefix",
+            "dev=/pkgs/store/example-package-dev",
+            "--split-path",
+            "dev=include",
+            "--split-path",
+            "dev=lib/pkgconfig",
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(output.join("lib/libexample.so").exists());
+    assert!(!output.join("lib/example.pod").exists());
+    assert!(!output.join("include/example.h").exists());
+    assert!(!output.join("share/man/example.1").exists());
+    assert!(dev_output.join("include/example.h").exists());
+    assert_eq!(
+        fs::read_to_string(dev_output.join("lib/pkgconfig/example.pc")).unwrap(),
+        "prefix=/pkgs/store/example-package\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=/pkgs/store/example-package-dev/include\nName: example\n"
     );
 }
 
@@ -1836,4 +2046,78 @@ int main(void) {
     assert!(binary
         .windows("source/artifact.c".len())
         .any(|window| window == b"source/artifact.c"));
+}
+
+#[test]
+fn declared_link_inputs_supply_runtime_lookup_for_meson_outputs() {
+    let temp = tempdir().unwrap();
+    let dependency = temp.path().join("dependency");
+    let dependency_lib = dependency.join("lib");
+    fs::create_dir_all(&dependency_lib).unwrap();
+    let dependency_source = temp.path().join("dependency.c");
+    fs::write(
+        &dependency_source,
+        r#"const char *pkgs_link_input_message(void) {
+    return "linked";
+}
+"#,
+    )
+    .unwrap();
+    let dependency_soname = "libpkgs_meson_link_input_test.so.1";
+    let status = Command::new("cc")
+        .arg("-shared")
+        .arg("-fPIC")
+        .arg(&dependency_source)
+        .arg("-Wl,-soname,libpkgs_meson_link_input_test.so.1")
+        .arg("-o")
+        .arg(dependency_lib.join(dependency_soname))
+        .status()
+        .unwrap();
+    assert!(status.success());
+    symlink(
+        dependency_soname,
+        dependency_lib.join("libpkgs_meson_link_input_test.so"),
+    )
+    .unwrap();
+
+    let source = temp.path().join("source");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(
+        source.join("meson.build"),
+        "project('artifact', 'c')\nexecutable('artifact', 'artifact.c', link_args: ['-lpkgs_meson_link_input_test'], install: true)\n",
+    )
+    .unwrap();
+    fs::write(
+        source.join("artifact.c"),
+        r#"#include <stdio.h>
+const char *pkgs_link_input_message(void);
+int main(void) {
+    puts(pkgs_link_input_message());
+    return 0;
+}
+"#,
+    )
+    .unwrap();
+
+    let output = temp.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_pkgs_meson_install"))
+        .args([
+            "--source",
+            source.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--install-prefix",
+            "/pkgs/store/example-package",
+            "--path-entry",
+            "/usr/bin",
+            "--link-input",
+            dependency.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let executed = Command::new(output.join("bin/artifact")).output().unwrap();
+    assert!(executed.status.success());
+    assert_eq!(String::from_utf8(executed.stdout).unwrap(), "linked\n");
 }

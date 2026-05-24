@@ -8,6 +8,10 @@ the bootstrap tree is rebuilt from the local Buck2 fork.
 Implement store substitution for finalized bootstrap outputs without reconnecting
 ordinary consumers to the live bootstrap turnover graph.
 
+Extend ordinary native package realization with named outputs and declared
+`pkg-config` discovery so higher-level ports can depend on explicit,
+hermetic library interfaces.
+
 ## Standing Rules
 
 - Prefer source-backed diagnosis over speculation.
@@ -22,7 +26,8 @@ ordinary consumers to the live bootstrap turnover graph.
   publication. Never repair existing objects on normal reuse.
 - If a store invariant changes after a path was published, change semantic
   package identity and rebuild rather than mutating the existing object.
-- Keep edits scoped to reproducibility and bootstrap support.
+- Keep edits scoped to reproducibility, native package interfaces, and sealed
+  bootstrap consumption needed by higher-layer ports.
 - Keep store-path identity, substitute transport identity, and realized-tree
   identity distinct.
 - Fold every declared value that can change installed bytes, including
@@ -30,6 +35,26 @@ ordinary consumers to the live bootstrap turnover graph.
 - Model package-specific shared-library linkage with declared `link_inputs`;
   recipes select the library interface while realization supplies store-backed
   link lookup, RUNPATH, and runtime closure.
+- Model package metadata discovery with declared `PkgConfigInfo` search roots;
+  dependency roles choose the applicable `pkg-config` environment, and builders
+  must set `PKG_CONFIG_LIBDIR` so ambient host metadata is not visible.
+- Emit named package outputs from the same realization action as the primary
+  output, fold split policy into identity, and repair relocated `*.pc` root
+  variables before sealing. Projected outputs do not silently inherit runtime
+  dependencies from the primary output; declare a `bin` to primary `lib`
+  runtime edge explicitly when an executable projection loads sibling shared
+  libraries.
+- For newly ported packages, use `bin` for runnable programs, `lib` for
+  runtime shared libraries plus indispensable loaded runtime data, `dev` for
+  headers/static archives/build metadata, and `out` only for compound runtime
+  payloads that cannot yet be separated without losing required runtime
+  closure modeling. Defer renaming established bootstrap-facing outputs until
+  that sealed interface is intentionally revised.
+- Do not create `man`, `doc`, or `info` projections by default; those require
+  an explicit package need.
+- Prefer explicit keep-lists for primary outputs on newly ported mixed-content
+  packages. Never discard all of `share` mechanically: retain runtime data
+  such as terminal databases or PostgreSQL installed data explicitly.
 - Do not add an ordinary-build fallback that silently rebuilds the bootstrap
   island when a substitute is absent.
 - Treat the established `bootstrap/foreign_seed` and pinned substitute closure
@@ -57,6 +82,9 @@ ordinary consumers to the live bootstrap turnover graph.
 
 - Formatter and targeted Rust tests for `pkgs-tool` changes.
 - Targeted Buck2 builds for packages whose realization contract changed.
+- For split metadata packages, build/replay each exported output and execute a
+  native `pkg-config` query that resolves headers and libraries only through
+  declared output roots.
 - Store-path scans for workspace paths, scratch paths, host-tool paths, and
   tool-specific metadata leaks after each confirmed fix.
 - Read-only mode inspection for each newly republished package on the validated

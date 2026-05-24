@@ -1,0 +1,44 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_store_path")
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "dc487e11d2f0c9e01555bb1af26be4eae983ec8f0726746505b4327186eb21fc",
+    strip_prefix = "m4-1.4.21",
+    urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.21.tar.bz2"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnused:bin",
+]
+
+pkgs_configure_make_install_package(
+    name = "bin",
+    package_name = "gnum4",
+    version = "1.4.21",
+    sources = [_SOURCE],
+    output = "bin",
+    configure_args = [
+        "--disable-nls",
+        pkgs_store_path("--with-syscmd-shell=", "//shells/bash:bin", "/bin/bash"),
+    ],
+    configure_env = [
+        "CC=cc",
+        "AR=ar",
+        "RANLIB=ranlib",
+    ],
+    output_paths = ["bin"],
+    native_build_inputs = _NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/libraries/glibc:out",
+        "//shells/bash:bin",
+    ],
+    visibility = ["PUBLIC"],
+)

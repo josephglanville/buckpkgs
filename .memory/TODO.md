@@ -23,6 +23,43 @@
       entering the bootstrap producer graph.
 - [x] Prove descriptor-backed installation values change package identity and
       preserve reproducibility through the corrected Meson wrapper and `inih`.
+- [x] Implement declared `PkgConfigInfo` roots and standard-builder
+      `PKG_CONFIG_PATH`/`PKG_CONFIG_LIBDIR` lowering, including empty-root
+      isolation, with native `pkgconf` exported as code-bearing `:bin` and
+      metadata `:dev` outputs.
+- [x] Implement one-realization named output splitting for the make/configure/
+      Meson builders with output projections, per-output validation, and
+      relocated `*.pc` repair; migrate `zlib` to runtime `:out` plus metadata
+      `:dev`.
+- [x] Revalidate reduced Python through pkgconf-discovered `zlib:dev` and its
+      declared `zlib:out` link input; use the same pattern for PostgreSQL
+      dependencies.
+- [x] Build and replay PostgreSQL's initial dependency slice: `zstd`, `lz4`,
+      `ncurses`, and patched `readline`, projecting only runtime/development
+      outputs by default.
+- [x] Bring up PostgreSQL 18.4 with selective `:lib`, `:bin`, and `:dev`
+      projections: runtime data is retained explicitly, development tools and
+      metadata are split out, and projected executables declare their
+      dependency on `:lib`.
+- [x] Run PostgreSQL reproducible replay and archive metadata verification;
+      `:lib`, `:bin`, and `:dev` replay/archive and seed-boundary checks pass,
+      with transient installed PGXS work-directory paths normalized.
+- [x] Port and validate the minimal Bubblewrap path as `libcap -> bubblewrap`:
+      build
+      `libcap` without PAM, Go, man, or documentation outputs, then build
+      `bwrap:bin` with Meson using `-Dselinux=disabled`,
+      `-Dbash_completion=disabled`, `-Dzsh_completion=disabled`,
+      `-Dman=disabled`, and `-Dtests=false`; `libseccomp` is not a Bubblewrap
+      0.11.2 source dependency. Bubblewrap exposed and now tests the generic
+      Meson installed-RUNPATH handling for declared `link_inputs`.
+- [ ] If SELinux-enabled Bubblewrap is required, add the optional branch
+      `pcre2 -> libsepol -> libselinux -> bubblewrap`; reuse the existing Flex
+      build for `libsepol` and continue excluding man/documentation outputs by
+      default.
+- [ ] After PostgreSQL bring-up, audit and align established bootstrap-facing
+      output labels with the runtime/development output vocabulary; do not
+      churn the sealed substitute/toolchain interface during this dependency
+      port.
 - [ ] Define canonical `root//development/interpreters/python:bin` only after
       implementing a full native dependency profile comparable to Nixpkgs
       `python3`: `bzip2`, `libffi`, `libuuid`, `ncurses`, `xz`, `zlib`,

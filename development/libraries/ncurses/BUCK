@@ -1,0 +1,75 @@
+load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archive_source", "pkgs_package_output", "pkgs_self_store_path")
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11",
+    strip_prefix = "ncurses-6.6",
+    urls = ["https://invisible-island.net/archives/ncurses/ncurses-6.6.tar.gz"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnused:bin",
+]
+
+pkgs_configure_make_install_package(
+    name = "lib",
+    package_name = "ncurses",
+    version = "6.6",
+    output = "lib",
+    sources = [_SOURCE],
+    configure_args = [
+        "--with-shared",
+        "--enable-pc-files",
+        "--enable-symlinks",
+        "--with-manpage-format=normal",
+        "--without-manpages",
+        "--disable-stripping",
+        "--with-versioned-syms",
+        "--without-debug",
+        "--disable-widec",
+        "--without-cxx",
+        "cf_cv_type_of_bool=bool",
+        pkgs_self_store_path("--with-pkg-config-libdir=", "/lib/pkgconfig"),
+    ],
+    configure_env = [
+        "CC=cc",
+        "cf_cv_ar_flags=-crvD",
+    ],
+    output_paths = [
+        "lib",
+        "share/terminfo",
+    ],
+    split_outputs = {
+        "dev": [
+            "include",
+            "lib/libform.a",
+            "lib/libmenu.a",
+            "lib/libncurses.a",
+            "lib/libpanel.a",
+            "lib/pkgconfig",
+        ],
+    },
+    split_pkg_config_paths = {
+        "dev": ["lib/pkgconfig"],
+    },
+    native_build_inputs = _NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_package_output(
+    name = "dev",
+    package = ":lib",
+    output = "dev",
+    visibility = ["PUBLIC"],
+)

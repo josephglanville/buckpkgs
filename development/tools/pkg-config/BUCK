@@ -2,9 +2,9 @@ load("//rules:pkgs.bzl", "pkgs_configure_make_install_package", "pkgs_http_archi
 
 _SOURCE = pkgs_http_archive_source(
     name = "source",
-    sha256 = "bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16",
-    strip_prefix = "zlib-1.3.2",
-    urls = ["https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz"],
+    sha256 = "cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243",
+    strip_prefix = "pkgconf-2.5.1",
+    urls = ["https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz"],
 )
 
 _NATIVE_TOOLS = [
@@ -14,32 +14,34 @@ _NATIVE_TOOLS = [
     "//development/compilers/gcc:bin",
     "//tools/misc/coreutils:bin",
     "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
     "//tools/text/gnused:bin",
 ]
 
 pkgs_configure_make_install_package(
-    name = "out",
-    package_name = "zlib",
-    version = "1.3.2",
+    name = "bin",
+    package_name = "pkgconf",
+    version = "2.5.1",
     sources = [_SOURCE],
     configure_args = [
-        "--static",
-        "--shared",
+        "--disable-shared",
+        "--enable-static",
     ],
     configure_env = [
         "CC=cc",
         "AR=ar",
         "RANLIB=ranlib",
     ],
-    make_args = [
-        "AR=ar",
-        "RANLIB=ranlib",
-    ],
-    output_paths = ["lib"],
+    symlinks = {
+        "bin/pkg-config": "pkgconf",
+    },
+    output_paths = ["bin"],
     split_outputs = {
         "dev": [
             "include",
-            "lib/pkgconfig",
+            "lib",
+            "share/aclocal",
         ],
     },
     split_pkg_config_paths = {
@@ -54,7 +56,7 @@ pkgs_configure_make_install_package(
 
 pkgs_package_output(
     name = "dev",
-    package = ":out",
+    package = ":bin",
     output = "dev",
     visibility = ["PUBLIC"],
 )

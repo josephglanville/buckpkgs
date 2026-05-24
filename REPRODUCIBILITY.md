@@ -78,6 +78,22 @@ publication it preserves and validates the producer's modes while already
 copying required metadata. Changing a defective published tree requires a new
 package identity; the ordinary materialization path does not rewrite it.
 
+### Named outputs default to code-bearing interfaces
+
+For newly ported packages, `bin` contains runnable programs, `lib` contains
+runtime shared libraries plus indispensable loaded runtime data, and `dev`
+contains headers, static archives, and build metadata. Reserve `out` for a
+compound runtime payload that cannot yet be separated without losing a
+required runtime edge. A split `bin` output that loads sibling shared
+libraries must declare its dependency on the package's primary `lib` output.
+
+Do not create standalone `man`, `doc`, or `info` projections unless a package
+explicitly needs those outputs. Recipes with mixed upstream installations
+should use explicit primary output keep-lists so documentation does not fall
+into a catch-all runtime output; retain only runtime data directories that are
+actually required. Existing bootstrap-facing output labels remain stable
+during PostgreSQL bring-up and are tracked for a later alignment pass.
+
 ## Path Leakage Rules
 
 ### Transient build roots must not reach final payloads
@@ -367,6 +383,15 @@ For package-specific shared-library linkage, declare `link_inputs` rather than
 embedding ad hoc store `-L` or RUNPATH flags in package environment values.
 This keeps the dependency in package identity and runtime closure while the
 realization layer supplies deterministic store-backed link/runtime lookup.
+The Meson realization layer carries those paths through setup linker flags so
+Meson's install step preserves the declared installed RUNPATH.
+
+For package metadata lookup, declare `PkgConfigInfo` search roots on produced
+outputs and consume them through dependency roles. Standard builders set both
+`PKG_CONFIG_PATH` and `PKG_CONFIG_LIBDIR`, including empty values when no roots
+are declared, so host default metadata is not an implicit input. Named output
+splits are identity-bearing outputs of the same realization action; relocated
+`*.pc` directory variables are repaired before each output is sealed.
 
 At minimum, final artifact review should answer:
 
@@ -405,17 +430,23 @@ boundary check.
 - [x] `//tools/text/gnupatch:bin` — verified 2026-05-23 with
   `[reproducible]`, `[archive_metadata]`, and
   `bootstrap/tests:gnupatch_bin_seed_free`.
-- [x] `//development/libraries/zlib:out` — verified 2026-05-23 with
-  `[reproducible]`, `[archive_metadata]`, and
-  `bootstrap/tests:zlib_out_seed_free`; fresh store publication at
-  `/pkgs/store/564432ae49f3f0832bec6104e0fd79f4-zlib-1.3.2` contains no
-  writable regular file or directory.
+- [x] `//development/libraries/zlib:out` and `:dev` — verified 2026-05-23
+  with `[reproducible]` and `[archive_metadata]` for both projected outputs;
+  fresh store publications at
+  `/pkgs/store/1ba90ca09655453e4ef3cc5e30a7b5ad-zlib-1.3.2` and
+  `/pkgs/store/3a75b89b0d616bf7b9c2782d42e28cea-zlib-1.3.2-dev` contain no
+  writable regular file or directory. Native `pkg-config --cflags --libs
+  zlib` resolves headers from `:dev` and libraries from `:out`.
+- [x] `//development/tools/pkg-config:bin` and `:dev` — verified 2026-05-23
+  with `[reproducible]` and `[archive_metadata]` for each exported output;
+  native `pkgconf` supplies the successful isolated zlib metadata query.
 - [x] `//development/interpreters/python:build_interpreter` — verified
   2026-05-23 with `[reproducible]`, `[archive_metadata]`, and
-  `bootstrap/tests:python_build_interpreter_seed_free`; direct execution of
-  `import zlib` without `LD_LIBRARY_PATH` resolves native `zlib` through the
-  declared package link input, and fresh publication at
-  `/pkgs/store/54cca85eea58801322f049bca8eef7a5-python3-build-3.13.10`
+  `bootstrap/tests:python_build_interpreter_seed_free`; the recipe discovers
+  zlib through native `pkgconf` and declared `zlib:dev` metadata while
+  retaining `zlib:out` as its link/runtime input. Direct execution of
+  `import zlib` without `LD_LIBRARY_PATH` succeeds, and fresh publication at
+  `/pkgs/store/65dcb17645c644175972966c5150d8ff-python3-build-3.13.10`
   contains no writable regular file or directory.
 - [ ] `//development/interpreters/python:bin` — reserved for a normal full
   Python contract; Nixpkgs' default CPython enables `bzip2`, `libffi`,
@@ -434,5 +465,30 @@ boundary check.
   `[reproducible]`, `[archive_metadata]`, and
   `bootstrap/tests:inih_out_seed_free` plus
   `bootstrap/tests:inih_native_graph_foreign_build_free`; built through
-  corrected native Meson and freshly sealed at
-  `/pkgs/store/fc69780306e906e62dde66970c719281-inih-62`.
+  corrected native Meson, and revalidated 2026-05-24 after Meson
+  `link_inputs` RUNPATH handling was generalized.
+- [x] `//tools/compression/zstd:lib` and `:dev`,
+  `//tools/compression/lz4:lib` and `:dev`,
+  `//development/libraries/ncurses:lib` and `:dev`, and
+  `//development/libraries/readline:lib` and `:dev` — verified 2026-05-24
+  with `[reproducible]` and `[archive_metadata]` for each output, plus
+  seed-free checks for the runtime outputs used by PostgreSQL.
+- [x] `//development/tools/misc/gnum4:bin`,
+  `//development/interpreters/perl:lib` and `:bin`,
+  `//development/tools/parsing/bison:lib` and `:bin`, and
+  `//development/tools/parsing/flex:bin` — verified 2026-05-24 with
+  `[reproducible]` and `[archive_metadata]`, plus seed-free checks for the
+  executable outputs used in PostgreSQL's build graph.
+- [x] `//development/libraries/libcap:lib` and `:dev` — verified 2026-05-24
+  with `[reproducible]`, `[archive_metadata]`, and seed-free checks for both
+  projections; `:lib` retains libraries only and `:dev` retains headers,
+  static archives, and pkg-config metadata only.
+- [x] `//tools/sandboxing/bubblewrap:bin` — verified 2026-05-24 with
+  `[reproducible]`, `[archive_metadata]`, and
+  `bootstrap/tests:bubblewrap_bin_seed_free`; `bwrap --version` runs using
+  its declared `libcap:lib` RUNPATH and the projected output contains only
+  the executable.
+- [x] `//servers/sql/postgresql:lib`, `:bin`, and `:dev` — verified 2026-05-24
+  with `[reproducible]`, `[archive_metadata]`, and seed-free checks for all
+  three projections; runtime/documentation selective policy holds and
+  installed PGXS metadata normalizes transient Configure/Make work paths.

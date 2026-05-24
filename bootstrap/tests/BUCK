@@ -391,6 +391,90 @@ pkgs_seed_free(
 )
 
 pkgs_seed_free(
+    name = "zstd_lib_seed_free",
+    packages = ["//tools/compression/zstd:lib"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "lz4_lib_seed_free",
+    packages = ["//tools/compression/lz4:lib"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "ncurses_lib_seed_free",
+    packages = ["//development/libraries/ncurses:lib"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "readline_lib_seed_free",
+    packages = ["//development/libraries/readline:lib"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "gnum4_bin_seed_free",
+    packages = ["//development/tools/misc/gnum4:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "perl_bin_seed_free",
+    packages = ["//development/interpreters/perl:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "bison_bin_seed_free",
+    packages = ["//development/tools/parsing/bison:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "flex_bin_seed_free",
+    packages = ["//development/tools/parsing/flex:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "postgresql_lib_seed_free",
+    packages = ["//servers/sql/postgresql:lib"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "postgresql_bin_seed_free",
+    packages = ["//servers/sql/postgresql:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "postgresql_dev_seed_free",
+    packages = ["//servers/sql/postgresql:dev"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "libcap_lib_seed_free",
+    packages = ["//development/libraries/libcap:lib"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "libcap_dev_seed_free",
+    packages = ["//development/libraries/libcap:dev"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
+    name = "bubblewrap_bin_seed_free",
+    packages = ["//tools/sandboxing/bubblewrap:bin"],
+    forbidden = _FOREIGN_SEED,
+)
+
+pkgs_seed_free(
     name = "gnugrep_bin_seed_free",
     packages = ["//tools/text/gnugrep:bin"],
     forbidden = _FOREIGN_SEED,

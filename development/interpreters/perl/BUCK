@@ -1,0 +1,88 @@
+load(
+    "//rules:pkgs.bzl",
+    "pkgs_configure_make_install_package",
+    "pkgs_export_patch",
+    "pkgs_http_archive_source",
+    "pkgs_package_output",
+    "pkgs_self_store_path",
+    "pkgs_store_path",
+)
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "e093ef184d7f9a1b9797e2465296f55510adb6dab8842b0c3ed53329663096dc",
+    strip_prefix = "perl-5.42.0",
+    urls = ["https://www.cpan.org/src/5.0/perl-5.42.0.tar.gz"],
+)
+
+_NO_SYSTEM_PATHS_PATCH = pkgs_export_patch(
+    name = "no_system_paths_patch",
+    src = "patches/0001-no-system-paths-and-stable-config.patch",
+    sha256 = "d88b5ebca3f074c9f31a6ca2ae82eac4222cf7e2d67041826c49af34f81a3288",
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnupatch:bin",
+    "//tools/text/gnused:bin",
+]
+
+pkgs_configure_make_install_package(
+    name = "lib",
+    package_name = "perl",
+    version = "5.42.0",
+    sources = [_SOURCE],
+    output = "lib",
+    configure_program = "./Configure",
+    configure_prefix_arg = "",
+    configure_args = [
+        "-des",
+        "-Uinstallusrbinperl",
+        "-Uuseshrplib",
+        "-Dinstallstyle=lib/perl5",
+        "-Ddefault_inc_excludes_dot",
+        "-Dcc=cc",
+        "-Dar=ar",
+        "-Dnm=nm",
+        "-Dman1dir=none",
+        "-Dman3dir=none",
+        pkgs_self_store_path("-Dprefix=", ""),
+        pkgs_store_path("-Dlocincpth=", "//development/libraries/glibc:out", "/include"),
+        pkgs_store_path("-Dloclibpth=", "//development/libraries/glibc:out", "/lib"),
+        pkgs_store_path("-Dglibpth=", "//development/libraries/glibc:out", "/lib"),
+        pkgs_store_path("-Dplibpth=", "//development/libraries/glibc:out", "/lib"),
+    ],
+    install_args = ["INSTALLFLAGS=-p"],
+    patches = [_NO_SYSTEM_PATHS_PATCH],
+    output_paths = ["lib"],
+    excluded_file_suffixes = [".pod"],
+    split_outputs = {
+        "bin": [
+            "bin/perl",
+            "bin/perl5.42.0",
+        ],
+    },
+    split_runtime_outputs = {
+        "bin": ["lib"],
+    },
+    native_build_inputs = _NATIVE_TOOLS,
+    runtime_inputs = [
+        "//development/compilers/gcc:out",
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_package_output(
+    name = "bin",
+    package = ":lib",
+    output = "bin",
+    visibility = ["PUBLIC"],
+)

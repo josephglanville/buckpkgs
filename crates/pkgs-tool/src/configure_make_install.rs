@@ -17,6 +17,24 @@ pub(crate) struct Args {
     #[arg(long)]
     output: PathBuf,
 
+    #[arg(long = "output-path")]
+    output_paths: Vec<PathBuf>,
+
+    #[arg(long = "exclude-file-suffix")]
+    exclude_file_suffixes: Vec<String>,
+
+    #[arg(long = "normalize-work-dir-text-path")]
+    normalize_work_dir_text_paths: Vec<PathBuf>,
+
+    #[arg(long = "split-output")]
+    split_outputs: Vec<String>,
+
+    #[arg(long = "split-output-prefix")]
+    split_output_prefixes: Vec<String>,
+
+    #[arg(long = "split-path")]
+    split_paths: Vec<String>,
+
     #[arg(long)]
     install_prefix: PathBuf,
 
@@ -25,6 +43,15 @@ pub(crate) struct Args {
 
     #[arg(long = "link-input")]
     link_inputs: Vec<PathBuf>,
+
+    #[arg(long = "pkg-config-path")]
+    pkg_config_paths: Vec<PathBuf>,
+
+    #[arg(long = "pkg-config-path-for-build")]
+    pkg_config_paths_for_build: Vec<PathBuf>,
+
+    #[arg(long = "pkg-config-path-for-target")]
+    pkg_config_paths_for_target: Vec<PathBuf>,
 
     #[arg(long = "configure-arg")]
     configure_args: Vec<String>,
@@ -64,6 +91,9 @@ pub(crate) struct Args {
 
     #[arg(long, default_value = "./configure")]
     configure_program: String,
+
+    #[arg(long = "configure-prefix-arg", default_value = "--prefix=")]
+    configure_prefix_arg: String,
 
     #[arg(long, default_value = "make")]
     make_program: String,
@@ -139,7 +169,6 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
     let configure_env = expand_work_dir_placeholders(&args.configure_env, work.path());
     let env = build::parse_env_assignments(&configure_env)?;
     let makeflags = common::makeflags(args.make_jobs)?;
-    let prefix_arg = format!("--prefix={}", args.install_prefix.display());
     let configure_program =
         configure_program(&args.configure_program, &source_dir, args.out_of_source);
 
@@ -147,42 +176,72 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         build::apply_patches(&source_dir, &path, &args.patches, args.patch_strip)?;
     }
 
+    let mut configure_command = common::reproducible_command(&configure_program);
+    configure_command
+        .current_dir(&build_dir)
+        .env("PATH", &path)
+        .envs(env.iter().map(|(key, value)| (key, value)));
+    if !args.configure_prefix_arg.is_empty() {
+        configure_command.arg(format!(
+            "{}{}",
+            args.configure_prefix_arg,
+            args.install_prefix.display()
+        ));
+    }
+    configure_command.args(&configure_args);
+    add_pkg_config_environment(&mut configure_command, args)?;
     common::run_command(
-        common::reproducible_command(&configure_program)
-            .current_dir(&build_dir)
-            .env("PATH", &path)
-            .envs(env.iter().map(|(key, value)| (key, value)))
-            .arg(prefix_arg)
-            .args(&configure_args),
+        &mut configure_command,
         &configure_program.display().to_string(),
     )?;
 
-    common::run_command(
-        common::reproducible_command(&args.make_program)
-            .current_dir(&build_dir)
-            .env("PATH", &path)
-            .env("MAKEFLAGS", &makeflags)
-            .envs(env.iter().map(|(key, value)| (key, value)))
-            .args(&args.make_args),
-        &args.make_program,
-    )?;
+    let mut make_command = common::reproducible_command(&args.make_program);
+    make_command
+        .current_dir(&build_dir)
+        .env("PATH", &path)
+        .env("MAKEFLAGS", &makeflags)
+        .envs(env.iter().map(|(key, value)| (key, value)))
+        .args(&args.make_args);
+    add_pkg_config_environment(&mut make_command, args)?;
+    common::run_command(&mut make_command, &args.make_program)?;
 
-    common::run_command(
-        common::reproducible_command(&args.make_program)
-            .current_dir(&build_dir)
-            .env("PATH", &path)
-            .env("MAKEFLAGS", &makeflags)
-            .envs(env.iter().map(|(key, value)| (key, value)))
-            .arg("install")
-            .arg(format!("DESTDIR={}", install_root.display()))
-            .args(&args.install_args),
-        &args.make_program,
-    )?;
+    let mut install_command = common::reproducible_command(&args.make_program);
+    install_command
+        .current_dir(&build_dir)
+        .env("PATH", &path)
+        .env("MAKEFLAGS", &makeflags)
+        .envs(env.iter().map(|(key, value)| (key, value)))
+        .arg("install")
+        .arg(format!("DESTDIR={}", install_root.display()))
+        .args(&args.install_args);
+    add_pkg_config_environment(&mut install_command, args)?;
+    common::run_command(&mut install_command, &args.make_program)?;
 
-    build::copy_staged_prefix(&install_root, &args.install_prefix, &args.output)?;
-    build::sanitize_libtool_archives(&args.output, work.path())?;
-    build::sanitize_self_referential_linker_scripts(&args.output, &args.install_prefix)?;
-    let output = common::canonicalize(&args.output)?;
+    let split_destinations = build::parse_split_outputs(
+        &args.split_outputs,
+        &args.split_output_prefixes,
+        &args.split_paths,
+    )?;
+    let (output, split_outputs) = build::staging_outputs(work.path(), &split_destinations);
+    build::copy_split_staged_prefix(
+        &install_root,
+        &args.install_prefix,
+        &output,
+        &args.output_paths,
+        &split_outputs,
+    )?;
+    for output in std::iter::once(&output).chain(split_outputs.iter().map(|output| &output.output))
+    {
+        build::exclude_file_suffixes(output, &args.exclude_file_suffixes)?;
+        build::sanitize_libtool_archives(output, work.path())?;
+        build::normalize_work_dir_text_paths(
+            output,
+            work.path(),
+            &args.normalize_work_dir_text_paths,
+        )?;
+        build::sanitize_self_referential_linker_scripts(output, &args.install_prefix)?;
+    }
+    let output = common::canonicalize(&output)?;
     build::create_symlinks(&output, &args.symlinks)?;
     build::compile_python_bytecode(
         &output,
@@ -192,9 +251,25 @@ pub(crate) fn run(args: &Args) -> Result<(), Error> {
         &args.python_bytecode_dirs,
         &args.python_bytecode_optimizations,
     )?;
-    common::normalize_tree_mtimes(&output)?;
-    common::make_tree_read_only(&output)?;
+    for output in std::iter::once(&output).chain(split_outputs.iter().map(|output| &output.output))
+    {
+        common::normalize_tree_mtimes(output)?;
+        common::make_tree_read_only(output)?;
+    }
+    build::publish_sealed_outputs(&output, &args.output, &split_outputs, &split_destinations)?;
     Ok(())
+}
+
+fn add_pkg_config_environment(
+    command: &mut std::process::Command,
+    args: &Args,
+) -> Result<(), common::Error> {
+    common::add_pkg_config_environment(
+        command,
+        &args.pkg_config_paths,
+        &args.pkg_config_paths_for_build,
+        &args.pkg_config_paths_for_target,
+    )
 }
 
 fn configure_program(program: &str, source_dir: &Path, out_of_source: bool) -> PathBuf {

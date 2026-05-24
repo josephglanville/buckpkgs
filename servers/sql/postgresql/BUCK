@@ -1,0 +1,176 @@
+load(
+    "//rules:pkgs.bzl",
+    "pkgs_configure_make_install_package",
+    "pkgs_http_archive_source",
+    "pkgs_package_output",
+    "pkgs_store_path_join",
+)
+
+_SOURCE = pkgs_http_archive_source(
+    name = "source",
+    sha256 = "81a81ec695fb0c7901407defaa1d2f7973617154cf27ba74e3a7ab8e64436094",
+    strip_prefix = "postgresql-18.4",
+    urls = ["https://ftp.postgresql.org/pub/source/v18.4/postgresql-18.4.tar.bz2"],
+)
+
+_NATIVE_TOOLS = [
+    "//shells/bash:bin",
+    "//development/tools/build-managers/gnumake:bin",
+    "//development/tools/pkg-config:bin",
+    "//development/tools/parsing/bison:bin",
+    "//development/tools/parsing/flex:bin",
+    "//development/interpreters/perl:bin",
+    "//development/tools/misc/binutils:bin",
+    "//development/compilers/gcc:bin",
+    "//tools/misc/coreutils:bin",
+    "//tools/misc/findutils:bin",
+    "//tools/text/gawk:bin",
+    "//tools/text/gnugrep:bin",
+    "//tools/text/gnused:bin",
+]
+
+_DEVELOPMENT_INPUTS = [
+    "//development/libraries/zlib:dev",
+    "//development/libraries/readline:dev",
+    "//tools/compression/lz4:dev",
+    "//tools/compression/zstd:dev",
+]
+
+_LINK_INPUTS = [
+    "//development/libraries/zlib:out",
+    "//development/libraries/readline:lib",
+    "//tools/compression/lz4:lib",
+    "//tools/compression/zstd:lib",
+]
+
+pkgs_configure_make_install_package(
+    name = "lib",
+    package_name = "postgresql",
+    version = "18.4",
+    sources = [_SOURCE],
+    output = "lib",
+    out_of_source = True,
+    configure_args = [
+        "--without-icu",
+        "--with-lz4",
+        "--with-zstd",
+    ],
+    configure_env = [
+        "CC=cc",
+        "AR=ar",
+        "RANLIB=ranlib",
+        pkgs_store_path_join(
+            "CPPFLAGS=-I",
+            [
+                "//development/libraries/zlib:dev",
+                "//development/libraries/readline:dev",
+            ],
+            "/include -I",
+            "/include",
+        ),
+    ],
+    normalize_work_dir_text_paths = [
+        "lib/pgxs/src/Makefile.global",
+    ],
+    output_paths = [
+        "lib",
+        "share/errcodes.txt",
+        "share/extension",
+        "share/information_schema.sql",
+        "share/pg_hba.conf.sample",
+        "share/pg_ident.conf.sample",
+        "share/pg_service.conf.sample",
+        "share/postgres.bki",
+        "share/postgresql.conf.sample",
+        "share/psqlrc.sample",
+        "share/snowball_create.sql",
+        "share/sql_features.txt",
+        "share/system_constraints.sql",
+        "share/system_functions.sql",
+        "share/system_views.sql",
+        "share/timezone",
+        "share/timezonesets",
+        "share/tsearch_data",
+    ],
+    split_outputs = {
+        "bin": [
+            "bin/clusterdb",
+            "bin/createdb",
+            "bin/createuser",
+            "bin/dropdb",
+            "bin/dropuser",
+            "bin/initdb",
+            "bin/pg_amcheck",
+            "bin/pg_archivecleanup",
+            "bin/pg_basebackup",
+            "bin/pg_checksums",
+            "bin/pg_combinebackup",
+            "bin/pg_controldata",
+            "bin/pg_createsubscriber",
+            "bin/pg_ctl",
+            "bin/pg_dump",
+            "bin/pg_dumpall",
+            "bin/pg_isready",
+            "bin/pg_receivewal",
+            "bin/pg_recvlogical",
+            "bin/pg_resetwal",
+            "bin/pg_restore",
+            "bin/pg_rewind",
+            "bin/pg_test_fsync",
+            "bin/pg_test_timing",
+            "bin/pg_upgrade",
+            "bin/pg_verifybackup",
+            "bin/pg_waldump",
+            "bin/pg_walsummary",
+            "bin/pgbench",
+            "bin/postgres",
+            "bin/psql",
+            "bin/reindexdb",
+            "bin/vacuumdb",
+        ],
+        "dev": [
+            "bin/ecpg",
+            "bin/pg_config",
+            "include",
+            "lib/libecpg.a",
+            "lib/libecpg_compat.a",
+            "lib/libpgcommon.a",
+            "lib/libpgcommon_shlib.a",
+            "lib/libpgfeutils.a",
+            "lib/libpgport.a",
+            "lib/libpgport_shlib.a",
+            "lib/libpgtypes.a",
+            "lib/libpq.a",
+            "lib/pgxs",
+            "lib/pkgconfig",
+        ],
+    },
+    split_pkg_config_paths = {
+        "dev": ["lib/pkgconfig"],
+    },
+    split_runtime_outputs = {
+        "bin": ["lib"],
+        "dev": ["lib"],
+    },
+    native_build_inputs = _NATIVE_TOOLS,
+    build_inputs = _DEVELOPMENT_INPUTS,
+    link_inputs = _LINK_INPUTS,
+    runtime_inputs = [
+        "//development/libraries/glibc:out",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+pkgs_package_output(
+    name = "bin",
+    package = ":lib",
+    output = "bin",
+    visibility = ["PUBLIC"],
+)
+
+pkgs_package_output(
+    name = "dev",
+    package = ":lib",
+    output = "dev",
+    visibility = ["PUBLIC"],
+)
