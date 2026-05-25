@@ -6,11 +6,10 @@ BuckPkgs and Foundry remain separate repositories. Foundry's intended integratio
 boundary is a pinned BuckPkgs external cell at an immutable, exportable revision,
 not a merged source tree.
 
-That boundary does not require arbitrary live Buck2 action-cache sharing across
-consumer repositories. The primary cross-repository reuse mechanism is published,
-reviewed BuckPkgs store content imported from Foundry CAS. Live remote execution
-and action-cache reuse should initially be validated against one canonical
-BuckPkgs graph.
+That boundary gives consumers one canonical live-build identity when they use
+the same cell name (`buckpkgs`), immutable Git revision, execution platform,
+and RE namespace. Published, reviewed BuckPkgs store content imported from
+Foundry CAS remains the preferred reuse boundary for finalized packages.
 
 Keep three workstreams separate:
 
@@ -19,9 +18,11 @@ Keep three workstreams separate:
 2. Store/cache identity correctness and validation.
 3. Portable live action-cache keys across independent Buck2 graphs.
 
-Workstreams 1 and 2 are needed for a reliable external-cell integration.
-Workstream 3 is an optional optimization only if multiple repositories must
-share cache hits for live, unpublished package builds.
+Workstreams 1 and 2 are needed for reliable external-cell integration.
+Workstream 3 has two materially different cases: pinned external consumers
+already share live keys under the canonical boundary above; making a mutable
+native checkout share those keys is optional work gated by source-identity
+validation.
 
 ## Current State
 
@@ -34,8 +35,9 @@ share cache hits for live, unpublished package builds.
 | Foundry action-cache mechanism | Implemented | Only successful cacheable build actions are stored or reused; legacy failed entries are refused |
 | Declared runtime support for ambient bootstrap tools | Implemented and validated locally | The selected Foundry Bubblewrap profile `buckpkgs-bootstrap-v5` mounts the declared Cargo, Rustup, local-bin, Python, GCC/system-library, and LLVM 21 runtime trees required by the tested graph |
 | BuckPkgs remote-enabled execution platform | Implemented | `platforms//:remote` selects remote execution and cache upload/use with the Foundry runtime profile property |
-| End-to-end remotely executed ordinary package with store dependencies | Validated locally | On May 24, 2026, native BuckPkgs and Foundry's pinned `buckpkgs` external cell each remotely built `development/libraries/zlib:lib`; a native rebuild after daemon/materialization clearing reported `100%` Foundry cache hits |
-| Portable live action keys across unrelated external-cell roots | Not implemented; measured miss | Native `zlib` lowered to `3048a3ba...:175`; Foundry's external-cell build lowered to `b2858fa9...:175` and executed 147 remote commands with only `1%` cache hits |
+| End-to-end remotely executed ordinary package with store dependencies | Validated locally | On May 24, 2026, native BuckPkgs and Foundry's pinned `buckpkgs` external cell each remotely built `development/libraries/zlib:lib`; a subsequent external consumer completed with `148/148` Foundry cache hits |
+| Live keys across pinned external consumers | Validated locally | A disposable second consumer using the canonical `buckpkgs` alias and Git revision `3724bca599521a08884e27d46ad772c7c9c715d6` reused the Foundry external-cell build without executing a remote command |
+| Live keys between a native checkout and an external revision | Correctly not shared | After canonicalizing the native cell name, native `zlib` lowered to `6614ddc9...:175` and the pinned external-cell action lowered to `7f3758cf...:175`; the source-built Rust helper outputs also differed because source layout remains action-observable |
 | Untrusted substitute publication | Not implemented | Current trust model is reviewed repository-pinned manifests, not signatures or an authenticated publication channel |
 
 There are three distinct identities involved:
@@ -82,12 +84,24 @@ On May 24, 2026:
 2. Foundry built the same package through its pinned external cell,
    `buckpkgs//development/libraries/zlib:lib`, through the same remote
    service and completed successfully with the same runtime profile.
-3. After clearing native Buck2 daemon/materialization state, the native build
-   retrieved all 147 eligible commands from Foundry (`100%` cache hits);
-   `zlib` retrieved action digest
-   `3048a3ba5fdc4691ea6065697d0ce6e92a99d5d4eef3d1fd58a90613975832e4:175`.
-4. The external-cell run did not reuse the native live package action. This is
-   expected until Workstream 3 canonicalizes consumer-dependent action paths.
+3. The native repository was then given its canonical self alias,
+   `buckpkgs = .`, and both builds selected `buckpkgs//platforms:remote`.
+   This removed the avoidable `root//` versus `buckpkgs//` and staged-store
+   owner differences, but did not make a mutable checkout equivalent to a
+   pinned external revision.
+4. With canonical labels aligned, native `zlib` used action digest
+   `6614ddc97a3def0dc2a10fa71a28f00d4dc7428c521ee803cdc41d02561edbfc:175`;
+   Foundry's external-cell build used
+   `7f3758cfc7a4df5a7d92ca4f3d79ecdb7e989fad03474a3583d920383f706e15:175`.
+5. The difference is source-observable, not a Foundry cache failure. The
+   native `pkgs_configure_make_install` Rust helper output digest was
+   `bb9bfbf3...` while the external-cell helper output digest was `76accf8b...`.
+   Native source artifacts execute from the checkout; Git external-cell
+   sources execute from `buck-out/v2/external_cells/git/<commit>/...`.
+6. A second disposable external consumer with the same `buckpkgs` alias,
+   revision, platform, and Foundry RE namespace then built
+   `buckpkgs//development/libraries/zlib:lib` with `100%` cache hits:
+   `Commands: 148 (cached: 148, remote: 0, local: 0)`.
 
 ### Remaining RE Work
 
@@ -154,72 +168,71 @@ correctness requirement.
 
 ## Workstream 3: Cache-Key Portability
 
-### Current Position
+### Already Portable: Pinned External Consumers
 
-Defer portable live action-cache keys.
+Two consumer repositories that both declare the cell as `buckpkgs`, pin the
+same immutable Git revision, select the same execution platform, and use the
+same Foundry RE namespace share live package action-cache entries. Buck2's Git
+external-cell source location is commit-qualified and consumer-root
+independent, so this case does not require a new portable-key mechanism.
 
-The implemented protocol transports store inputs safely, but Buck2 currently
-includes staged store-input paths in the action salt. Two unrelated repositories
-can therefore miss each other's live action-cache entries even when they
-ultimately consume the same logical store objects. That is conservative and
-correct.
+The canonical cell name matters. A consumer that exposes the same repository
+under a different cell name is asking Buck2 to analyze a different configured
+graph and is not part of this sharing contract.
 
-It is also acceptable for Foundry's planned external-cell integration:
-published BuckPkgs substitutes and immutable pinned store objects already
-provide the high-value cross-repository reuse boundary without requiring live
-rebuilds in each consumer graph.
+### Correctly Not Portable: Mutable Native Checkout
 
-### Observed Portability Miss
+The direct BuckPkgs checkout is not equivalent to an external Git pin merely
+because its current files happen to match. It may have uncommitted edits, or
+it may advance without changing the consumer pin. Reusing the external
+revision's cache identity without validating that claim would be a correctness
+bug.
 
-The May 24, 2026 validation used one Foundry CAS/action-cache namespace and the
-same runtime profile:
+Adding `buckpkgs = .` to the native configuration is still useful: it
+canonicalizes target and staged-output ownership and removes avoidable identity
+noise. It intentionally does not claim that checkout source artifacts are the
+Git revision's source artifacts.
 
-| Build graph | Store-action digest | Representative staged input prefix |
-| --- | --- | --- |
-| Native BuckPkgs root | `3048a3ba5fdc4691ea6065697d0ce6e92a99d5d4eef3d1fd58a90613975832e4:175` | `buck-out/v2/art/root/bootstrap/substitutes/...` |
-| Foundry with `buckpkgs` external cell | `b2858fa90887e3a84d5180bcd0076005142900ad983d3c78dacfce9a24724af5:175` | `buck-out/v2/art/buckpkgs/bootstrap/substitutes/...` |
+### Native-Equivalence Trigger And Design
 
-The action identity also contains the configured action owner
-(`root//...` versus `buckpkgs//...`). Thus the current miss is not a Foundry
-cache failure and not a store-identity correctness failure. It is the expected
-result of non-portable Buck2 action lowering.
+Implement native-to-external live-cache sharing only if development workflows
+need a clean native checkout to reuse unpublished external-cell build results.
+That work must include:
 
-### Trigger For This Work
-
-Implement portability only if there is a concrete requirement for independent
-repositories to share live remote build results for unpublished packages, not
-merely consume published BuckPkgs outputs.
-
-If that requirement appears:
-
-1. Canonicalize every action-observable store input path, tool path, source
-   path, command argument, environment entry, output location, and execution
-   platform property that can vary with the consuming repository root.
-2. Remove staged-path contributions from action identity only after the
-   executor observes store inputs exclusively at canonical logical paths.
-3. Add a two-root validation in which different external-cell aliases or
-   checkout roots produce the same action digest and a remote cache hit for
-   the same package instance.
-4. Retain a negative validation in which any byte-affecting or semantic input
-   variation produces a miss.
+1. An explicit native-cell revision claim tied to the external Git identity,
+   with validation that every action-visible source is from that revision and
+   that local source modifications cannot obtain a hit.
+2. A logical source execution namespace for claimed cells. Commands and RE
+   input trees must observe the same commit-qualified paths whether bytes came
+   from a checkout or Buck2's external-cell materialization.
+3. Canonical treatment of remaining action-observable store inputs, tools,
+   environment entries, outputs, and platform properties. The staged-store
+   transport path may be removed from action identity only once the executor
+   consumes the canonical mapping without changing behavior.
+4. Positive validation for a clean claimed native revision and the matching
+   external cell, plus negative validation for dirty files, different
+   revisions, changed dependencies, and different semantic configuration.
 
 ## Revised Sequence
 
 1. Keep reviewed CAS substitutes and immutable store imports as the
    cross-repository distribution boundary.
 2. Keep `platforms//:remote` and the Foundry v5 runtime profile validation
-   path working, and add automated remote action-cache retrieval coverage.
-3. Validate a representative ordinary package stack remotely once the `zlib`
+   path working, and automate both remote execution and the two-consumer
+   external-cell cache-hit proof.
+3. Require consumers that want live cross-repository reuse to use the
+   canonical `buckpkgs` cell name and identical immutable revision pin.
+4. Validate a representative ordinary package stack remotely once the `zlib`
    proof is covered in automation.
-4. Close the remaining identity-policy gap with builder/ABI enforcement and
+5. Close the remaining identity-policy gap with builder/ABI enforcement and
    mutation tests; require these checks for byte-affecting packaging changes.
-5. Publish or identify an immutable exportable BuckPkgs revision and let
+6. Publish or identify an immutable exportable BuckPkgs revision and let
    Foundry consume it as a pinned external cell using published substitutes,
    without depending on a live local BuckPkgs checkout.
-6. Add deployment work independently where required: a durable production CAS
+7. Add deployment work independently where required: a durable production CAS
    backend and authenticated or signed substitute publication.
-7. Revisit portable live action keys only after a real multi-repository live
-   build sharing requirement exists.
+8. Implement validated native-to-external key equivalence only if native
+   development builds need that optimization.
 
 ## Acceptance Gates
 
@@ -227,5 +240,5 @@ If that requirement appears:
 | --- | --- |
 | Remote execution | Live ordinary package execution with declared logical mounts and a subsequent `100%` Foundry cache-hit rebuild are validated; automated coverage remains to be added |
 | Identity correctness | Mutation tests demonstrate misses/new store paths for byte-affecting semantic changes, while import and collision failures remain enforced |
-| External-cell integration | Foundry remotely builds against an immutable pinned BuckPkgs external-cell revision; substitute-only integration remains the preferred steady-state consumption model |
-| Portable live cache keys, if triggered | Two independently rooted graphs obtain the same live action-cache identity only for genuinely identical canonical package actions |
+| External-cell integration | Foundry remotely builds against an immutable pinned BuckPkgs external-cell revision, and a second canonical external consumer retrieves its live actions from the same Foundry cache |
+| Native-to-external key equivalence, if triggered | A revision-validated clean checkout obtains the pinned external action identity; dirty or semantically changed inputs demonstrably miss |
