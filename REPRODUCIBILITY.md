@@ -80,22 +80,9 @@ package identity; the ordinary materialization path does not rewrite it.
 
 ### Named outputs default to code-bearing interfaces
 
-For newly ported packages, `bin` contains runnable programs, `lib` contains
-runtime shared libraries plus indispensable loaded runtime data, and `dev`
-contains dynamic-development interfaces such as headers, link-name
-projections, and build metadata. Independently consumable existing static
-archives belong in optional `static`; only documented dynamic-development
-support archives remain in `dev`. Reserve `out` for a compound runtime
-payload that cannot yet be separated without losing a required runtime edge.
-A split `bin` output that loads sibling shared libraries must declare its
-dependency on the package's primary `lib` output.
-
-Do not create standalone `man`, `doc`, or `info` projections unless a package
-explicitly needs those outputs. Recipes with mixed upstream installations
-should use explicit primary output keep-lists so documentation does not fall
-into a catch-all runtime output; retain only runtime data directories that are
-actually required. Bootstrap-facing public labels now use the normalized
-`bin`/`lib`/`dev` roles and resolve through the pinned imported generation.
+The authoritative rules for output roles, selected payload, runtime data, and
+static/development classification are in [PACKAGING.md](./PACKAGING.md).
+Reproducibility checks enforce that package contract on realized outputs.
 
 ## Path Leakage Rules
 
@@ -382,19 +369,10 @@ For bootstrap-sensitive changes:
 - inspect the newly published store tree for path, metadata, and host leaks
 - rebuild the final closure checks when the affected inputs flow into them
 
-For package-specific shared-library linkage, declare `link_inputs` rather than
-embedding ad hoc store `-L` or RUNPATH flags in package environment values.
-This keeps the dependency in package identity and runtime closure while the
-realization layer supplies deterministic store-backed link/runtime lookup.
-The Meson realization layer carries those paths through setup linker flags so
-Meson's install step preserves the declared installed RUNPATH.
-
-For package metadata lookup, declare `PkgConfigInfo` search roots on produced
-outputs and consume them through dependency roles. Standard builders set both
-`PKG_CONFIG_PATH` and `PKG_CONFIG_LIBDIR`, including empty values when no roots
-are declared, so host default metadata is not an implicit input. Named output
-splits are identity-bearing outputs of the same realization action; relocated
-`*.pc` directory variables are repaired before each output is sealed.
+Package-authoring rules for link interfaces, `PkgConfigInfo`, and split
+metadata are defined in [PACKAGING.md](./PACKAGING.md#dependency-roles). This
+document verifies that those declarations realize deterministic,
+host-independent bytes.
 
 At minimum, final artifact review should answer:
 

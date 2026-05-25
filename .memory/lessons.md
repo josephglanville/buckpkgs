@@ -1,5 +1,9 @@
 # Reproducibility Lessons
 
+Current package-authoring policy is centralized in
+[PACKAGING.md](../PACKAGING.md). These entries record failures and evidence
+from the completed campaign rather than defining new packaging rules.
+
 - Injecting deterministic flags through ambient `CFLAGS` can change upstream
   configure behavior and persist unwanted metadata. Realization-time compiler
   wrappers kept the flag effect while preserving package defaults.

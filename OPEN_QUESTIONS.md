@@ -3,6 +3,10 @@
 This document records the decisions already made, then the questions that remain
 before implementation starts.
 
+This is an early design record. Current package-authoring policy, including how
+nixpkgs interfaces are classified rather than copied mechanically, is defined
+in [PACKAGING.md](./PACKAGING.md).
+
 ## Resolved Decisions
 
 ### Product Framing
@@ -41,8 +45,10 @@ Composition uses simple ordered overlays: later package sets win.
 
 ### Compatibility Bias
 
-Keep nixpkgs package names and output conventions unless there is a concrete
-reason to diverge.
+Superseded for exported-interface classification: use nixpkgs as reference
+material and apply [PACKAGING.md](./PACKAGING.md). Names may remain familiar,
+but output roles follow actual exported semantics rather than copied nixpkgs
+naming.
 
 ### Storage Direction
 
@@ -146,14 +152,9 @@ dependency store paths grouped by role.
 
 **Question:** how much of nixpkgs' dependency matrix should appear in v0?
 
-**Recommendation:** expose `tools` and `libs` in manifests for the native-only
-first milestone, but keep build/host/target roles in the internal model.
-
-**Why:**
-
-- simple enough for the first package corpus
-- does not paint us into a corner on cross-compilation
-- avoids copying nixpkgs' full visible complexity before it is earned
+**Superseded:** the implemented native dependency vocabulary is now defined in
+[PACKAGING.md](./PACKAGING.md#dependency-roles). Cross-platform additions are
+tracked separately in [CROSS_COMPILING.md](./CROSS_COMPILING.md).
 
 ### 6. Builders And Escape Hatches
 

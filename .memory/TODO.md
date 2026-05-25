@@ -1,5 +1,10 @@
 # Reproducibility Board
 
+Current package-authoring policy is defined in
+[PACKAGING.md](../PACKAGING.md). Completed entries below record validation
+evidence; future package work must apply that contract rather than introducing
+new policy in this board.
+
 ## Package Substitution
 
 - [x] Define and parse a versioned store-object manifest that commits to store
@@ -54,8 +59,8 @@
       Meson installed-RUNPATH handling for declared `link_inputs`.
 - [ ] If SELinux-enabled Bubblewrap is required, add the optional branch
       `pcre2 -> libsepol -> libselinux -> bubblewrap`; reuse the existing Flex
-      build for `libsepol` and continue excluding man/documentation outputs by
-      default.
+      build for `libsepol` and apply the selected-payload contract in
+      `PACKAGING.md`.
 - [x] After PostgreSQL bring-up, audit and align bootstrap-facing output labels
       with the `bin`/`lib`/`dev` vocabulary, publishing a normalized pinned
       generation and routing public aliases/toolchains through it.

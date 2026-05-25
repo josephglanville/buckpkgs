@@ -6,6 +6,9 @@ definitions that evaluate to a fixed Rust schema.
 Strict TOML remains a useful comparison point, but it is not the v0 prototype
 format.
 
+Output roles, dependency roles, and payload selection for definitions written
+in this language are specified in [PACKAGING.md](./PACKAGING.md).
+
 The target is not "most expressive." The target is the smallest authoring model
 that represents real packages cleanly without creating a second general-purpose
 package language.

@@ -1,8 +1,8 @@
 # Buck2 Store Integration
 
-Normalized bootstrap and ordinary code-bearing packages follow
-[BOOTSTRAP_UPGRADE.md](./BOOTSTRAP_UPGRADE.md):
-`bin`, `lib`, `dev`, and optional `static`, with documentation payloads opt-in.
+Package output and payload policy is defined in
+[PACKAGING.md](./PACKAGING.md). This document discusses only how Buck2 should
+represent the resulting stable store outputs.
 
 Goal:
 

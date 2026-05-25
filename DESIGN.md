@@ -1,5 +1,9 @@
 # BuckPkgs Design
 
+Current package-authoring policy is centralized in
+[PACKAGING.md](./PACKAGING.md). This document describes system architecture and
+earlier design direction rather than overriding that contract.
+
 ## 1. Purpose
 
 BuckPkgs is a package manager for exactly one environment: hermetic builds managed
@@ -64,9 +68,9 @@ Keep:
   content digests.
 - **Immutable outputs**: consumers depend on package instances, never on mutable
   install locations.
-- **Multiple outputs**: canonical code-bearing roles are `bin`, `lib`, `dev`,
-  and optional `static`; `out` remains available only for deliberate compound
-  payloads, while documentation outputs are opt-in exceptions.
+- **Multiple outputs**: expose consumption-specific package interfaces; the
+  current role and payload contract is specified in
+  [PACKAGING.md](./PACKAGING.md).
 - **Packaging knowledge**: nixpkgs contains years of hard-won recipes and build
   conventions worth porting.
 - **Names and output conventions**: preserve useful nixpkgs recipe knowledge,
@@ -332,18 +336,11 @@ sha256 = "sha256-DV9gFUOC/uELEUocNOeF2LH0kgc64tOm97FHaHs2aqA="
 [build]
 builder = "autotools"
 tests = true
-
-[outputs]
-default = ["bin"]
 ```
 
 A more interesting package can add:
 
 ```toml
-[deps]
-tools = ["pkg-config"]
-libs = ["zlib"]
-
 [[patches]]
 path = "export-variable.patch"
 sha256 = "sha256-..."
@@ -354,14 +351,12 @@ LDFLAGS = "--undefined-version"
 [build.flags]
 configure = ["--enable-shared"]
 make = ["SHARED_MODE=1"]
-
-[outputs]
-default = ["lib"]
-all = ["lib", "dev", "static"]
 ```
 
 Exact spelling can change before implementation. The key point is that the
-evaluated result is declarative and schema-bound.
+evaluated result is declarative and schema-bound. Dependency and output
+examples are intentionally omitted from this historical syntax sketch; their
+implemented semantics are defined in [PACKAGING.md](./PACKAGING.md).
 
 ### 7.2 Sources
 
@@ -376,19 +371,10 @@ branches are not source identities.
 
 ### 7.3 Dependencies
 
-For the first milestone, expose two common dependency classes:
-
-- `tools`: executables needed while building the package
-- `libs`: dependencies needed by the resulting artifact
-
-Internally, store full platform roles:
-
-- build platform
-- host platform
-- target platform
-
-This keeps the v0 manifest simple while avoiding a later redesign when compiler
-packages and cross-compilation arrive.
+The implemented package dependency roles and sibling-output relationships are
+specified in [PACKAGING.md](./PACKAGING.md#dependency-roles). The internal
+model must continue to retain build, host, and target platform distinctions so
+cross-compilation does not require an identity redesign.
 
 ### 7.4 Builders
 
@@ -411,28 +397,15 @@ in separate source files rather than embedded in package metadata.
 BuckPkgs should support named outputs from the start because the split is cheap to
 model early and expensive to retrofit later.
 
-Canonical code-bearing names:
-
-- `bin`
-- `lib`
-- `dev`
-- `static`
-
-`out` remains available for a deliberately compound payload that cannot yet be
-split without misrepresenting required runtime behavior. Documentation,
-manual, and info payloads are not default outputs; a package must declare an
-explicit exception when they are required.
+The current output-role and selective-payload rules are centralized in
+[PACKAGING.md](./PACKAGING.md#output-roles).
 
 ### 7.6 Runtime Closure
 
-BuckPkgs should distinguish:
-
-- inputs needed to build a package
-- artifacts needed to consume package metadata during another build
-- artifacts needed to run produced executables
-
-The first implementation can keep runtime closure simple and explicit. It
-should not silently rely on host libraries or ad hoc PATH lookup.
+The runtime/tool/reference distinction used by package authors is defined in
+[PACKAGING.md](./PACKAGING.md#dependency-roles). At the architecture level,
+declared closures must remain explicit and must not silently rely on host
+libraries or ad hoc `PATH` lookup.
 
 ## 8. Identity, Storage, And Caching
 
@@ -544,39 +517,11 @@ become the long-term architecture if the project goal is an integral Buck2 fork.
 
 ## 10. Porting From nixpkgs
 
-The right use of nixpkgs is as a source corpus, not as an evaluator.
-
-### 10.1 Porting Strategy
-
-1. Manually port a bootstrap set and a few representative packages.
-2. Identify recurring patterns in nixpkgs:
-   - fetcher shape
-   - standard builder
-   - common dependency classes
-   - patches
-   - output splits
-3. Keep the BuckPkgs package shape close enough that those ports stay quick to
-   write and review by hand.
-4. Add only small assistive tools for mechanical jobs such as hash-format
-   conversion or patch-list extraction when they do not require evaluating Nix.
-
-### 10.2 What Ports Cleanly
-
-- straightforward `fetchurl` packages
-- common autotools/cmake/meson packages
-- packages that already use strict dependency separation
-- simple multiple-output packages
-
-### 10.3 What Should Not Be Recreated
-
-- packages built around arbitrary Nix functions
-- deep override chains
-- recursive package-set tricks
-- custom shell phases with heavy dynamic logic
-- complicated cross-compilers in the first milestone
-
-These are places to make explicit BuckPkgs choices, not targets for an automatic
-import layer.
+Nixpkgs is a source corpus, not an evaluator. Current porting, interface
+classification, and validation policy is in
+[PACKAGING.md](./PACKAGING.md#core-rule). BuckPkgs may use small assistive
+tools for mechanical extraction or hash conversion, but Nix evaluation is not
+part of the build path.
 
 ## 11. Bootstrap
 

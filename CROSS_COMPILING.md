@@ -14,6 +14,9 @@ missing is a coherent model for:
 - the platform compiler-like packages emit code for
 
 This document defines the implementation direction for that missing layer.
+The existing native package-authoring contract remains
+[PACKAGING.md](./PACKAGING.md); this document adds proposed cross-platform
+semantics rather than redefining ordinary output or dependency roles.
 
 ## Design Summary
 
@@ -185,49 +188,22 @@ Current recipes already centralize configure behavior in:
 They should not each hand-assemble triple strings. The rule layer should lower
 the selected `configure_platforms` value into structured configure arguments.
 
-## Dependency Role Contract
+## Reserved Cross Role
 
-The current rule API already has:
+The implemented native roles, including `native_build_inputs`,
+`link_inputs`, `link_interface_inputs`, `runtime_inputs`, `tool_inputs`, and
+`reference_inputs`, are specified in
+[PACKAGING.md](./PACKAGING.md#dependency-roles).
 
-- `native_build_inputs`
-- `build_inputs`
-- `target_inputs`
-- `runtime_inputs`
-
-Cross compilation should make these roles semantically crisp.
-
-### Contract
-
-`native_build_inputs`
-
-: Tools that execute during the package action.
-
-: These affect the action environment directly, including `PATH`.
-
-`build_inputs`
-
-: Build-machine material required by those tools.
-
-: These are available to the action, but are not themselves executable tools
-  by convention.
-
-`target_inputs`
-
-: Target-machine headers, libraries, sysroots, CRT objects, and ABI material
-  used to produce the package artifact.
-
-: These must stop being mostly metadata. They need to materially participate in
-  configure, compile, or wrapper construction.
-
-`runtime_inputs`
-
-: Runtime closure of the final package output.
+`PACKAGING.md` reserves `target_inputs` for target-machine ABI material. This
+document's cross implementation must make that role materially participate in
+configure, compile, or wrapper construction.
 
 ### Immediate Consequence
 
 The first cross implementation should update at least one real build path so
 `target_inputs` change emitted action arguments or wrapper construction. Until
-that happens, the dependency vocabulary is ahead of the behavior.
+that happens, this proposed cross-only role is ahead of the behavior.
 
 ## Sysroots And Bootstrap Ownership
 

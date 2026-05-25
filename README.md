@@ -47,8 +47,10 @@ should not grow into another programmable package language.
   CAS interaction, store closures, and expected combined-system properties.
 - [STORE_PATHS.md](./STORE_PATHS.md): the input-addressed key design for
   `/pkgs/store/<pkgs_path>`.
-- [PKG_CONFIG.md](./PKG_CONFIG.md): the proposed structured model for
-  role-aware native library discovery.
+- [PACKAGING.md](./PACKAGING.md): the authoritative package-authoring
+  contract, including outputs, dependencies, metadata, and validation.
+- [PKG_CONFIG.md](./PKG_CONFIG.md): compatibility pointer to the pkg-config
+  portion of the packaging contract.
 - [STDENV.md](./STDENV.md): what nixpkgs `stdenv` actually contains and how
   BuckPkgs should decompose it.
 - [ENGINEERING.md](./ENGINEERING.md): implementation, dependency, testing, and
@@ -62,8 +64,8 @@ should not grow into another programmable package language.
   cross-repository cache-key portability.
 - [BOOTSTRAP_ISLAND.md](./BOOTSTRAP_ISLAND.md): the graph boundary that keeps
   ordinary builds from implicitly rebuilding bootstrap turnover.
-- [BOOTSTRAP_UPGRADE.md](./BOOTSTRAP_UPGRADE.md): the canonical output-role
-  contract and completed normalized bootstrap publication/cutover checklist.
+- [BOOTSTRAP_UPGRADE.md](./BOOTSTRAP_UPGRADE.md): the completed normalized
+  bootstrap publication/cutover record.
 
 ## Current Position
 
@@ -74,9 +76,9 @@ This repository is at the design stage. The intended first implementation is:
 2. A small package graph evaluator integrated into the Buck2 daemon.
 3. Package builds lowered to normal Buck2 actions so they inherit Buck2's
    sandboxing, remote execution, caching, and materialization model.
-4. A manual-first porting path from nixpkgs: keep the shape familiar enough that
-   human ports are quick, without evaluating Nix expressions or recreating Nix's
-   package-set machinery.
+4. A manual-first porting path from nixpkgs governed by
+   [PACKAGING.md](./PACKAGING.md): inspect established interfaces without
+   evaluating Nix expressions or copying its output policy mechanically.
 
 The initial milestone is intentionally narrower than Nix:
 

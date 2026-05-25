@@ -6,6 +6,8 @@ The first serious BuckPkgs implementation can probably be built from:
 2. a small set of externally bootstrapped Cargo binaries used as action tools
 
 No Buck2 fork is required to validate the package model.
+Package-authoring semantics exercised by the prototype are defined in
+[PACKAGING.md](./PACKAGING.md); this document covers implementation placement.
 
 ## What Starlark Can Own
 

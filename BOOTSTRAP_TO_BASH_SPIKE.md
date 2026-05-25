@@ -1,9 +1,7 @@
 # Bootstrap To Bash Spike
 
-This is the original spike proposal. Its nixpkgs-style label and output-policy
-examples are superseded by [BOOTSTRAP_UPGRADE.md](./BOOTSTRAP_UPGRADE.md):
-the normalized bootstrap uses `bin`, `lib`, `dev`, and optional `static`, and
-does not publish manual, documentation, or info payloads by default.
+This is the original spike proposal. Its package-label and output-policy
+examples are superseded by [PACKAGING.md](./PACKAGING.md).
 
 The first implementation spike should prove one narrow path well:
 
@@ -106,10 +104,10 @@ That is where BuckPkgs should begin following the ordinary nixpkgs bootstrap sta
 more closely, using explicit compiler generations in a static DAG rather than
 recursive package-set evaluation.
 
-## Directory Layout
+## Historical Directory Layout Sketch
 
-Use Nix-like topic directories, but make each upstream package its own Buck2
-package:
+The spike proposed Nix-like topic directories, with each upstream package in
+its own Buck2 package:
 
 ```text
 pkgs/
@@ -138,14 +136,14 @@ pkgs/
         gnumake/
 ```
 
-With a `BUCK` file in `pkgs/shells/bash/`, the package directory exports its
-executable payload using the canonical role:
+With a `BUCK` file in `pkgs/shells/bash/`, the sketch exported its executable
+payload using the proposed role:
 
 ```text
 //pkgs/shells/bash:bin
 ```
 
-For a library package, separate runtime and development interfaces:
+For a library package, it sketched separate runtime and development interfaces:
 
 ```text
 //pkgs/development/libraries/openssl:bin
@@ -153,13 +151,11 @@ For a library package, separate runtime and development interfaces:
 //pkgs/development/libraries/openssl:dev
 ```
 
-The directory names the upstream package. The target name names the BuckPkgs
-consumption role.
+In this sketch, the directory named the upstream package and the target name
+named the BuckPkgs consumption role.
 
-If we ever want `//pkgs/shells:bash`, that can exist as a convenience alias from
-a `pkgs/shells/BUCK` file, but it should not be the primary ownership model. If
-we put every shell recipe in one parent package just to get short labels, we
-lose the clean boundary between package recipe, patches, hooks, and invalidation.
+The spike allowed `//pkgs/shells:bash` as a convenience alias from a
+`pkgs/shells/BUCK` file, rather than making it the primary ownership model.
 
 ## Why Split Packages This Way
 
@@ -180,9 +176,9 @@ That said, source-directory layout does **not** create more build parallelism by
 itself. Action parallelism comes from the dependency graph. Do not split one
 logical package into many Buck packages just to chase evaluator parallelism.
 
-## Label Policy
+## Historical Label Sketch
 
-Use direct role-specific output labels as the canonical form:
+The spike used direct role-specific output labels as its proposed form:
 
 - `//pkgs/shells/bash:bin`
 - `//pkgs/tools/text/gnused:bin`
@@ -192,21 +188,20 @@ Use direct role-specific output labels as the canonical form:
 - `//pkgs/development/libraries/openssl:lib`
 - `//pkgs/development/libraries/openssl:dev`
 
-Add short aliases only where they improve human ergonomics materially:
+It allowed short aliases where they improved human ergonomics materially:
 
 - `//pkgs/shells:bash`
 - `//pkgs/tools:text_tools`
 - later perhaps `//pkgs:bootstrap_shell`
 
-Aliases should aggregate or forward. They should not become the place where real
-recipes live.
+In that proposal, aliases aggregated or forwarded rather than containing real
+recipes.
 
-## Output Policy
+## Superseded Output Policy
 
-Use `bin`, `lib`, `dev`, and optional `static` as the package role vocabulary.
-Nixpkgs remains a recipe reference, but BuckPkgs deliberately does not publish
-manual, documentation, or info output roles by default. A runtime-data or
-development-support exception must be selected and documented explicitly.
+Current output, dependency, and nixpkgs-reference policy is defined in
+[PACKAGING.md](./PACKAGING.md). This section is retained only to show where
+the spike originally required that decision.
 
 ## What This Spike Should Settle
 

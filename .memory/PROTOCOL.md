@@ -30,56 +30,13 @@ hermetic library interfaces.
   bootstrap consumption needed by higher-layer ports.
 - Keep store-path identity, substitute transport identity, and realized-tree
   identity distinct.
-- Fold every declared value that can change installed bytes, including
-  descriptor-backed install arguments, into package store identity.
-- Model package-specific shared-library linkage with declared `link_inputs`;
-  recipes select the library interface while realization supplies store-backed
-  link lookup, RUNPATH, and runtime closure.
-- Model package metadata discovery with declared `PkgConfigInfo` search roots;
-  dependency roles choose the applicable `pkg-config` environment, and builders
-  must set `PKG_CONFIG_LIBDIR` so ambient host metadata is not visible.
-- Emit named package outputs from the same realization action as the primary
-  output, fold split policy into identity, and repair relocated `*.pc` root
-  variables before sealing. Projected outputs do not silently inherit runtime
-  dependencies from the primary output; declare a `bin` to primary `lib`
-  runtime edge explicitly when an executable projection loads sibling shared
-  libraries.
-- For newly ported packages, use `bin` for runnable programs, `lib` for
-  runtime shared libraries plus indispensable loaded runtime data, `dev` for
-  dynamic-development interfaces such as headers, link-name projections, and
-  build metadata, optional `static` for independently consumable existing
-  static archives, and `out` only for compound runtime payloads that cannot
-  yet be separated without losing required runtime closure modeling.
-  Development-support archives needed for the dynamic interface require a
-  documented exception. The revised bootstrap-facing public surface uses the
-  same canonical roles.
-- Do not create `man`, `doc`, or `info` projections by default; those require
-  an explicit package need.
-- Strip ELF and archive debug metadata from normal code-bearing outputs by
-  default. Preserving or eventually separating debug information is an
-  explicit output-policy choice; do not satisfy debug-only store references
-  by adding build compilers to runtime or object closures.
-- The foreign binutils seed exposes `strip` solely so the first self-hosted
-  code-bearing packages can execute the default debug fixup; seed-free final
-  outputs must still discharge that root build tool.
-- Prefer explicit keep-lists for primary outputs on newly ported mixed-content
-  packages. Never discard all of `share` mechanically: retain runtime data
-  such as terminal databases or PostgreSQL installed data explicitly.
-- The normalized bootstrap generation uses canonical `bin`, `lib`, `dev`, and
-  optional `static` roles. Publish static payloads only on demonstrated need;
-  keep dynamically required nonshared components in `dev`.
-- Normalized `dev` outputs reference `lib` objects through link-name
-  projections rather than copying versioned runtime shared libraries.
-- Linker scripts projected into a split `dev` sysroot must refer to sibling
-  runtime outputs using paths that remain valid under GNU `ld --sysroot`,
-  normally relative sibling-output paths rather than absolute store paths.
-- The normalized glibc runtime supports `C.UTF-8`, required `gconv` and NSS
-  modules and rejects ambient loader-cache/preload dependence. It must not
-  propagate final `libgcc_s`, because final GCC is built after glibc;
-  consumers requiring unwinding carry an explicit `gcc:libgcc` runtime edge.
-- GCC exposes separate `libgcc` and `libstdcxx` interfaces projected from its
-  first normalized realization; C-only consumers must not inherit C++ runtime
-  closure.
+- Follow [PACKAGING.md](../PACKAGING.md) for output roles, interface
+  classification, dependency roles, selected payloads, metadata behavior,
+  identity-bearing fixups, and package validation. Do not restate or alter
+  that contract in this campaign board.
+- Enforce the packaging contract through realized output/reference/ELF checks
+  and use [BOOTSTRAP_UPGRADE.md](../BOOTSTRAP_UPGRADE.md) as the completed
+  migration/publication record.
 - Do not add an ordinary-build fallback that silently rebuilds the bootstrap
   island when a substitute is absent.
 - Treat the established `bootstrap/foreign_seed` and pinned substitute closure

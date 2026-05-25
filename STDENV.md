@@ -3,6 +3,8 @@
 In nixpkgs, `stdenv` is much larger than "the C compiler."
 
 It is the default package-building environment that ordinary recipes inherit.
+Current BuckPkgs package-authoring rules derived from this reference are
+centralized in [PACKAGING.md](./PACKAGING.md).
 
 ## What Is In It
 
