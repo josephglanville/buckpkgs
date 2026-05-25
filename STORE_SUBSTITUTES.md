@@ -530,6 +530,11 @@ Publishing a bootstrap substitute closure should be explicit:
 Ordinary builds then import from those manifests. They do not rebuild the island
 as fallback.
 
+Remote executor transport is now resolved: Buck2 supplies imported store
+closures as declared action inputs with the versioned
+`buckpkgs.store_mounts.v1` store-path mapping, and Foundry validates and mounts
+those inputs read-only at their logical `/pkgs/store/...` locations.
+
 ## Open Implementation Questions
 
 1. Use literal NAR payloads or a BuckPkgs-native byte-equivalent tree format?
@@ -539,9 +544,6 @@ as fallback.
 4. How should the local substitute index be stored:
    - sqlite alongside materializer state
    - a separate BuckPkgs cache database
-5. How do remote executors receive imported store closures:
-   - pre-mounted from CAS
-   - encoded as ordinary declared action inputs with store-path mapping
 
 ## Acceptance Criteria
 

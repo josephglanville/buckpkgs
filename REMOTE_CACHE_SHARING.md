@@ -1,323 +1,231 @@
 # Remote Execution And Cache Sharing
 
-## Purpose
+## Scope And Decision
 
-This document separates three related but distinct BuckPkgs/Buck2 workstreams:
+BuckPkgs and Foundry remain separate repositories. Foundry's intended integration
+boundary is a pinned BuckPkgs external cell at an immutable, exportable revision,
+not a merged source tree.
 
-1. remote-execution support for declared `/pkgs/store` inputs and outputs
-2. cache and store identity correctness, including validation
-3. cache-key portability across independent consuming repositories
+That boundary does not require arbitrary live Buck2 action-cache sharing across
+consumer repositories. The primary cross-repository reuse mechanism is published,
+reviewed BuckPkgs store content imported from Foundry CAS. Live remote execution
+and action-cache reuse should initially be validated against one canonical
+BuckPkgs graph.
 
-The split matters because a monorepo commitment removes most of workstream 3,
-but it does not remove workstreams 1 or 2.
+Keep three workstreams separate:
 
-## Decision Summary
+1. Remote execution support for actions that consume declared BuckPkgs store
+   inputs.
+2. Store/cache identity correctness and validation.
+3. Portable live action-cache keys across independent Buck2 graphs.
 
-The initial native BuckPkgs implementation may reasonably commit to a canonical
-monorepo or canonical package-owning cell:
+Workstreams 1 and 2 are needed for a reliable external-cell integration.
+Workstream 3 is an optional optimization only if multiple repositories must
+share cache hits for live, unpublished package builds.
 
-- package outputs have one authoritative configured-target identity
-- developers and CI can share Foundry action-cache entries for that graph
-- package actions do not initially need identical RE action digests across
-  unrelated project roots or external-cell aliases
+## Current State
 
-This is a meaningful simplification. It is not an alternative to implementing
-remote store closures correctly.
-
-Supporting BuckPkgs as an external cell in unrelated projects with build-once
-package reuse is a larger product contract:
-
-- the same resolved package output must retain the same logical store identity
-- equivalent package executions must lower to the same RE action identity even
-  when their consuming repository, cell alias, or owner paths differ
-- promoted packages should have a trusted store-substitute publication path
-
-The portable model should be pursued only if independent repositories are an
-intended consumer boundary rather than an incidental development arrangement.
-
-## Identities And Guarantees
-
-BuckPkgs must keep four identities distinct:
-
-| Identity | Meaning | Required property |
+| Capability | Status | Current implementation |
 | --- | --- | --- |
-| `PackageInstanceDigest` | Semantic resolved package instance | Changes for any declared byte-affecting package input |
-| `StorePathKey` | Logical identity of one output under `/pkgs/store` | Safe immutable public package path |
-| `ActionDigest` | Buck2/RE identity of a concrete execution | Commits to every execution-visible input and output contract |
-| `OutputDigest` | CAS identity of realized bytes | Deduplicates identical realized content |
+| Native `/pkgs/store` outputs and collision-safe materialization | Implemented | Buck2 native store output declaration, sealing, and existing-output validation |
+| Published substitute import through CAS | Implemented | `pkgs_cas_store_output(...)` and pinned REAPI directory manifests; the normalized bootstrap closure has 24 role-specific CAS-published objects |
+| Remote transport for declared store inputs | Implemented | Buck2 sends `buckpkgs.store_mounts.v1` command platform properties with staged-input to logical-store mappings |
+| Remote worker realization of store inputs | Implemented | Foundry validates the mapping and mounts staged inputs read-only under `/pkgs/store` in Bubblewrap |
+| Foundry action-cache mechanism | Implemented | Only successful cacheable build actions are stored or reused; legacy failed entries are refused |
+| Declared runtime support for ambient bootstrap tools | Implemented and validated locally | The selected Foundry Bubblewrap profile `buckpkgs-bootstrap-v5` mounts the declared Cargo, Rustup, local-bin, Python, GCC/system-library, and LLVM 21 runtime trees required by the tested graph |
+| BuckPkgs remote-enabled execution platform | Implemented | `platforms//:remote` selects remote execution and cache upload/use with the Foundry runtime profile property |
+| End-to-end remotely executed ordinary package with store dependencies | Validated locally | On May 24, 2026, native BuckPkgs and Foundry's pinned `buckpkgs` external cell each remotely built `development/libraries/zlib:lib`; a native rebuild after daemon/materialization clearing reported `100%` Foundry cache hits |
+| Portable live action keys across unrelated external-cell roots | Not implemented; measured miss | Native `zlib` lowered to `3048a3ba...:175`; Foundry's external-cell build lowered to `b2858fa9...:175` and executed 147 remote commands with only `1%` cache hits |
+| Untrusted substitute publication | Not implemented | Current trust model is reviewed repository-pinned manifests, not signatures or an authenticated publication channel |
 
-The desired shared-cache behavior has two possible forms:
+There are three distinct identities involved:
 
-```text
-same ActionDigest -> Foundry action-cache hit -> reuse realized CAS output
-```
+| Identity | Purpose | Required property |
+| --- | --- | --- |
+| Package instance digest / logical store path | Names the immutable package result | Every declared choice that can affect installed bytes or closure semantics changes the identity |
+| Output or CAS digest | Identifies actual published bytes | A claimed logical store path must materialize exactly the expected object |
+| Buck2 action digest | Determines remote action-cache reuse | It may conservatively miss; it must not incorrectly reuse an action with different inputs or behavior |
 
-or, for explicitly published objects:
+Published substitutes provide byte reuse even when action digests are not
+portable. Portable action keys matter only for sharing *live build* results
+between independently rooted graphs.
 
-```text
-same StorePathKey -> trusted substitute manifest -> import realized CAS output
-```
+## Workstream 1: Remote Execution
 
-CAS storage alone deduplicates transferred or retained bytes. It does not mean
-that a package action executes only once unless an action-cache hit or a trusted
-substitute lookup avoids execution.
+### Implemented
 
-## Current Implementation Status
+- Buck2 represents declared store outputs and imported CAS store objects as
+  native sealed store artifacts.
+- Buck2 no longer rejects remote or hybrid execution merely because an action
+  consumes declared store inputs.
+- Buck2 publishes store mount mappings in `buckpkgs.store_mounts.v1` for
+  remote execution.
+- Foundry parses and validates that protocol and exposes each staged input at
+  its logical `/pkgs/store/...` location through a read-only sandbox mount.
+- Foundry selects explicitly named, versioned Bubblewrap runtime mount
+  profiles through an action property. The tested v5 profile includes LLVM 21
+  because Foundry's consuming Rust toolchain invokes `clang++`.
+- Foundry materializes writable remote action workspaces, cleans up read-only
+  sealed result trees across server restarts, and does not cache failed action
+  results.
+- BuckPkgs supplies `platforms//:remote`, which selects remote execution and
+  the required runtime profile for live validation.
 
-BuckPkgs already derives logical output paths from semantic package inputs in
-`rules/pkgs.bzl` and documents the intended contract in `STORE_PATHS.md`.
-Native store outputs and CAS store imports are present in the Buck2 fork.
+### Validation Performed
 
-The current RE implementation is not yet sufficient for package DAG execution:
+On May 24, 2026:
 
-- `../buck2/app/buck2_execute_impl/src/executors/re.rs` rejects remote actions
-  with non-empty declared BuckPkgs store-input closures.
-- `../buck2/app/buck2_execute_impl/src/executors/hybrid.rs` forces those
-  actions to local execution in the OSS hybrid executor.
-- `../buck2/app/buck2_execute/src/execute/request.rs` represents each store
-  input with both its logical store path and its staged artifact path.
-- `../buck2/app/buck2_execute/src/execute/command_executor.rs` includes the
-  staged path in the store-closure salt used for RE action identity.
-- `../buck2/app/buck2_build_api/src/interpreter/rule_defs/cmd_args/builder.rs`
-  renders input store artifacts as `/pkgs/store/...`, but renders store outputs
-  as executor staging paths.
+1. A native BuckPkgs build of `//development/libraries/zlib:lib` ran its
+   `pkgs_configure_make_install` action through Foundry using declared
+   `/pkgs/store` inputs and completed successfully under
+   `buckpkgs-bootstrap-v5`.
+2. Foundry built the same package through its pinned external cell,
+   `buckpkgs//development/libraries/zlib:lib`, through the same remote
+   service and completed successfully with the same runtime profile.
+3. After clearing native Buck2 daemon/materialization state, the native build
+   retrieved all 147 eligible commands from Foundry (`100%` cache hits);
+   `zlib` retrieved action digest
+   `3048a3ba5fdc4691ea6065697d0ce6e92a99d5d4eef3d1fd58a90613975832e4:175`.
+4. The external-cell run did not reuse the native live package action. This is
+   expected until Workstream 3 canonicalizes consumer-dependent action paths.
 
-Consequently, normal package actions consuming store dependencies cannot yet
-execute remotely, and actions that are semantically the same package build may
-have different action keys when owned by different project graphs.
+### Remaining RE Work
 
-Foundry already has the relevant generic mechanisms:
+1. Turn the manually verified first remote execution and subsequent Foundry
+   action-cache retrieval after local materialization clearing into automated
+   integration coverage.
+2. Run one larger representative package stack, such as Bubblewrap or
+   PostgreSQL, to cover more realistic transitive store closure use.
+3. Preserve negative checks: undeclared or malformed store mounts must be
+   rejected, and existing logical-store collisions must remain errors.
+4. Replace the local development runtime mount list with a deployment policy
+   that provisions or imports every required tool runtime explicitly.
 
-- its action cache reuses successful cacheable executions by RE action digest
-- its Linux sandbox executor can mount materialized directories at fixed
-  absolute targets
-
-The missing portion is the BuckPkgs-specific declared-store protocol between
-Buck2 action lowering and Foundry sandbox setup.
-
-## Workstream 1: Remote Execution Plumbing
-
-**Required for:** monorepo and portable external-cell use.
-
-**Purpose:** allow a package action consuming declared store outputs to execute
-remotely with the same absolute `/pkgs/store/...` view it has locally.
-
-This work is not fundamentally about cache hit rate. Without it, meaningful
-package dependency graphs remain local-only.
-
-### Required Changes
-
-1. Carry declared store closure inputs through the RE action request in a form
-   Foundry can materialize from CAS.
-2. Expose only the declared closure read-only at `/pkgs/store` in the remote
-   sandbox.
-3. Reject arbitrary absolute mount targets; the protocol should authorize only
-   the versioned BuckPkgs store mount.
-4. Collect package outputs through executor-owned staged outputs, then publish
-   them through Buck2's store materializer rather than permitting actions to
-   mutate the host store.
-5. Support action-cache downloads and remote execution results for store
-   outputs using the same materialization path.
-
-### Protocol Direction
-
-Even for a monorepo, a reserved RE subtree gives the protocol a clear security
-and debugging boundary:
-
-```text
-RE input root:
-  __buckpkgs__/store/<store-entry>/...
-
-remote sandbox view:
-  /pkgs/store/<store-entry>/...
-```
-
-A versioned action property or canonical manifest can declare that
-`__buckpkgs__/store` is the only input subtree permitted to mount at
-`/pkgs/store`.
-
-For a monorepo-only implementation, that subtree does not need to eliminate
-every owner-specific path elsewhere in the action. It only needs to represent
-the declared store inputs faithfully and participate in action identity.
-
-### Completion Criteria
-
-- a package action with at least one store dependency executes on Foundry
-- the action observes only its declared `/pkgs/store` closure
-- undeclared store paths are unavailable in the sandbox
-- a remote result materializes as the expected immutable local store output
-- repeated execution receives action-cache hits under stable monorepo inputs
+Importing an already-published CAS substitute is useful validation of the
+distribution path, but it is not a substitute for remotely executing a live
+package action that consumes declared store inputs.
 
 ## Workstream 2: Cache Identity Correctness And Validation
 
-**Required for:** monorepo and portable external-cell use.
+### Implemented
 
-**Purpose:** make both logical immutable store paths and RE cache hits sound.
+- `PACKAGING.md` defines immutable public store outputs, output roles,
+  dependency-role contracts, split-output behavior, and package authoring
+  policy.
+- Package instance hashing commits structured recipe semantics including
+  sources and patches, target system, role-aware direct dependencies, selected
+  and split outputs, fixup policy, relevant metadata handling, job settings,
+  and declared tool/reference/link relationships.
+- Published CAS substitute manifests verify logical identity, expected package
+  metadata, target system, canonical reference metadata, payload data, decoded
+  tree content, and closure reachability before store import.
+- Buck2's store materialization rejects collisions and seals successfully
+  published objects.
+- Foundry rejects undeclared store-mount targets, selects extra runtime mounts
+  only by the requested versioned profile, provides writable sandbox inputs to
+  build commands, cleans read-only sandbox output trees safely, and excludes
+  unsuccessful actions from its action cache.
 
-This is correctness work. It must not be deferred on the theory that cache
-sharing is only a performance feature.
+These controls are the correctness foundation. They protect both local and
+remote builds, independently of whether a remote action-cache hit occurs.
 
-### Store Identity Correctness
+### Remaining Correctness Work
 
-`StorePathKey` must change whenever bytes at the published logical store path
-may change. Its canonical semantic descriptor must commit to at least:
+1. Make byte-affecting builder implementation identity enforceable. Builder
+   strings such as `configure-make-install-v18` currently carry this
+   responsibility manually. Establish a tested policy requiring a builder
+   identity or `STORE_ABI_VERSION` bump when shared builder/fixup behavior can
+   alter installed bytes or closure semantics; a derived implementation
+   fingerprint may replace that convention later.
+2. Add focused identity mutation tests covering at least source/patch changes,
+   builder identity, dependency roles, output selection/splitting, debug
+   preservation, metadata-prefix relocation, job or platform settings that
+   affect output, and ABI-version changes.
+3. Add or consolidate integration checks showing that a changed mounted store
+   dependency cannot reuse the old remote action and that malformed,
+   mismatched, or colliding store imports fail.
+4. Keep reviewed repository pins as the current trust boundary. Add signatures
+   or an authenticated publication channel before accepting manifests from an
+   untrusted service.
 
-- store ABI version
-- structured builder kind and builder behavior version
-- actual builder/tool implementation identity when it can affect output bytes
-- normalized recipe arguments, environment, hooks and fixups
-- fixed-output source identities and patch identities
-- build, host and target platform semantics
-- output name and visible store name
-- direct dependency logical store paths, grouped by role
-
-The current package identity includes `ctx.attrs.builder` and
-`STORE_ABI_VERSION`. The native design must ensure that a behavior-changing
-builder or rules implementation change cannot silently retain the same logical
-store path merely because its symbolic builder name remained the same.
-
-### Action Cache Correctness
-
-`ActionDigest` must commit to every execution-visible fact that may affect
-bytes, including:
-
-- command line and environment
-- tools and ordinary input artifacts
-- platform and sandbox behavior
-- the declared store closure bytes and their `/pkgs/store/...` visibility
-- the output-path contract observed by the package command
-
-This does not require a portable action digest. A monorepo action digest may
-contain stable monorepo-specific paths and still be correct. It becomes wrong
-only if byte-affecting inputs or execution semantics are omitted.
-
-### Materialization And Substitute Correctness
-
-The store is input-addressed, so an existing or downloaded tree cannot be
-trusted merely because it occupies the requested path.
-
-The materializer and substitute importer must:
-
-- verify an existing store object against the expected artifact value or
-  authenticated manifest
-- reject collisions where one `StorePathKey` resolves to differing bytes
-- seal or otherwise preserve output immutability
-- keep substitute publication authenticated for non-local trust domains
-
-`STORE_SUBSTITUTES.md` owns the detailed substitute format and trust model.
-Substitution complements action caching; it must not cause the RE action cache
-to be keyed directly by `StorePathKey`.
-
-### Validation Matrix
-
-The following checks are required regardless of repository topology:
-
-| Change | Expected result |
-| --- | --- |
-| Source or patch bytes change | New `StorePathKey`; no reuse of old store object |
-| Dependency store path changes | New `StorePathKey` |
-| Target platform semantics change | New `StorePathKey` |
-| Builder/tool behavior ABI changes | New `StorePathKey` |
-| Declared store dependency bytes change | Different `ActionDigest` |
-| Undeclared store content exists on worker | No effect on build; inaccessible |
-| Existing store path contains wrong tree | Verification failure, not silent reuse |
-| Imported manifest has wrong tree/reference metadata | Import failure |
+Avoiding a first-use CAS import traversal with reusable directory-digest
+metadata or a durable trusted receipt is a performance improvement, not a
+correctness requirement.
 
 ## Workstream 3: Cache-Key Portability
 
-**Required for:** build-once reuse across unrelated projects consuming BuckPkgs
-as an external cell.
+### Current Position
 
-**Not required for:** a canonical monorepo/package-owning-cell contract.
+Defer portable live action-cache keys.
 
-**Purpose:** prevent irrelevant integration details from turning a semantically
-identical package build into a different RE action-cache entry.
+The implemented protocol transports store inputs safely, but Buck2 currently
+includes staged store-input paths in the action salt. Two unrelated repositories
+can therefore miss each other's live action-cache entries even when they
+ultimately consume the same logical store objects. That is conservative and
+correct.
 
-Without this work, two projects may derive the same:
+It is also acceptable for Foundry's planned external-cell integration:
+published BuckPkgs substitutes and immutable pinned store objects already
+provide the high-value cross-repository reuse boundary without requiring live
+rebuilds in each consumer graph.
 
-```text
-/pkgs/store/<StorePathKey>-<name>
-```
+### Observed Portability Miss
 
-while still missing each other's Foundry action-cache entries because their
-actions mention different staged paths, configured owners, cell aliases, tools
-or execution configurations. That is normally a false miss, not an unsound hit.
+The May 24, 2026 validation used one Foundry CAS/action-cache namespace and the
+same runtime profile:
 
-### Required Changes For Portable Build Reuse
-
-1. Remove consumer-specific staged store-input paths from the RE identity of
-   package actions. The declared store entry and its bytes are the relevant
-   inputs.
-2. Give package store outputs a canonical executor-visible output path such as:
-
-```text
-__buckpkgs__/out/<store-entry>
-```
-
-   This is necessary because packages can embed build and output paths in their
-   bytes; deleting a path from a hash without canonicalizing what execution
-   observes would be unsound.
-3. Canonicalize source, patch and builder-tool paths used by package-producing
-   actions when those paths otherwise derive from consumer ownership.
-4. Define a dedicated BuckPkgs package execution platform so consumer roots
-   cannot incidentally change environment, platform properties or tool choice.
-5. Decide whether tool executables become store-addressed inputs or enter the
-   package RE protocol under another stable content-derived path.
-6. Require projects intending to share live build cache entries to use the same
-   Foundry cache namespace and compatible trust and execution policy.
-
-### Portable Completion Test
-
-Use two independent repositories with:
-
-- distinct roots and empty local stores
-- different BuckPkgs external-cell aliases
-- the same pinned BuckPkgs package-set revision
-- the same Foundry AC/CAS namespace
-
-Build a package that consumes at least one store dependency.
-
-The test passes only when:
-
-- both projects calculate the same logical store path
-- both lower the package action to the same RE `ActionDigest`
-- project A executes and populates Foundry
-- project B obtains action-cache hits without executing the package DAG
-- changing recipe semantics, builder ABI, dependency store identity or platform
-  causes a store-key change or cache miss as appropriate
-
-## Monorepo Versus Portable Consumption
-
-| Capability | Canonical monorepo | Independent external-cell consumers |
+| Build graph | Store-action digest | Representative staged input prefix |
 | --- | --- | --- |
-| Correct immutable store identity | Required | Required |
-| Remote store closure execution | Required | Required |
-| Correct remote action hashing | Required | Required |
-| Stable cache reuse within CI/developer graph | Required | Required |
-| Independence from cell aliases and repository ownership | Not required | Required |
-| Canonical package-action path protocol beyond store closure mounts | Optional initially | Required |
-| Trusted published substitutes | Useful for bootstrap/releases | Strongly desirable |
+| Native BuckPkgs root | `3048a3ba5fdc4691ea6065697d0ce6e92a99d5d4eef3d1fd58a90613975832e4:175` | `buck-out/v2/art/root/bootstrap/substitutes/...` |
+| Foundry with `buckpkgs` external cell | `b2858fa90887e3a84d5180bcd0076005142900ad983d3c78dacfce9a24724af5:175` | `buck-out/v2/art/buckpkgs/bootstrap/substitutes/...` |
 
-A monorepo contract therefore removes the broad action-canonicalization and
-cross-consumer validation problem. It still requires a correct store ABI,
-materializer behavior, and remote declared-store execution protocol.
+The action identity also contains the configured action owner
+(`root//...` versus `buckpkgs//...`). Thus the current miss is not a Foundry
+cache failure and not a store-identity correctness failure. It is the expected
+result of non-portable Buck2 action lowering.
 
-## Recommended Implementation Order
+### Trigger For This Work
 
-1. Complete semantic store identity and its mutation tests, including
-   builder/tool behavior versioning.
-2. Implement and validate native local store materialization and collision
-   handling.
-3. Add the declared-store RE protocol and Foundry read-only `/pkgs/store`
-   sandbox mounts.
-4. Prove remote package DAG execution and action-cache reuse for the canonical
-   monorepo/package-owning-cell case.
-5. Keep reviewed CAS substitute import for bootstrap and explicitly promoted
-   store objects.
-6. Only after independent repository consumption is a committed requirement,
-   implement canonical package action lowering and the two-root portability
-   tests.
+Implement portability only if there is a concrete requirement for independent
+repositories to share live remote build results for unpublished packages, not
+merely consume published BuckPkgs outputs.
 
-This ordering keeps correctness and useful RE capability on the critical path,
-while treating cross-repository cache-key portability as an explicit product
-choice rather than an accidental dependency of the initial fork.
+If that requirement appears:
+
+1. Canonicalize every action-observable store input path, tool path, source
+   path, command argument, environment entry, output location, and execution
+   platform property that can vary with the consuming repository root.
+2. Remove staged-path contributions from action identity only after the
+   executor observes store inputs exclusively at canonical logical paths.
+3. Add a two-root validation in which different external-cell aliases or
+   checkout roots produce the same action digest and a remote cache hit for
+   the same package instance.
+4. Retain a negative validation in which any byte-affecting or semantic input
+   variation produces a miss.
+
+## Revised Sequence
+
+1. Keep reviewed CAS substitutes and immutable store imports as the
+   cross-repository distribution boundary.
+2. Keep `platforms//:remote` and the Foundry v5 runtime profile validation
+   path working, and add automated remote action-cache retrieval coverage.
+3. Validate a representative ordinary package stack remotely once the `zlib`
+   proof is covered in automation.
+4. Close the remaining identity-policy gap with builder/ABI enforcement and
+   mutation tests; require these checks for byte-affecting packaging changes.
+5. Publish or identify an immutable exportable BuckPkgs revision and let
+   Foundry consume it as a pinned external cell using published substitutes,
+   without depending on a live local BuckPkgs checkout.
+6. Add deployment work independently where required: a durable production CAS
+   backend and authenticated or signed substitute publication.
+7. Revisit portable live action keys only after a real multi-repository live
+   build sharing requirement exists.
+
+## Acceptance Gates
+
+| Workstream | Gate |
+| --- | --- |
+| Remote execution | Live ordinary package execution with declared logical mounts and a subsequent `100%` Foundry cache-hit rebuild are validated; automated coverage remains to be added |
+| Identity correctness | Mutation tests demonstrate misses/new store paths for byte-affecting semantic changes, while import and collision failures remain enforced |
+| External-cell integration | Foundry remotely builds against an immutable pinned BuckPkgs external-cell revision; substitute-only integration remains the preferred steady-state consumption model |
+| Portable live cache keys, if triggered | Two independently rooted graphs obtain the same live action-cache identity only for genuinely identical canonical package actions |
